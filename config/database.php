@@ -63,9 +63,11 @@ return [
                 PDO::ATTR_PERSISTENT => false,
             ]) : []),
             'pool' => [
-                'min_connections' => 1,
-                'max_connections' => 10,
-                'idle_timeout' => 60,
+                'min_connections' => 10,      // 最小连接数从1提升到10
+                'max_connections' => 100,     // 最大连接数从10提升到100
+                'idle_timeout' => 60,         // 空闲超时60秒
+                'connect_timeout' => 10,      // 连接超时10秒
+                'wait_timeout' => 3,          // 等待超时3秒
             ],
         ],
 
@@ -133,7 +135,7 @@ return [
         ],
 
         'default' => [
-            'url' => env('REDIS_URL'),
+            // 'url' => env('REDIS_URL'),  // 注释掉以使用TCP连接
             'host' => env('REDIS_HOST', '127.0.0.1'),
             'password' => env('REDIS_PASSWORD', null),
             'port' => env('REDIS_PORT', 6379),
@@ -142,7 +144,7 @@ return [
         ],
 
         'cache' => [
-            'url' => env('REDIS_URL'),
+            // 'url' => env('REDIS_URL'),  // 注释掉以使用TCP连接
             'host' => env('REDIS_HOST', '127.0.0.1'),
             'password' => env('REDIS_PASSWORD', null),
             'port' => env('REDIS_PORT', 6379),
