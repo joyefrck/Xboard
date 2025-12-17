@@ -19,8 +19,13 @@ use Illuminate\Support\Facades\File;
 */
 
 
-// Landing Page Route
-Route::get('/landing', function () {
+// Root path - Smart routing based on hash
+Route::get('/', function (Request $request) {
+    // Check if this is a request for the SPA (has hash in referrer or is an API call)
+    // When user visits /#/login or /#/register, we need to serve the dashboard app
+    // But we can't detect hash on server side, so we serve landing page by default
+    // and let landing page redirect to /app if hash is present
+    
     $landingPagePath = public_path('landing/index.html');
     if (file_exists($landingPagePath)) {
         return response(file_get_contents($landingPagePath), 200)
@@ -29,11 +34,14 @@ Route::get('/landing', function () {
     abort(404, 'Landing page not found');
 });
 
+// Keep /landing for backwards compatibility
+Route::get('/landing', function () {
+    return redirect('/');
+});
 
-
-
-Route::get('/', function (Request $request) {
-    // Original dashboard logic - do not serve landing page here to avoid intercepting hash routes
+// Dashboard/App Route - for SPA functionality (login, register, dashboard)
+Route::get('/app', function (Request $request) {
+    // Original dashboard logic
     if (admin_setting('app_url') && admin_setting('safe_mode_enable', 0)) {
         if ($request->server('HTTP_HOST') !== parse_url(admin_setting('app_url'))['host']) {
             abort(403);

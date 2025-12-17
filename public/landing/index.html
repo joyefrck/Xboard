@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Elephant Route - CONNECT THE UNSEEN</title>
+  <script>
+    // Redirect SPA routes (like /#/login) to the /app path
+    (function() {
+      if (window.location.hash && window.location.hash.length > 1) {
+        window.location.href = '/app' + window.location.hash;
+      }
+    })();
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root { --text-main: #000; --text-dim: #666; --border: #e0e0e0; }
@@ -151,15 +159,15 @@
     window.addEventListener('load', function() {
       // Navigation buttons
       document.getElementById('loginBtn').addEventListener('click', function() {
-        window.location.href = '/#/login';
+        window.location.href = '/app#/login';
       });
       
       document.getElementById('registerBtn').addEventListener('click', function() {
-        window.location.href = '/#/register';
+        window.location.href = '/app#/register';
       });
       
       document.getElementById('ctaBtn').addEventListener('click', function() {
-        window.location.href = '/#/register';
+        window.location.href = '/app#/register';
       });
       
       // Logo click - navigate to landing page
