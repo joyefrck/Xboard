@@ -19,7 +19,21 @@ use Illuminate\Support\Facades\File;
 */
 
 
+// Landing Page Route
+Route::get('/landing', function () {
+    $landingPagePath = public_path('landing/index.html');
+    if (file_exists($landingPagePath)) {
+        return response(file_get_contents($landingPagePath), 200)
+            ->header('Content-Type', 'text/html; charset=utf-8');
+    }
+    abort(404, 'Landing page not found');
+});
+
+
+
+
 Route::get('/', function (Request $request) {
+    // Original dashboard logic - do not serve landing page here to avoid intercepting hash routes
     if (admin_setting('app_url') && admin_setting('safe_mode_enable', 0)) {
         if ($request->server('HTTP_HOST') !== parse_url(admin_setting('app_url'))['host']) {
             abort(403);
@@ -69,6 +83,7 @@ Route::get('/', function (Request $request) {
         abort(500, '主题加载失败');
     }
 });
+
 
 //TODO:: 兼容
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))), function () {

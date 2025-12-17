@@ -62,9 +62,8 @@
   <script>
     (function() {
       function insertLoginLogo() {
-        // Fix persistence: Allow query params like #/login?redirect=... or #/register
-        const hash = window.location.hash;
-        if (!hash.startsWith('#/login') && !hash.startsWith('#/register')) return;
+        // Fix persistence: Allow query params like #/login?redirect=...
+        if (!window.location.hash.startsWith('#/login')) return;
         
         // Prevent duplicate injection
         if (document.getElementById('custom-login-logo')) return;
@@ -74,42 +73,21 @@
         const cardContent = document.querySelector('.n-card__content');
 
         if (card && cardContent) {
-          // Create anchor wrapper for native HTML navigation
-          const logoLink = document.createElement('a');
-          logoLink.href = '/landing/';
-          logoLink.id = 'custom-login-logo-link';
-          logoLink.style.display = 'block';
-          logoLink.style.textDecoration = 'none';
-          logoLink.style.margin = '10px auto -15px auto';
-          logoLink.style.width = 'fit-content';
-          logoLink.style.position = 'relative';
-          logoLink.style.zIndex = '9999';
-          
-          // Create logo image
           const logo = document.createElement('img');
           logo.src = '/home_logo.jpeg';
           logo.id = 'custom-login-logo';
           logo.style.display = 'block';
+          // Style to fit nicely inside the card top
+          // Reduced top margin and negative bottom margin to bring it closer to title
+          logo.style.margin = '10px auto -15px auto';
           logo.style.maxWidth = '120px';
           logo.style.height = 'auto';
           logo.style.objectFit = 'contain';
-          logo.style.cursor = 'pointer';
-          logo.style.transition = 'opacity 0.2s';
-          
-          // Add hover effect
-          logoLink.addEventListener('mouseenter', function() {
-            logo.style.opacity = '0.8';
-          });
-          logoLink.addEventListener('mouseleave', function() {
-            logo.style.opacity = '1';
-          });
-          
-          // Append logo to link
-          logoLink.appendChild(logo);
+          logo.style.position = 'relative'; // Ensure z-index works if needed
+          logo.style.zIndex = '1';
           
           // Insert inside the card, before the content area
-          card.insertBefore(logoLink, cardContent);
-          console.log('Logo link inserted successfully');
+          card.insertBefore(logo, cardContent);
         }
       }
 
@@ -157,38 +135,10 @@
         }
       }
 
-      // Make logo clickable to navigate to landing page
-      function makeLogoClickable() {
-        const logo = document.getElementById('custom-login-logo');
-        if (logo && !logo.hasAttribute('data-clickable')) {
-          logo.setAttribute('data-clickable', 'true');
-          logo.style.cursor = 'pointer';
-          logo.style.transition = 'opacity 0.2s';
-          
-          logo.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Logo clicked! Navigating to /landing/');
-            window.location.assign(window.location.origin + '/landing/');
-          });
-          
-          logo.addEventListener('mouseenter', function() {
-            logo.style.opacity = '0.8';
-          });
-          
-          logo.addEventListener('mouseleave', function() {
-            logo.style.opacity = '1';
-          });
-          
-          console.log('Logo made clickable');
-        }
-      }
-
       // Use a combination of MutationObserver and setInterval for robustness
       const observer = new MutationObserver((mutations) => {
         insertLoginLogo();
         insertSidebarLogo();
-        makeLogoClickable();
       });
 
       observer.observe(document.body, {
@@ -200,7 +150,6 @@
       setInterval(() => {
           insertLoginLogo();
           insertSidebarLogo();
-          makeLogoClickable();
       }, 1000);
 
       // Initial try
@@ -216,14 +165,14 @@
     })();
 
 
-    // Mouse Particle Effect (same as landing page)
+    // Fluid Ripple Effect Script
     (function() {
       const canvas = document.getElementById('ripple-canvas');
       
       if (!canvas) return;
 
       const ctx = canvas.getContext('2d');
-      let particles = [];
+      let ripples = [];
       let animationId;
       
       // Set canvas size
@@ -235,29 +184,72 @@
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
       
-      // Particle class
-      function createParticle(x, y) {
-        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'];
-        return {
-          x: x,
-          y: y,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2,
-          life: 1,
-          size: Math.random() * 3 + 1,
-          color: colors[Math.floor(Math.random() * colors.length)]
-        };
+      // Ripple class
+      class Ripple {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.radius = 0;
+          this.maxRadius = 150;
+          this.speed = 3;
+          this.opacity = 0.6;
+          this.fadeSpeed = 0.015;
+          
+          // Random gradient colors
+          const colors = [
+            ['rgba(102, 126, 234', 'rgba(118, 75, 162'],
+            ['rgba(240, 147, 251', 'rgba(245, 87, 108'],
+            ['rgba(79, 172, 254', 'rgba(0, 242, 254'],
+            ['rgba(67, 233, 123', 'rgba(56, 249, 215'],
+            ['rgba(250, 112, 154', 'rgba(254, 225, 64'],
+          ];
+          
+          const colorPair = colors[Math.floor(Math.random() * colors.length)];
+          this.color1 = colorPair[0];
+          this.color2 = colorPair[1];
+        }
+        
+        update() {
+          this.radius += this.speed;
+          this.opacity -= this.fadeSpeed;
+          
+          if (this.radius > this.maxRadius * 0.5) {
+            this.speed *= 0.95;
+          }
+        }
+        
+        draw(ctx) {
+          if (this.opacity <= 0) return;
+          
+          const gradient = ctx.createRadialGradient(
+            this.x, this.y, 0,
+            this.x, this.y, this.radius
+          );
+          
+          gradient.addColorStop(0, `${this.color1}, ${this.opacity})`);
+          gradient.addColorStop(0.5, `${this.color2}, ${this.opacity * 0.5})`);
+          gradient.addColorStop(1, `${this.color1}, 0)`);
+          
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        isAlive() {
+          return this.opacity > 0 && this.radius < this.maxRadius;
+        }
       }
       
-      // Show particle effect on login and register pages
-      function updateParticleVisibility() {
+      // Show ripple ONLY on login page
+      function updateRippleVisibility() {
         const hash = window.location.hash;
-        if (hash.includes('login') || hash.includes('register')) {
+        if (hash.includes('login')) {
           canvas.style.display = 'block';
           if (!animationId) animate();
         } else {
           canvas.style.display = 'none';
-          particles = [];
+          ripples = [];
           if (animationId) {
             cancelAnimationFrame(animationId);
             animationId = null;
@@ -266,69 +258,48 @@
       }
       
       // Initial check
-      updateParticleVisibility();
+      updateRippleVisibility();
       
       // Listen to hash changes
-      window.addEventListener('hashchange', updateParticleVisibility);
-      
-      // Mouse move handler
-      document.addEventListener('mousemove', function(e) {
-        if (canvas.style.display === 'none') return;
-        
-        // Spawn 3 particles on mouse move
-        for (let i = 0; i < 3; i++) {
-          particles.push(createParticle(e.clientX, e.clientY));
-        }
-      });
+      window.addEventListener('hashchange', updateRippleVisibility);
       
       // Animation loop
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Update and draw particles
-        for (let i = particles.length - 1; i >= 0; i--) {
-          const p = particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life -= 0.02;
-          p.size *= 0.95;
-          
-          // Remove dead particles
-          if (p.life <= 0 || p.size < 0.1) {
-            particles.splice(i, 1);
-            continue;
-          }
-          
-          // Draw particle
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = p.life;
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-        
-        // Connect particles with lines
-        ctx.strokeStyle = 'rgba(100, 100, 100, 0.1)';
-        ctx.lineWidth = 0.5;
-        
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < 100) {
-              ctx.beginPath();
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
-              ctx.stroke();
-            }
-          }
-        }
+        // Update and draw ripples
+        ripples = ripples.filter(ripple => {
+          ripple.update();
+          ripple.draw(ctx);
+          return ripple.isAlive();
+        });
         
         animationId = requestAnimationFrame(animate);
       }
+      
+      // Mouse move handler
+      let lastRippleTime = 0;
+      const rippleInterval = 50; // ms between ripples
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!canvas.style.display || canvas.style.display === 'none') return;
+        
+        const currentTime = Date.now();
+        if (currentTime - lastRippleTime > rippleInterval) {
+          ripples.push(new Ripple(e.clientX, e.clientY));
+          lastRippleTime = currentTime;
+        }
+      });
+      
+      // Click to create larger ripple
+      document.addEventListener('click', (e) => {
+        if (!canvas.style.display || canvas.style.display === 'none') return;
+        
+        const ripple = new Ripple(e.clientX, e.clientY);
+        ripple.maxRadius = 200;
+        ripple.opacity = 0.8;
+        ripples.push(ripple);
+      });
     })();
   </script>
 </body>
