@@ -9,12 +9,14 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.net.VpnService
+import android.util.Log
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.elephant.network/vpn"
@@ -24,6 +26,8 @@ class MainActivity : FlutterActivity() {
     private val VPN_REQUEST_CODE = 100
     private var pendingResult: MethodChannel.Result? = null
     private var eventSink: EventChannel.EventSink? = null
+    private val latencyProbeManager = AndroidConnectionProbeManager()
+    private val latencyProbeExecutor = Executors.newCachedThreadPool()
 
     private val vpnStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -125,6 +129,57 @@ class MainActivity : FlutterActivity() {
                     }
                     startService(intent)
                     result.success(null)
+                }
+                "probeConnectionLatency" -> {
+                    val sessionId = call.argument<String>("sessionId")
+                    val proxyPort = call.argument<Int>("proxyPort")
+                    val testUrl = call.argument<String>("testUrl")
+                    val timeoutMs = call.argument<Int>("timeoutMs")
+                    if (sessionId.isNullOrBlank() || proxyPort == null ||
+                        testUrl.isNullOrBlank() || timeoutMs == null
+                    ) {
+                        result.error("INVALID_ARGUMENT", "Latency probe arguments are required", null)
+                        return@setMethodCallHandler
+                    }
+                    latencyProbeExecutor.execute {
+                        try {
+                            val probeResult = latencyProbeManager.probe(
+                                sessionId = sessionId,
+                                proxyPort = proxyPort,
+                                testUrl = testUrl,
+                                timeoutMs = timeoutMs,
+                            )
+                            Log.d(
+                                "AndroidConnectionProbe",
+                                "[SPEED_TEST_NATIVE] proxyPort=$proxyPort " +
+                                    "attempts=${probeResult.attempts} " +
+                                    "connections=${probeResult.connectionCount} " +
+                                    "reused=${probeResult.connectionCount == 1}",
+                            )
+                            runOnUiThread { result.success(probeResult.toMap()) }
+                        } catch (error: IllegalArgumentException) {
+                            runOnUiThread {
+                                result.error("INVALID_ARGUMENT", error.message, null)
+                            }
+                        } catch (error: Exception) {
+                            Log.w(
+                                "AndroidConnectionProbe",
+                                "[SPEED_TEST_NATIVE] probe failed: ${error.javaClass.simpleName}",
+                            )
+                            runOnUiThread {
+                                result.error("PROBE_FAILED", "Latency probe failed", null)
+                            }
+                        }
+                    }
+                }
+                "cancelConnectionLatencyProbes" -> {
+                    val sessionId = call.argument<String>("sessionId")
+                    if (sessionId.isNullOrBlank()) {
+                        result.error("INVALID_ARGUMENT", "sessionId is required", null)
+                    } else {
+                        latencyProbeManager.cancel(sessionId)
+                        result.success(null)
+                    }
                 }
                 else -> {
                     result.notImplemented()
@@ -256,5 +311,11 @@ class MainActivity : FlutterActivity() {
             pendingResult?.success(resultCode == RESULT_OK)
             pendingResult = null
         }
+    }
+
+    override fun onDestroy() {
+        latencyProbeManager.cancelAll()
+        latencyProbeExecutor.shutdownNow()
+        super.onDestroy()
     }
 }

@@ -13,4 +13,11 @@ void main() {
     expect(result.elapsedMs, 1164);
     expect(result.attempts, [1163, 253]);
   });
+
+  test('unavailable error preserves the user-facing readiness message', () {
+    const error = ConnectionLatencyUnavailableException('测速服务未就绪');
+
+    expect(error.message, '测速服务未就绪');
+    expect(error.toString(), '测速服务未就绪');
+  });
 }

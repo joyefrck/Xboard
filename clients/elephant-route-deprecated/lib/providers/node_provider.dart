@@ -35,6 +35,7 @@ class NodeProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isTestingLatency = false;
   DateTime? _ignoreNativeLatencyUpdatesUntil;
+  bool _hasAuthoritativeConnectionLatencies = false;
   String? _errorMessage;
 
   // 自动选择模式相关
@@ -63,6 +64,11 @@ class NodeProvider with ChangeNotifier {
             testAllLatencies();
           }
         });
+      }
+      if (_lastVpnStatus == VpnStatus.connected &&
+          state.status != VpnStatus.connected) {
+        _hasAuthoritativeConnectionLatencies = false;
+        _ignoreNativeLatencyUpdatesUntil = null;
       }
       _lastVpnStatus = state.status;
     });
@@ -105,7 +111,11 @@ class NodeProvider with ChangeNotifier {
   /// 处理来自 VPN 内核的延迟数据更新
   void _handleLatencyUpdate(Map<String, int> latencyMap) {
     final ignoreUntil = _ignoreNativeLatencyUpdatesUntil;
-    if (ignoreUntil != null && DateTime.now().isBefore(ignoreUntil)) {
+    if (!LatencyTestPolicy.acceptsNativeLatencyUpdate(
+      hasAuthoritativeConnectionResults: _hasAuthoritativeConnectionLatencies,
+      ignoreUntil: ignoreUntil,
+      now: DateTime.now(),
+    )) {
       debugPrint(
           '[SPEED_TEST_DART] Ignore native latency update while HTTP delay test is authoritative');
       return;
@@ -134,6 +144,12 @@ class NodeProvider with ChangeNotifier {
   @override
   void dispose() {
     _vpnStateSubscription?.cancel();
+    final manager = _vpnManager;
+    if (manager is ConnectionLatencyManager) {
+      unawaited(
+        (manager as ConnectionLatencyManager).stopConnectionLatencyTest(),
+      );
+    }
     super.dispose();
   }
 
@@ -153,9 +169,13 @@ class NodeProvider with ChangeNotifier {
   Future<void> testAllLatencies([BuildContext? context]) async {
     if (_isTestingLatency) return;
 
-    final useConnectionSession = !kIsWeb &&
-        (Platform.isMacOS || Platform.isWindows) &&
-        _vpnManager is ConnectionLatencyManager;
+    final useConnectionSession = LatencyTestPolicy.usesConnectionSession(
+      isWeb: kIsWeb,
+      isAndroid: !kIsWeb && Platform.isAndroid,
+      isWindows: !kIsWeb && Platform.isWindows,
+      isMacOS: !kIsWeb && Platform.isMacOS,
+      supportsConnectionManager: _vpnManager is ConnectionLatencyManager,
+    );
     final requiresConnectedVpn = LatencyTestPolicy.requiresConnectedVpn(
       isWeb: kIsWeb,
       isAndroid: !kIsWeb && Platform.isAndroid,
@@ -210,9 +230,12 @@ class NodeProvider with ChangeNotifier {
       }).toList();
       notifyListeners();
 
-      final latencyProfile = !kIsWeb && (Platform.isMacOS || Platform.isWindows)
-          ? LatencyTestProfile.v2boxConnection
-          : LatencyTestProfile.standard;
+      final latencyProfile = LatencyTestPolicy.profileForPlatform(
+        isWeb: kIsWeb,
+        isAndroid: !kIsWeb && Platform.isAndroid,
+        isWindows: !kIsWeb && Platform.isWindows,
+        isMacOS: !kIsWeb && Platform.isMacOS,
+      );
       final probeUrls = LatencyTestPolicy.probeUrls(
         configuredTestUrl: _configProvider.testUrl,
         profile: latencyProfile,
@@ -239,7 +262,10 @@ class NodeProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('[SPEED_TEST_DART] 测速失败: $e');
       if (context != null && context.mounted) {
-        ToastUtils.show(context, '测速失败，请稍后重试');
+        final message = e is ConnectionLatencyUnavailableException
+            ? e.message
+            : '测速失败，请稍后重试';
+        ToastUtils.show(context, message);
       }
     } finally {
       _isTestingLatency = false;
@@ -281,6 +307,7 @@ class NodeProvider with ChangeNotifier {
   ) {
     final index = _nodes.indexWhere((node) => node.name == nodeTag);
     if (index == -1) return;
+    _hasAuthoritativeConnectionLatencies = true;
     if (_nodes[index].latency != result.latencyMs) {
       _nodes[index] = _nodes[index].copyWithLatency(result.latencyMs);
       notifyListeners();

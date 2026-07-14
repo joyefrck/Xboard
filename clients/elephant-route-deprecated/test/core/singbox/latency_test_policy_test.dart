@@ -166,5 +166,67 @@ void main() {
         isFalse,
       );
     });
+
+    test('Android uses the connection session instead of Clash delay API', () {
+      expect(
+        LatencyTestPolicy.usesConnectionSession(
+          isWeb: false,
+          isAndroid: true,
+          isWindows: false,
+          isMacOS: false,
+          supportsConnectionManager: true,
+        ),
+        isTrue,
+      );
+      expect(
+        LatencyTestPolicy.profileForPlatform(
+          isWeb: false,
+          isAndroid: true,
+          isWindows: false,
+          isMacOS: false,
+        ),
+        LatencyTestProfile.v2boxConnection,
+      );
+      expect(
+        LatencyTestPolicy.usesConnectionSession(
+          isWeb: false,
+          isAndroid: true,
+          isWindows: false,
+          isMacOS: false,
+          supportsConnectionManager: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('keeps HTTP connection results authoritative until VPN disconnects',
+        () {
+      final now = DateTime(2026, 7, 13, 12);
+
+      expect(
+        LatencyTestPolicy.acceptsNativeLatencyUpdate(
+          hasAuthoritativeConnectionResults: true,
+          ignoreUntil: now.subtract(const Duration(seconds: 1)),
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        LatencyTestPolicy.acceptsNativeLatencyUpdate(
+          hasAuthoritativeConnectionResults: false,
+          ignoreUntil: now.add(const Duration(seconds: 1)),
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        LatencyTestPolicy.acceptsNativeLatencyUpdate(
+          hasAuthoritativeConnectionResults: false,
+          ignoreUntil: null,
+          now: now,
+        ),
+        isTrue,
+      );
+    });
   });
 }

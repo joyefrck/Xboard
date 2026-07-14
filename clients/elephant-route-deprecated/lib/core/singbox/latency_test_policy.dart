@@ -46,6 +46,38 @@ class LatencyTestPolicy {
   }) {
     return !isWeb && (isAndroid || isWindows || isMacOS) && !isMockVpn;
   }
+
+  static bool usesConnectionSession({
+    required bool isWeb,
+    required bool isAndroid,
+    required bool isWindows,
+    required bool isMacOS,
+    required bool supportsConnectionManager,
+  }) {
+    return !isWeb &&
+        (isAndroid || isWindows || isMacOS) &&
+        supportsConnectionManager;
+  }
+
+  static bool acceptsNativeLatencyUpdate({
+    required bool hasAuthoritativeConnectionResults,
+    required DateTime? ignoreUntil,
+    required DateTime now,
+  }) {
+    if (hasAuthoritativeConnectionResults) return false;
+    return ignoreUntil == null || !now.isBefore(ignoreUntil);
+  }
+
+  static LatencyTestProfile profileForPlatform({
+    required bool isWeb,
+    required bool isAndroid,
+    required bool isWindows,
+    required bool isMacOS,
+  }) {
+    return !isWeb && (isAndroid || isWindows || isMacOS)
+        ? LatencyTestProfile.v2boxConnection
+        : LatencyTestProfile.standard;
+  }
 }
 
 class LatencyTester {

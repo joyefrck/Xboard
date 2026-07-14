@@ -2,7 +2,6 @@ package com.elephantroute
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Process
 import android.system.OsConstants
@@ -47,8 +46,35 @@ class PlatformInterfaceBridge(
         sourcePort: Int,
         destinationAddress: String,
         destinationPort: Int
-    ): io.nekohasekai.libbox.ConnectionOwner? {
-        return null
+    ): Int {
+        return try {
+            connectivity.getConnectionOwnerUid(
+                ipProtocol,
+                InetSocketAddress(sourceAddress, sourcePort),
+                InetSocketAddress(destinationAddress, destinationPort)
+            )
+        } catch (e: Exception) {
+            Log.w("PlatformBridge", "Unable to resolve connection owner", e)
+            Process.INVALID_UID
+        }
+    }
+
+    override fun packageNameByUid(uid: Int): String {
+        return context.packageManager.getPackagesForUid(uid)?.firstOrNull().orEmpty()
+    }
+
+    override fun uidByPackageName(packageName: String): Int {
+        return try {
+            context.packageManager.getApplicationInfo(packageName, 0).uid
+        } catch (_: Exception) {
+            Process.INVALID_UID
+        }
+    }
+
+    override fun writeLog(message: String?) {
+        if (!message.isNullOrBlank()) {
+            Log.d("SingBoxCore", message)
+        }
     }
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {

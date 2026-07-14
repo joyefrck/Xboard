@@ -12,6 +12,7 @@ class ConfigProvider with ChangeNotifier {
   static const String desktopDefaultTestUrl =
       'https://www.gstatic.com/generate_204';
   static const String macosDefaultTestUrl = desktopDefaultTestUrl;
+  static const String androidDefaultTestUrl = desktopDefaultTestUrl;
 
   // 可选的服务模式列表
   static const List<String> serviceModes = [
@@ -51,7 +52,8 @@ class ConfigProvider with ChangeNotifier {
       final savedTestUrl = prefs.getString('config_test_url');
       final usesDesktopConnectionTest =
           defaultTargetPlatform == TargetPlatform.windows ||
-              defaultTargetPlatform == TargetPlatform.macOS;
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.android;
       if (usesDesktopConnectionTest &&
           (savedTestUrl == null || savedTestUrl.trim() == defaultTestUrl)) {
         _testUrl = desktopDefaultTestUrl;
@@ -118,7 +120,8 @@ class ConfigProvider with ChangeNotifier {
     _domesticDns = defaultDomesticDns;
     _serviceMode = defaultServiceMode;
     _testUrl = defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.macOS
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.android
         ? desktopDefaultTestUrl
         : defaultTestUrl;
     _useTunMode = false;

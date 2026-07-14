@@ -15,6 +15,15 @@ abstract interface class ConnectionLatencyManager {
   Future<void> stopConnectionLatencyTest();
 }
 
+class ConnectionLatencyUnavailableException implements Exception {
+  const ConnectionLatencyUnavailableException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class ConnectionLatencyResult {
   const ConnectionLatencyResult({
     required this.latencyMs,

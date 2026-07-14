@@ -2,6 +2,7 @@ package com.elephantroute
 
 import android.content.Context
 import android.util.Log
+import io.nekohasekai.libbox.BoxService
 import io.nekohasekai.libbox.CommandServer
 import io.nekohasekai.libbox.CommandServerHandler
 import io.nekohasekai.libbox.Libbox
@@ -12,106 +13,102 @@ import java.io.File
 
 object SingBoxEngine : CommandServerHandler {
     private var commandServer: CommandServer? = null
+    private var boxService: BoxService? = null
     private var setupDone = false
+    private var lastContext: Context? = null
+    private var lastConfig: String? = null
+    private var lastPlatform: PlatformInterface? = null
     private const val TAG = "SingBoxEngine"
 
+    @Synchronized
     fun start(context: Context, config: String, platform: PlatformInterface) {
         Log.i(TAG, "=== SingBoxEngine.start() called ===")
         Log.d(TAG, "Setup done: $setupDone, CommandServer exists: ${commandServer != null}")
-        
+
         try {
             if (!setupDone) {
-                Log.i(TAG, "Preparing to setup Libbox...")
-                val options = SetupOptions()
-                options.basePath = context.filesDir.absolutePath
-                val workingDir = File(context.filesDir, "sing-box")
-                if (!workingDir.exists()) {
-                    Log.d(TAG, "Creating working directory: ${workingDir.absolutePath}")
-                    workingDir.mkdirs()
+                val workingDir = File(context.filesDir, "sing-box").apply {
+                    if (!exists()) mkdirs()
                 }
-                options.workingPath = workingDir.absolutePath
-                options.tempPath = context.cacheDir.absolutePath
-                
-                Log.i(TAG, "Calling Libbox.setup() with basePath=${options.basePath}, workingPath=${options.workingPath}")
+                val options = SetupOptions().apply {
+                    basePath = context.filesDir.absolutePath
+                    workingPath = workingDir.absolutePath
+                    tempPath = context.cacheDir.absolutePath
+                }
                 Libbox.setup(options)
                 setupDone = true
-                Log.i(TAG, "✓ Libbox.setup() completed successfully")
-            } else {
-                Log.d(TAG, "Libbox already set up, skipping setup")
+                Log.i(TAG, "Libbox setup completed; version=${Libbox.version()}")
             }
 
             if (commandServer == null) {
-                Log.i(TAG, "Creating CommandServer...")
-                Log.d(TAG, "Calling Libbox.newCommandServer(handler, platform)")
-                commandServer = Libbox.newCommandServer(this, platform)
-                Log.i(TAG, "✓ CommandServer created successfully")
-                
-                Log.i(TAG, "Starting CommandServer...")
-                commandServer?.start()
-                Log.i(TAG, "✓ CommandServer started successfully")
-            } else {
-                Log.d(TAG, "CommandServer already exists, reusing it")
+                commandServer = Libbox.newCommandServer(this, 300).also {
+                    it.start()
+                }
+                Log.i(TAG, "CommandServer started")
             }
-            
-            // Start service with config
-            Log.i(TAG, "Starting/Reloading service with config (${config.length} bytes)...")
-            commandServer?.startOrReloadService(config, null)
-            Log.i(TAG, "✓ Service started/reloaded successfully")
-            Log.i(TAG, "=== SingBoxEngine.start() completed successfully ===")
+
+            closeBoxService()
+            val service = Libbox.newService(config, platform)
+            commandServer?.setService(service)
+            try {
+                service.start()
+            } catch (e: Exception) {
+                commandServer?.setService(null)
+                runCatching { service.close() }
+                throw e
+            }
+
+            boxService = service
+            lastContext = context.applicationContext
+            lastConfig = config
+            lastPlatform = platform
+            Log.i(TAG, "Service started successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ FATAL ERROR in SingBoxEngine.start()", e)
-            Log.e(TAG, "Error type: ${e.javaClass.name}")
-            Log.e(TAG, "Error message: ${e.message}")
-            e.printStackTrace()
+            Log.e(TAG, "FATAL ERROR in SingBoxEngine.start(): ${e.message}", e)
             throw e
         }
     }
 
+    @Synchronized
     fun stop() {
         Log.i(TAG, "=== SingBoxEngine.stop() called ===")
-        try {
-            Log.d(TAG, "Closing service...")
-            commandServer?.closeService()
-            Log.d(TAG, "✓ Service closed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error closing service: ${e.message}")
-        }
-        
-        try {
-            Log.d(TAG, "Closing CommandServer...")
-            commandServer?.close()
-            Log.d(TAG, "✓ CommandServer closed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error closing CommandServer: ${e.message}")
-        }
-        
+        runCatching { closeBoxService() }
+            .onFailure { Log.w(TAG, "Error closing service: ${it.message}") }
+        runCatching { commandServer?.close() }
+            .onFailure { Log.w(TAG, "Error closing CommandServer: ${it.message}") }
         commandServer = null
+        lastContext = null
+        lastConfig = null
+        lastPlatform = null
         Log.i(TAG, "=== SingBoxEngine.stop() completed ===")
     }
 
-    // CommandServerHandler implementation
+    private fun closeBoxService() {
+        val service = boxService ?: return
+        boxService = null
+        commandServer?.setService(null)
+        service.close()
+    }
+
     override fun serviceReload() {
-        Log.d(TAG, "serviceReload")
+        val context = lastContext ?: return
+        val config = lastConfig ?: return
+        val platform = lastPlatform ?: return
+        start(context, config, platform)
     }
-    
-    override fun serviceStop() {
-        Log.d(TAG, "serviceStop")
-        // Not calling stop() here to avoid recursion loop if closeService calls this
-        // Just log it. Or maybe we should clear state?
-        // Usually initiated by native side stopping.
-    }
-    
-    override fun writeDebugMessage(message: String?) {
-        Log.d(TAG, "Debug: $message")
+
+    override fun postServiceClose() {
+        Thread { stop() }.start()
     }
 
     override fun getSystemProxyStatus(): SystemProxyStatus {
-        val status = SystemProxyStatus()
-        status.available = false
-        status.enabled = false
-        return status
+        return SystemProxyStatus().apply {
+            available = false
+            enabled = false
+        }
     }
+
     override fun setSystemProxyEnabled(isEnabled: Boolean) {
-         Log.d(TAG, "setSystemProxyEnabled: $isEnabled")
+        Log.d(TAG, "setSystemProxyEnabled: $isEnabled")
     }
 }

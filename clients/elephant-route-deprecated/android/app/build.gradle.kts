@@ -80,6 +80,8 @@ dependencies {
     // 注意: sing-box-for-android 不通过 Maven 发布，需要本地构建
     implementation(fileTree("libs") { include("*.aar") })
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("junit:junit:4.13.2")
 }
 
 flutter {

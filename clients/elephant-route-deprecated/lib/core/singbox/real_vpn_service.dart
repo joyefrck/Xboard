@@ -1,12 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import 'android_latency_config.dart';
+import 'android_latency_session.dart';
+import 'connection_latency_manager.dart';
 import 'vpn_manager.dart';
 import 'vpn_state.dart';
-import 'dart:convert';
 
 /// 真实的 VPN 服务实现(对接原生 sing-box 插件)
-class RealVpnService implements VpnManager {
+class RealVpnService implements VpnManager, ConnectionLatencyManager {
   static const MethodChannel _channel =
       MethodChannel('com.elephant.network/vpn');
   static const EventChannel _eventChannel =
@@ -15,6 +21,10 @@ class RealVpnService implements VpnManager {
   final _stateController = StreamController<VpnState>.broadcast();
   VpnState _currentState = const VpnState(status: VpnStatus.disconnected);
   StreamSubscription? _eventSubscription;
+  AndroidLatencySession? _latencySession;
+  List<int> _latencyWorkerPorts = const <int>[];
+  Set<String> _latencyNodeTags = const <String>{};
+  bool _latencyWorkersReady = false;
 
   RealVpnService() {
     // 监听原生端回传的状态与流量数据
@@ -59,11 +69,39 @@ class RealVpnService implements VpnManager {
 
   @override
   Future<void> start(String config) async {
+    await stopConnectionLatencyTest();
+    var runtimeConfig = config;
+    _latencyWorkersReady = false;
+    _latencyWorkerPorts = const <int>[];
+    _latencyNodeTags = const <String>{};
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final ports = await _allocateWorkerPorts(4);
+        final latencyConfig = AndroidLatencyConfigBuilder.build(
+          sourceConfig: config,
+          workerPorts: ports,
+        );
+        runtimeConfig = latencyConfig.configJson;
+        _latencyWorkerPorts = List<int>.unmodifiable(ports);
+        _latencyNodeTags = Set<String>.unmodifiable(latencyConfig.nodeTags);
+        _latencyWorkersReady = true;
+        debugPrint(
+          'RealVpnService: Android latency workers prepared '
+          'count=${ports.length} nodes=${latencyConfig.nodeTags.length}',
+        );
+      } catch (error) {
+        // Never log the source config because it contains proxy credentials.
+        debugPrint(
+          'RealVpnService: Android latency workers unavailable: '
+          '${error.runtimeType}',
+        );
+      }
+    }
     try {
       // 在原生端启动 sing-box
       debugPrint(
-          'RealVpnService: invoking start with config length: ${config.length}');
-      await _channel.invokeMethod('start', {'config': config});
+          'RealVpnService: invoking start with config length: ${runtimeConfig.length}');
+      await _channel.invokeMethod('start', {'config': runtimeConfig});
       debugPrint('RealVpnService: start invoked successfully');
     } on PlatformException catch (e) {
       debugPrint('RealVpnService: start failed with exception: $e');
@@ -94,6 +132,7 @@ class RealVpnService implements VpnManager {
     VpnStopReason reason = VpnStopReason.unspecified,
   }) async {
     try {
+      await stopConnectionLatencyTest();
       await _channel.invokeMethod('stop');
     } on PlatformException catch (e) {
       debugPrint("停止失败: ${e.message}");
@@ -113,9 +152,72 @@ class RealVpnService implements VpnManager {
   }
 
   @override
+  Future<Map<String, ConnectionLatencyResult>> testConnectionLatencies({
+    required List<String> nodeTags,
+    required String testUrl,
+    required int timeoutMs,
+    required int concurrency,
+    ConnectionLatencyResultCallback? onResult,
+  }) async {
+    if (_currentState.status != VpnStatus.connected) {
+      throw StateError('请先开启加速后再测速');
+    }
+    if (!_latencyWorkersReady || _latencyWorkerPorts.isEmpty) {
+      throw const ConnectionLatencyUnavailableException(
+        '测速服务未就绪，请重新连接后重试',
+      );
+    }
+    if (nodeTags.any((tag) => !_latencyNodeTags.contains(tag))) {
+      throw const ConnectionLatencyUnavailableException(
+        '测速服务未就绪，请重新连接后重试',
+      );
+    }
+
+    await stopConnectionLatencyTest();
+    final session = AndroidLatencySession(
+      workerPorts: _latencyWorkerPorts,
+    );
+    _latencySession = session;
+    try {
+      return await session.run(
+        nodeTags: nodeTags,
+        testUrl: testUrl,
+        timeoutMs: timeoutMs,
+        concurrency: concurrency,
+        onResult: onResult,
+      );
+    } finally {
+      if (identical(_latencySession, session)) {
+        _latencySession = null;
+      }
+      await session.stop();
+    }
+  }
+
+  @override
+  Future<void> stopConnectionLatencyTest() async {
+    final session = _latencySession;
+    _latencySession = null;
+    await session?.stop();
+  }
+
+  @override
   void dispose() {
+    unawaited(stopConnectionLatencyTest());
     _eventSubscription?.cancel();
     _stateController.close();
+  }
+
+  static Future<List<int>> _allocateWorkerPorts(int count) async {
+    final sockets = <ServerSocket>[];
+    try {
+      for (var index = 0; index < count; index++) {
+        sockets.add(await ServerSocket.bind(InternetAddress.loopbackIPv4, 0));
+      }
+      return sockets.map((socket) => socket.port).toList(growable: false);
+    } finally {
+      await Future.wait(sockets.map((socket) => socket.close()));
+    }
   }
 
   /// 处理来自原生端的数据更新

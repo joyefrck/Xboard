@@ -15,7 +15,6 @@ import io.nekohasekai.libbox.CommandClient
 import io.nekohasekai.libbox.CommandClientHandler
 import io.nekohasekai.libbox.CommandClientOptions
 import io.nekohasekai.libbox.Libbox
-import io.nekohasekai.libbox.LogIterator
 import io.nekohasekai.libbox.StatusMessage
 import io.nekohasekai.libbox.TunOptions
 import io.nekohasekai.libbox.OutboundGroupIterator
@@ -27,6 +26,7 @@ import com.elephantroute.R
 class SingboxVpnService : VpnService(), CommandClientHandler {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var commandClient: CommandClient? = null
+    private val commandSubscriptions = mutableListOf<CommandClient>()
     
     // Bridge to PlatformInterface
     private val platform by lazy { PlatformInterfaceBridge(this, this) }
@@ -114,10 +114,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                      // 3. Restart VPN engine with updated config
                      isRestarting = true
                      
-                     try {
-                         commandClient?.disconnect()
-                     } catch(e: Exception) {}
-                     commandClient = null
+                     disconnectCommandClients()
                      
                      SingBoxEngine.stop()
                      
@@ -531,11 +528,10 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         if (currentStatus == "connected") return
 
         try {
-            commandClient?.disconnect()
+            disconnectCommandClients()
         } catch (e: Exception) {
             Log.w(TAG, "Error disconnecting speed-test command client: ${e.message}")
         }
-        commandClient = null
 
         try {
             SingBoxEngine.stop()
@@ -701,31 +697,46 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         Thread {
             try {
                 Thread.sleep(1500) 
-                Log.d(TAG, "Connecting CommandClient...")
-                val options = CommandClientOptions()
-                
-                // [FIX] Subscribe to status and group updates to receive speed and urlTest results
-                options.addCommand(Libbox.CommandStatus)
-                options.addCommand(Libbox.CommandGroup)
-                options.addCommand(Libbox.CommandLog)
-                
-                commandClient = Libbox.newCommandClient(this, options)
-                commandClient?.connect()
-                Log.d(TAG, "CommandClient connected")
+                Log.d(TAG, "Connecting CommandClients...")
+                disconnectCommandClients()
+                commandClient = Libbox.newStandaloneCommandClient()
+                val subscriptions = listOf(
+                    Libbox.CommandStatus,
+                    Libbox.CommandGroup,
+                    Libbox.CommandLog
+                ).map { command ->
+                    val options = CommandClientOptions().apply {
+                        this.command = command
+                        statusInterval = 1_000_000_000L
+                    }
+                    Libbox.newCommandClient(this, options).also { it.connect() }
+                }
+                synchronized(commandSubscriptions) {
+                    commandSubscriptions.addAll(subscriptions)
+                }
+                Log.d(TAG, "CommandClients connected")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect CommandClient", e)
+                disconnectCommandClients()
             }
         }.start()
+    }
+
+    private fun disconnectCommandClients() {
+        val subscriptions = synchronized(commandSubscriptions) {
+            commandSubscriptions.toList().also { commandSubscriptions.clear() }
+        }
+        subscriptions.forEach { client ->
+            runCatching { client.disconnect() }
+        }
+        commandClient = null
     }
 
     private fun stopVpn() {
         Thread {
             try {
                 updateStatus("disconnecting")
-                try {
-                    commandClient?.disconnect()
-                } catch(e: Exception) {}
-                commandClient = null
+                disconnectCommandClients()
                 
                 SingBoxEngine.stop()
                 
@@ -908,13 +919,12 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         }
     }
     
-    // Updated signature for new API
-    override fun writeLogs(messageList: LogIterator?) {
+    override fun writeLogs(messageList: StringIterator?) {
         if (messageList == null) return
         while (messageList.hasNext()) {
-            val log = messageList.next()
-            if (log != null) {
-                Log.d("SingBoxCore", log.message ?: "null")
+            val message = messageList.next()
+            if (message != null) {
+                Log.d("SingBoxCore", message)
             }
         }
     }
@@ -934,8 +944,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         }
     }
     
-    override fun setDefaultLogLevel(level: Int) {}
-    override fun writeConnectionEvents(events: io.nekohasekai.libbox.ConnectionEvents?) {}
+    override fun writeConnections(connections: io.nekohasekai.libbox.Connections?) {}
 
     
     private fun checkAndPrepareAssets() {
