@@ -26,6 +26,24 @@ test('app download links use relative signed URLs to avoid insecure redirects', 
   assert.doesNotMatch(guestRoute, /->middleware\(\['signed', 'throttle:30,1'\]\)/);
 });
 
+test('app download signed URL TTL is configurable and shared with the response contract', () => {
+  const configPath = path.join(repoRoot, 'config/app_downloads.php');
+  const userController = readRepoFile('app/Http/Controllers/V1/User/AppDownloadController.php');
+  const envExample = readRepoFile('.env.example');
+
+  assert.equal(fs.existsSync(configPath), true, 'app download config should exist');
+  const config = fs.readFileSync(configPath, 'utf8');
+
+  assert.match(config, /signed_url_ttl_seconds/);
+  assert.match(config, /env\('APP_DOWNLOAD_SIGNED_URL_TTL_SECONDS',\s*1800\)/);
+  assert.match(envExample, /APP_DOWNLOAD_SIGNED_URL_TTL_SECONDS=1800/);
+  assert.match(userController, /\$expiresIn\s*=\s*max\(60,\s*\(int\)\s*config\('app_downloads\.signed_url_ttl_seconds',\s*1800\)\)/);
+  assert.match(userController, /now\(\)->addSeconds\(\$expiresIn\)/);
+  assert.match(userController, /'expires_in'\s*=>\s*\$expiresIn/);
+  assert.doesNotMatch(userController, /now\(\)->addSeconds\(180\)/);
+  assert.doesNotMatch(userController, /'expires_in'\s*=>\s*180/);
+});
+
 test('app download prepare limiter is scoped by user and artifact', () => {
   const provider = readRepoFile('app/Providers/RouteServiceProvider.php');
 
