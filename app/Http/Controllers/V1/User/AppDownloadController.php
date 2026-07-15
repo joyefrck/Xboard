@@ -22,9 +22,10 @@ class AppDownloadController extends Controller
             return $this->fail($error ?: [400, '人机验证失败']);
         }
 
+        $expiresIn = max(60, (int) config('app_downloads.signed_url_ttl_seconds', 1800));
         $downloadUrl = URL::temporarySignedRoute(
             'app-downloads.download',
-            now()->addSeconds(180),
+            now()->addSeconds($expiresIn),
             [
                 'artifact' => $artifact->id,
                 'user_id' => $request->user()->id,
@@ -34,7 +35,7 @@ class AppDownloadController extends Controller
 
         return $this->success([
             'download_url' => $downloadUrl,
-            'expires_in' => 180,
+            'expires_in' => $expiresIn,
         ]);
     }
 }
