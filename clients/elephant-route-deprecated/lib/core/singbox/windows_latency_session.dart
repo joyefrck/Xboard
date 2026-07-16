@@ -197,6 +197,8 @@ class WindowsLatencySession {
           result = const ConnectionLatencyResult(
             latencyMs: -1,
             elapsedMs: 0,
+            failureKind: ConnectionLatencyFailureKind.serviceError,
+            source: ConnectionLatencySource.connectionProbe,
           );
         }
         record(nodeTag, result);
@@ -212,7 +214,12 @@ class WindowsLatencySession {
     for (final nodeTag in nodeTags) {
       results.putIfAbsent(
         nodeTag,
-        () => const ConnectionLatencyResult(latencyMs: -1, elapsedMs: 0),
+        () => const ConnectionLatencyResult(
+          latencyMs: -1,
+          elapsedMs: 0,
+          failureKind: ConnectionLatencyFailureKind.serviceError,
+          source: ConnectionLatencySource.connectionProbe,
+        ),
       );
     }
     return Map<String, ConnectionLatencyResult>.unmodifiable(results);

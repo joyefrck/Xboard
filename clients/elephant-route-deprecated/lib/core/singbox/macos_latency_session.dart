@@ -220,6 +220,7 @@ class MacosLatencySession {
           result = const ConnectionLatencyResult(
             latencyMs: -1,
             elapsedMs: 0,
+            failureKind: ConnectionLatencyFailureKind.serviceError,
           );
         }
         record(nodeTag, result);
@@ -228,7 +229,11 @@ class MacosLatencySession {
           'macOS latency node=$nodeTag url=${_safeEndpoint(testUrl)} '
           'first=${attempts.isEmpty ? -1 : attempts.first}ms '
           'second=${attempts.length < 2 ? -1 : attempts[1]}ms '
-          'latency=${result.latencyMs}ms elapsed=${result.elapsedMs}ms',
+          'latency=${result.latencyMs}ms elapsed=${result.elapsedMs}ms '
+          'failure=${result.failureKind?.name ?? 'none'} '
+          'source=${result.source.name} '
+          'http=${result.httpStatusCodes.join(',')} '
+          'exit=${result.processExitCode ?? -1}',
         );
       }
     }
@@ -241,7 +246,11 @@ class MacosLatencySession {
       if (!results.containsKey(nodeTag)) {
         record(
           nodeTag,
-          const ConnectionLatencyResult(latencyMs: -1, elapsedMs: 0),
+          const ConnectionLatencyResult(
+            latencyMs: -1,
+            elapsedMs: 0,
+            failureKind: ConnectionLatencyFailureKind.serviceError,
+          ),
         );
       }
     }

@@ -1,3 +1,4 @@
+import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
 import 'package:elephant_network/core/singbox/windows_connection_probe.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,6 +33,9 @@ void main() {
     expect(result.attempts, [1141, 261]);
     expect(result.latencyMs, 261);
     expect(result.elapsedMs, 1427);
+    expect(result.isSuccess, isTrue);
+    expect(result.source, ConnectionLatencySource.connectionProbe);
+    expect(result.httpStatusCodes, [204, 204]);
   });
 
   test('ignores a failed response when the other request is valid', () {
@@ -59,9 +63,13 @@ void main() {
     final result = WindowsConnectionProbe.parseOutput(
       'curl failed',
       elapsedMs: 5000,
+      timedOut: true,
+      processExitCode: 15,
     );
 
     expect(result.attempts, isEmpty);
     expect(result.latencyMs, -1);
+    expect(result.failureKind, ConnectionLatencyFailureKind.timeout);
+    expect(result.processExitCode, 15);
   });
 }

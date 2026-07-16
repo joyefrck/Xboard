@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
+import 'macos_latency_fallback.dart';
 import 'macos_latency_session.dart';
 import 'macos_tun_permission.dart';
 import 'macos_singbox_runtime.dart';
@@ -19,7 +20,7 @@ import 'vpn_state.dart';
 import 'vpn_stop_coordinator.dart';
 
 class MacosVpnService implements VpnManager, ConnectionLatencyManager {
-  MacosVpnService()
+  MacosVpnService({MacosLatencyFallbackRunner? latencyFallbackRunner})
       : _clashDio = Dio(
           BaseOptions(
             baseUrl: _clashApiBase,
@@ -34,11 +35,26 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         return client;
       },
     );
+    final productionClashProbe = MacosProductionClashLatencyProbe(_clashDio);
+    _latencyFallbackRunner = latencyFallbackRunner ??
+        MacosLatencyFallbackRunner(
+          probe: productionClashProbe.call,
+          logger: (nodeTag, result, attempt) {
+            unawaited(AppLogger.instance.info(
+              'macOS latency fallback node=$nodeTag attempt=$attempt '
+              'latency=${result.latencyMs}ms elapsed=${result.elapsedMs}ms '
+              'failure=${result.failureKind?.name ?? 'none'} '
+              'source=${result.source.name} '
+              'http=${result.httpStatusCodes.join(',')}',
+            ));
+          },
+        );
   }
 
   static const String _clashApiBase = 'http://127.0.0.1:9090';
 
   final Dio _clashDio;
+  late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
   final _stateController = StreamController<VpnState>.broadcast();
 
@@ -50,6 +66,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   bool _isTunMode = false;
   bool _disposed = false;
   MacosLatencySession? _latencySession;
+  int _latencyRunGeneration = 0;
   final VpnStopCoordinator<void> _stopCoordinator = VpnStopCoordinator<void>();
 
   @override
@@ -223,6 +240,8 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     }
 
     await stopConnectionLatencyTest();
+    final generation = _latencyRunGeneration;
+    bool isCancelled() => _disposed || generation != _latencyRunGeneration;
     final session = MacosLatencySession(
       binaryPath: binaryPath,
       sourceConfig: config,
@@ -232,18 +251,56 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       workerCount: concurrency,
     );
     _latencySession = session;
+    Map<String, ConnectionLatencyResult> primaryResults;
     try {
-      return await session.run(onResult: onResult);
+      primaryResults = await session.run(
+        onResult: (nodeTag, result) {
+          if (!isCancelled() && result.isSuccess) {
+            onResult?.call(nodeTag, result);
+          }
+        },
+      );
+    } catch (error) {
+      await AppLogger.instance.warn(
+        'macOS primary latency session failed type=${error.runtimeType}',
+      );
+      primaryResults = {
+        for (final nodeTag in nodeTags)
+          nodeTag: const ConnectionLatencyResult(
+            latencyMs: -1,
+            elapsedMs: 0,
+            failureKind: ConnectionLatencyFailureKind.serviceError,
+            source: ConnectionLatencySource.connectionProbe,
+          ),
+      };
     } finally {
       if (identical(_latencySession, session)) {
         _latencySession = null;
       }
       await session.close();
     }
+
+    if (isCancelled()) {
+      return Map<String, ConnectionLatencyResult>.unmodifiable(primaryResults);
+    }
+
+    return _latencyFallbackRunner.resolve(
+      nodeTags: nodeTags,
+      primaryResults: primaryResults,
+      testUrl: testUrl,
+      timeoutMs: timeoutMs,
+      isCancelled: isCancelled,
+      onResult: (nodeTag, result) {
+        if (!isCancelled()) {
+          onResult?.call(nodeTag, result);
+        }
+      },
+    );
   }
 
   @override
   Future<void> stopConnectionLatencyTest() async {
+    _latencyRunGeneration++;
     final session = _latencySession;
     _latencySession = null;
     await session?.close();

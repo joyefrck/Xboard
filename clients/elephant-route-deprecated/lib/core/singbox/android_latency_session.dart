@@ -70,11 +70,21 @@ class AndroidLatencySession {
                 timeout: remaining,
               )
               .timeout(remaining);
+        } on TimeoutException {
+          result = ConnectionLatencyResult(
+            latencyMs: -1,
+            elapsedMs: stopwatch.elapsedMilliseconds,
+            attempts: const <int>[-1, -1],
+            failureKind: ConnectionLatencyFailureKind.timeout,
+            source: ConnectionLatencySource.connectionProbe,
+          );
         } catch (_) {
           result = ConnectionLatencyResult(
             latencyMs: -1,
             elapsedMs: stopwatch.elapsedMilliseconds,
             attempts: const <int>[-1, -1],
+            failureKind: ConnectionLatencyFailureKind.serviceError,
+            source: ConnectionLatencySource.connectionProbe,
           );
         } finally {
           stopwatch.stop();
@@ -93,6 +103,8 @@ class AndroidLatencySession {
           latencyMs: -1,
           elapsedMs: 0,
           attempts: <int>[-1, -1],
+          failureKind: ConnectionLatencyFailureKind.serviceError,
+          source: ConnectionLatencySource.connectionProbe,
         );
         results[nodeTag] = result;
         onResult?.call(nodeTag, result);
