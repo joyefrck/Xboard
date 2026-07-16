@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -10,38 +8,62 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/api/dio_client.dart';
 import '../core/api/services/user_service.dart';
+import '../core/api/subscription_config_cache.dart';
 import '../core/services/app_logger.dart';
+import '../core/singbox/clash_traffic_stream.dart';
 import '../core/singbox/vpn_manager.dart';
 import '../core/singbox/vpn_state.dart';
 import '../providers/config_provider.dart';
 import '../../utils/constants.dart';
 
+typedef TrafficRetryDelay = Duration Function(int attempt);
+
 class VpnProvider with ChangeNotifier {
   final VpnManager _vpnManager;
   final UserService _userService;
   final ConfigProvider _configProvider;
-  final Dio _trafficDio = Dio()
-    ..httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient();
-        client.findProxy = (uri) => 'DIRECT';
-        return client;
-      },
-    );
+  final TrafficStreamClient _trafficStreamClient;
+  final TrafficRetryDelay _trafficRetryDelay;
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
-  Timer? _trafficTimer;
+  StreamSubscription<TrafficSample>? _trafficSubscription;
+  Timer? _trafficReconnectTimer;
+  int _trafficGeneration = 0;
+  int _trafficRetryAttempt = 0;
+  bool _hasNativeTrafficTotals = false;
+  bool _disposed = false;
   late final StreamSubscription<VpnState> _vpnStateSubscription;
 
-  VpnProvider(DioClient dioClient, this._vpnManager, this._configProvider)
-      : _userService = UserService(dioClient) {
+  VpnProvider(
+    DioClient dioClient,
+    this._vpnManager,
+    this._configProvider, {
+    TrafficStreamClient? trafficStreamClient,
+    TrafficRetryDelay? trafficRetryDelay,
+    SubscriptionConfigCache? subscriptionConfigCache,
+  })  : _userService = UserService(
+          dioClient,
+          configCache: subscriptionConfigCache ?? SubscriptionConfigCache(),
+        ),
+        _trafficStreamClient = trafficStreamClient ??
+            ClashTrafficStreamClient(
+              endpoint: Uri.parse(ApiConstants.clashTraffic),
+            ),
+        _trafficRetryDelay = trafficRetryDelay ?? _defaultTrafficRetryDelay {
     // 监听 VPN 状态变化
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
+      if (_disposed) return;
+
+      final previousState = _state;
+      if (state.totalUp > 0 || state.totalDown > 0) {
+        _hasNativeTrafficTotals = true;
+      }
+
       // 检测从已连接变为断开状态
-      if (_state.isConnected && state.status == VpnStatus.disconnected) {
+      if (previousState.isConnected && state.status == VpnStatus.disconnected) {
         AppLogger.instance
             .info('VPN disconnected; persisting local traffic counters');
         // 保存本次会话的流量增量到本地
-        _saveSessionTraffic(_state.totalUp, _state.totalDown);
+        _saveSessionTraffic(previousState.totalUp, previousState.totalDown);
 
         // 重置本地流量计数器
         _state = state.copyWith(
@@ -50,8 +72,24 @@ class VpnProvider with ChangeNotifier {
           upSpeed: 0,
           downSpeed: 0,
         );
+        _hasNativeTrafficTotals = false;
       } else {
-        _state = state;
+        final shouldPreserveFallbackTotals = !_hasNativeTrafficTotals &&
+            state.status != VpnStatus.disconnected &&
+            state.totalUp == 0 &&
+            state.totalDown == 0;
+        _state = shouldPreserveFallbackTotals
+            ? state.copyWith(
+                totalUp: previousState.totalUp,
+                totalDown: previousState.totalDown,
+              )
+            : state;
+      }
+
+      if (!previousState.isConnected && _state.isConnected) {
+        unawaited(_startTrafficMonitoring());
+      } else if (previousState.isConnected && !_state.isConnected) {
+        unawaited(_stopTrafficMonitoring());
       }
       notifyListeners();
     });
@@ -103,27 +141,16 @@ class VpnProvider with ChangeNotifier {
         return false;
       }
 
-      // 2. 获取真实的订阅配置
-      String? config;
-      try {
-        final subscribeInfo = await _userService.getSubscribe();
-        final subscribeUrl = subscribeInfo['subscribe_url'] as String?;
-        if (subscribeUrl != null && subscribeUrl.isNotEmpty) {
-          final uri = Uri.parse(subscribeUrl);
-          final token =
-              uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
-          if (token != null && token.isNotEmpty) {
-            await AppLogger.instance
-                .info('Fetching subscription config for connect flow');
-            final rawConfig = await _userService.getSubscriptionConfig(token);
-            config = jsonEncode(rawConfig);
-            await AppLogger.instance
-                .info('Subscription config encoded, length=${config.length}');
-          }
-        }
-      } catch (e) {
-        await AppLogger.instance
-            .error('Failed to fetch subscription config', error: e);
+      // 2. Prefer the last known-good config. A slow subscription endpoint must
+      // not hold the power switch for 15+ seconds on every connection.
+      String? config = await _userService.getCachedSubscriptionConfig();
+      final usedCachedConfig = config != null;
+      if (usedCachedConfig) {
+        await AppLogger.instance.info(
+          'Using cached subscription config for connect flow, length=${config.length}',
+        );
+      } else {
+        config = await _fetchSubscriptionConfig();
       }
 
       if (config == null || config.isEmpty) {
@@ -157,8 +184,9 @@ class VpnProvider with ChangeNotifier {
         return false;
       }
 
-      // 启动流量监控 (P0 需求)
-      _startTrafficPolling();
+      if (usedCachedConfig) {
+        unawaited(_refreshSubscriptionConfigCache());
+      }
 
       return true;
     } catch (e, stackTrace) {
@@ -174,12 +202,45 @@ class VpnProvider with ChangeNotifier {
     }
   }
 
+  Future<String?> _fetchSubscriptionConfig() async {
+    try {
+      final subscribeInfo = await _userService.getSubscribe();
+      final subscribeUrl = subscribeInfo['subscribe_url'] as String?;
+      if (subscribeUrl == null || subscribeUrl.isEmpty) return null;
+
+      final uri = Uri.parse(subscribeUrl);
+      final token = uri.queryParameters['token'] ??
+          (uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null);
+      if (token == null || token.isEmpty) return null;
+
+      await AppLogger.instance
+          .info('Fetching subscription config for connect flow');
+      final rawConfig = await _userService.getSubscriptionConfig(token);
+      final config = jsonEncode(rawConfig);
+      await AppLogger.instance
+          .info('Subscription config encoded, length=${config.length}');
+      return config;
+    } catch (e) {
+      await AppLogger.instance
+          .error('Failed to fetch subscription config', error: e);
+      return null;
+    }
+  }
+
+  Future<void> _refreshSubscriptionConfigCache() async {
+    final refreshed = await _fetchSubscriptionConfig();
+    if (refreshed != null) {
+      await AppLogger.instance
+          .info('Subscription config refreshed in background');
+    }
+  }
+
   /// 断开 VPN
   Future<void> disconnect({
     VpnStopReason reason = VpnStopReason.userToggle,
   }) async {
     try {
-      _stopTrafficPolling();
+      await _stopTrafficMonitoring();
       await _vpnManager.stop(reason: reason);
     } catch (e, stackTrace) {
       await AppLogger.instance
@@ -187,46 +248,98 @@ class VpnProvider with ChangeNotifier {
     }
   }
 
-  /// 启动实时流量轮询 (需求 3.4)
-  void _startTrafficPolling() {
-    _trafficTimer?.cancel();
-    _trafficTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (!_state.isConnected) {
-        timer.cancel();
-        return;
-      }
+  Future<void> _startTrafficMonitoring() async {
+    final generation = await _clearTrafficMonitoring();
+    if (_disposed || generation != _trafficGeneration || !_state.isConnected) {
+      return;
+    }
 
-      try {
-        // 请求 Clash API (127.0.0.1:9090/traffic)
-        final response = await _trafficDio.get(ApiConstants.clashTraffic);
-        final Map<String, dynamic> data = response.data is Map
-            ? Map<String, dynamic>.from(response.data)
-            : {};
-        final int up = (data['up'] ?? 0).toInt();
-        final int down = (data['down'] ?? 0).toInt();
+    _trafficRetryAttempt = 0;
+    _openTrafficStream(generation);
+  }
 
-        // 更新状态中的网速
-        // 注意：总流量优先依靠原生端广播更新，这里仅作为速度轮询补充
-        _state = _state.copyWith(
-          upSpeed: up,
-          downSpeed: down,
-          // 如果原生端没有回传累计流量(为0)，则可以使用速度进行本地估算累加
-          // 但为了防止冲突，这里暂时只更新速度，除非确定需要本地累加
-          totalUp: _state.totalUp > 0 ? _state.totalUp : (_state.totalUp + up),
-          totalDown: _state.totalDown > 0
-              ? _state.totalDown
-              : (_state.totalDown + down),
-        );
-        notifyListeners();
-      } catch (e) {
-        // Silently ignore traffic polling errors to reduce log noise
-      }
+  void _openTrafficStream(int generation) {
+    if (_disposed || generation != _trafficGeneration || !_state.isConnected) {
+      return;
+    }
+
+    try {
+      _trafficSubscription = _trafficStreamClient.open().listen(
+        (sample) {
+          if (_disposed ||
+              generation != _trafficGeneration ||
+              !_state.isConnected) {
+            return;
+          }
+
+          _trafficRetryAttempt = 0;
+          _state = _state.copyWith(
+            upSpeed: sample.up,
+            downSpeed: sample.down,
+            totalUp: _hasNativeTrafficTotals
+                ? _state.totalUp
+                : _state.totalUp + sample.up,
+            totalDown: _hasNativeTrafficTotals
+                ? _state.totalDown
+                : _state.totalDown + sample.down,
+          );
+          notifyListeners();
+        },
+        onError: (Object _, StackTrace __) {
+          _scheduleTrafficReconnect(generation);
+        },
+        onDone: () {
+          _scheduleTrafficReconnect(generation);
+        },
+        cancelOnError: true,
+      );
+    } catch (_) {
+      _scheduleTrafficReconnect(generation);
+    }
+  }
+
+  void _scheduleTrafficReconnect(int generation) {
+    if (_disposed ||
+        generation != _trafficGeneration ||
+        !_state.isConnected ||
+        _trafficReconnectTimer != null) {
+      return;
+    }
+
+    final delay = _trafficRetryDelay(_trafficRetryAttempt++);
+    _trafficReconnectTimer = Timer(delay, () {
+      _trafficReconnectTimer = null;
+      unawaited(_restartTrafficStream(generation));
     });
   }
 
-  void _stopTrafficPolling() {
-    _trafficTimer?.cancel();
-    _trafficTimer = null;
+  Future<void> _restartTrafficStream(int generation) async {
+    final subscription = _trafficSubscription;
+    _trafficSubscription = null;
+    await subscription?.cancel();
+    await _trafficStreamClient.close();
+
+    if (_disposed || generation != _trafficGeneration || !_state.isConnected) {
+      return;
+    }
+    _openTrafficStream(generation);
+  }
+
+  Future<void> _stopTrafficMonitoring() async {
+    await _clearTrafficMonitoring();
+  }
+
+  Future<int> _clearTrafficMonitoring() async {
+    final generation = ++_trafficGeneration;
+    _trafficRetryAttempt = 0;
+    _trafficReconnectTimer?.cancel();
+    _trafficReconnectTimer = null;
+
+    final subscription = _trafficSubscription;
+    _trafficSubscription = null;
+    await subscription?.cancel();
+    await _trafficStreamClient.close();
+    return generation;
   }
 
   /// 保存本次会话流量到本地存储（未上报到后端的流量）
@@ -301,7 +414,17 @@ class VpnProvider with ChangeNotifier {
 
   @override
   void dispose() {
-    _stopTrafficPolling();
+    if (_disposed) return;
+    _disposed = true;
+    _trafficGeneration++;
+    _trafficReconnectTimer?.cancel();
+    _trafficReconnectTimer = null;
+    final trafficSubscription = _trafficSubscription;
+    _trafficSubscription = null;
+    unawaited(() async {
+      await trafficSubscription?.cancel();
+      await _trafficStreamClient.close();
+    }());
     _vpnStateSubscription.cancel();
     super.dispose();
   }
@@ -344,4 +467,14 @@ class VpnProvider with ChangeNotifier {
       return jsonConfig; // 如果解析失败，返回原配置
     }
   }
+}
+
+Duration _defaultTrafficRetryDelay(int attempt) {
+  const delays = <Duration>[
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+  ];
+  return delays[attempt.clamp(0, delays.length - 1)];
 }

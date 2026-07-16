@@ -19,6 +19,8 @@ class MacosCurlConnectionProbe {
     final stopwatch = Stopwatch()..start();
     Process? process;
     var processExited = false;
+    var timedOut = false;
+    int? processExitCode;
     String output = '';
     try {
       final timeoutSeconds =
@@ -50,20 +52,24 @@ class MacosCurlConnectionProbe {
       final stderrFuture = process.stderr.drain<void>();
       final remaining = timeout - stopwatch.elapsed;
       if (remaining <= Duration.zero) {
+        timedOut = true;
         process.kill(ProcessSignal.sigterm);
       } else {
         try {
-          await process.exitCode.timeout(remaining);
+          processExitCode = await process.exitCode.timeout(remaining);
           processExited = true;
         } on TimeoutException {
+          timedOut = true;
           process.kill(ProcessSignal.sigterm);
           try {
-            await process.exitCode.timeout(const Duration(milliseconds: 200));
+            processExitCode = await process.exitCode
+                .timeout(const Duration(milliseconds: 200));
             processExited = true;
           } on TimeoutException {
             process.kill(ProcessSignal.sigkill);
             try {
-              await process.exitCode.timeout(const Duration(milliseconds: 200));
+              processExitCode = await process.exitCode
+                  .timeout(const Duration(milliseconds: 200));
               processExited = true;
             } on TimeoutException {
               // The session still owns the Process and will retry cleanup.
@@ -85,20 +91,29 @@ class MacosCurlConnectionProbe {
         onProcessFinished?.call(process);
       }
     }
-    return parseOutput(output, elapsedMs: stopwatch.elapsedMilliseconds);
+    return parseOutput(
+      output,
+      elapsedMs: stopwatch.elapsedMilliseconds,
+      timedOut: timedOut,
+      processExitCode: processExitCode,
+    );
   }
 
   static ConnectionLatencyResult parseOutput(
     String output, {
     required int elapsedMs,
+    bool timedOut = false,
+    int? processExitCode = 0,
   }) {
     final attempts = <int>[];
+    final httpStatusCodes = <int>[];
     for (final rawLine in const LineSplitter().convert(output)) {
       final parts = rawLine.trim().split(RegExp(r'\s+'));
       if (parts.length != 2) continue;
       final statusCode = int.tryParse(parts[0]);
       final seconds = double.tryParse(parts[1]);
       if (statusCode == null || seconds == null) continue;
+      httpStatusCodes.add(statusCode);
       final latencyMs = (seconds * Duration.millisecondsPerSecond).round();
       attempts.add(
         statusCode == HttpStatus.ok || statusCode == HttpStatus.noContent
@@ -111,10 +126,24 @@ class MacosCurlConnectionProbe {
     final selected = valid.isEmpty
         ? -1
         : valid.reduce((best, latency) => latency < best ? latency : best);
+    ConnectionLatencyFailureKind? failureKind;
+    if (selected <= 0) {
+      if (timedOut) {
+        failureKind = ConnectionLatencyFailureKind.timeout;
+      } else if (httpStatusCodes.any((statusCode) => statusCode > 0)) {
+        failureKind = ConnectionLatencyFailureKind.httpError;
+      } else {
+        failureKind = ConnectionLatencyFailureKind.transportError;
+      }
+    }
     return ConnectionLatencyResult(
       latencyMs: selected,
       elapsedMs: elapsedMs,
       attempts: List<int>.unmodifiable(attempts),
+      failureKind: failureKind,
+      source: ConnectionLatencySource.connectionProbe,
+      httpStatusCodes: List<int>.unmodifiable(httpStatusCodes),
+      processExitCode: processExitCode,
     );
   }
 }

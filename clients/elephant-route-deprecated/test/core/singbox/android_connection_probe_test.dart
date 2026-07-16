@@ -1,4 +1,5 @@
 import 'package:elephant_network/core/singbox/android_connection_probe.dart';
+import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -32,6 +33,8 @@ void main() {
     expect(calls.single['timeoutMs'], 5000);
     expect(result.attempts, [240, 92]);
     expect(result.latencyMs, 92);
+    expect(result.isSuccess, isTrue);
+    expect(result.source, ConnectionLatencySource.connectionProbe);
   });
 
   test('stop cancels only probes owned by this session', () async {

@@ -14,6 +14,7 @@ import '../../core/theme/app_shadows.dart';
 import '../../utils/flag_helper.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/toast_utils.dart';
+import '../../utils/node_latency_display.dart';
 
 class NodeSelectionScreen extends StatefulWidget {
   const NodeSelectionScreen({super.key});
@@ -528,7 +529,10 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
                   right: 0,
                   bottom: -4,
                   child: Text(
-                    (node.latency! <= 0) ? '超时' : '${node.latency}ms',
+                    nodeLatencyLabel(
+                      latency: node.latency,
+                      result: provider.latencyResultFor(node.name),
+                    )!,
                     style: AppTextStyles.labelTiny.copyWith(
                       color: _getLatencyColor(node.latency!, isDark),
                       fontWeight: FontWeight.w900,

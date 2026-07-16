@@ -36,6 +36,7 @@ class NodeProvider with ChangeNotifier {
   bool _isTestingLatency = false;
   DateTime? _ignoreNativeLatencyUpdatesUntil;
   bool _hasAuthoritativeConnectionLatencies = false;
+  final Map<String, ConnectionLatencyResult> _latencyResults = {};
   String? _errorMessage;
 
   // 自动选择模式相关
@@ -69,6 +70,7 @@ class NodeProvider with ChangeNotifier {
           state.status != VpnStatus.connected) {
         _hasAuthoritativeConnectionLatencies = false;
         _ignoreNativeLatencyUpdatesUntil = null;
+        _latencyResults.clear();
       }
       _lastVpnStatus = state.status;
     });
@@ -93,6 +95,9 @@ class NodeProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAutoMode => _isAutoMode;
   ProxyNode? get autoSelectedRealNode => _autoSelectedRealNode;
+
+  ConnectionLatencyResult? latencyResultFor(String nodeName) =>
+      _latencyResults[nodeName];
 
   /// 获取真实节点列表（不含自动选择虚拟节点）
   List<ProxyNode> get realNodes =>
@@ -126,6 +131,7 @@ class NodeProvider with ChangeNotifier {
       if (node.type == 'auto') return node; // 跳过虚拟节点
       if (latencyMap.containsKey(node.name)) {
         final newLatency = latencyMap[node.name];
+        _latencyResults.remove(node.name);
         if (node.latency != newLatency) {
           changed = true;
           return node.copyWithLatency(newLatency);
@@ -224,6 +230,7 @@ class NodeProvider with ChangeNotifier {
       }
 
       // 将所有真实节点的延迟清空，标记为正在测速
+      _latencyResults.clear();
       _nodes = _nodes.map((node) {
         if (node.type == 'auto') return node;
         return node.copyWithLatency(null);
@@ -294,7 +301,11 @@ class NodeProvider with ChangeNotifier {
       for (final node in nodes) {
         _applyConnectionLatencyResult(
           node.name,
-          const ConnectionLatencyResult(latencyMs: -1, elapsedMs: 0),
+          const ConnectionLatencyResult(
+            latencyMs: -1,
+            elapsedMs: 0,
+            failureKind: ConnectionLatencyFailureKind.serviceError,
+          ),
         );
       }
       rethrow;
@@ -308,6 +319,7 @@ class NodeProvider with ChangeNotifier {
     final index = _nodes.indexWhere((node) => node.name == nodeTag);
     if (index == -1) return;
     _hasAuthoritativeConnectionLatencies = true;
+    _latencyResults[nodeTag] = result;
     if (_nodes[index].latency != result.latencyMs) {
       _nodes[index] = _nodes[index].copyWithLatency(result.latencyMs);
       notifyListeners();
@@ -497,9 +509,11 @@ class NodeProvider with ChangeNotifier {
       // 5. 合并延迟数据
       final Map<String, int?> oldLatencies = {
         for (var node in _nodes)
-          if (node.latency != null && node.type != 'auto')
+          if (node.latency != null && node.latency! > 0 && node.type != 'auto')
             node.name: node.latency
       };
+
+      _latencyResults.clear();
 
       List<ProxyNode> mergedNodes = fetchedNodes.map((node) {
         if (oldLatencies.containsKey(node.name)) {

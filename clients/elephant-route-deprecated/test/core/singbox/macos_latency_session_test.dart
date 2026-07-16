@@ -139,6 +139,14 @@ void main() {
     expect(results['node-a']?.latencyMs, 100);
     expect(results['node-b']?.latencyMs, -1);
     expect(results['node-c']?.latencyMs, -1);
+    expect(
+      results['node-b']?.failureKind,
+      ConnectionLatencyFailureKind.serviceError,
+    );
+    expect(
+      results['node-c']?.failureKind,
+      ConnectionLatencyFailureKind.serviceError,
+    );
     await session.close();
   });
 

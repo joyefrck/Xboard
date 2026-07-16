@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import '../dio_client.dart';
 import '../../services/app_logger.dart';
 import '../../../utils/constants.dart';
 import '../../../models/user.dart';
+import '../subscription_config_cache.dart';
 
 class InviteSummary {
   final String? code;
@@ -17,8 +19,12 @@ class InviteSummary {
 
 class UserService {
   final DioClient _client;
+  final SubscriptionConfigCache _configCache;
 
-  UserService(this._client);
+  UserService(
+    this._client, {
+    SubscriptionConfigCache? configCache,
+  }) : _configCache = configCache ?? SubscriptionConfigCache();
 
   /// 获取用户信息
   Future<User> getUserInfo() async {
@@ -46,8 +52,12 @@ class UserService {
       'Subscription config fetched: type=${response.data.runtimeType}',
     );
 
+    await _configCache.write(jsonEncode(response.data));
+
     return response.data;
   }
+
+  Future<String?> getCachedSubscriptionConfig() => _configCache.read();
 
   /// 获取可用套餐列表
   Future<List<dynamic>> fetchPlans() async {

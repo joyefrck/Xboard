@@ -803,20 +803,23 @@ class _DashboardScreenState extends State<DashboardScreen>
       builder: (context, vpnProvider, _) {
         final vpnState = vpnProvider.state;
         final isConnected = vpnState.isConnected;
+        final showsConnectionIntent =
+            vpnState.showsConnectionIntent || _isPowerActionPending;
         final isProcessing = vpnState.isProcessing || _isPowerActionPending;
 
         return Container(
           constraints: const BoxConstraints(minHeight: 162),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _getConnectionCardColor(isConnected, isDark),
+            color: _getConnectionCardColor(showsConnectionIntent, isDark),
             borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
             border: Border.all(
-              color: _getConnectionCardBorderColor(isConnected, isDark),
+              color:
+                  _getConnectionCardBorderColor(showsConnectionIntent, isDark),
               width: 1.4,
             ),
-            boxShadow: _getConnectionCardShadow(isConnected, isDark),
-            gradient: isConnected && isDark
+            boxShadow: _getConnectionCardShadow(showsConnectionIntent, isDark),
+            gradient: showsConnectionIntent && isDark
                 ? const RadialGradient(
                     center: Alignment(0, -0.4),
                     radius: 1.5,
@@ -836,7 +839,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Icon(
                   Icons.flash_on,
                   size: 96,
-                  color: _getDecorationIconColor(isConnected, isDark),
+                  color: _getDecorationIconColor(showsConnectionIntent, isDark),
                 ),
               ),
               Column(
@@ -855,13 +858,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   width: 8,
                                   height: 8,
                                   decoration: BoxDecoration(
-                                    color: isConnected
+                                    color: showsConnectionIntent
                                         ? (isDark
                                             ? AppColors.primaryLight
                                             : AppColors.primary)
                                         : AppColors.primaryLight,
                                     shape: BoxShape.circle,
-                                    boxShadow: isConnected
+                                    boxShadow: showsConnectionIntent
                                         ? [
                                             BoxShadow(
                                               color: (isDark
@@ -880,8 +883,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ? '正在准备...'
                                       : _statusTitle(vpnProvider.state),
                                   style: AppTextStyles.displaySmall.copyWith(
-                                    color:
-                                        _getCardTitleColor(isConnected, isDark),
+                                    color: _getCardTitleColor(
+                                        showsConnectionIntent, isDark),
                                     fontSize: 20,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -895,7 +898,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   : _statusDescription(vpnProvider.state),
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: _getCardDescriptionColor(
-                                    isConnected, isDark),
+                                    showsConnectionIntent, isDark),
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -909,8 +912,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ),
                       const SizedBox(width: 10),
-                      _buildPowerButton(
-                          isConnected, isProcessing, isDark, vpnProvider),
+                      _buildPowerButton(showsConnectionIntent, isProcessing,
+                          isDark, vpnProvider),
                     ],
                   ),
                   const SizedBox(height: 10),

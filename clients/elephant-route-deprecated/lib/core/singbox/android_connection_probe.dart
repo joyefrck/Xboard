@@ -48,6 +48,8 @@ class AndroidConnectionProbe implements AndroidNodeProbe {
         latencyMs: -1,
         elapsedMs: 0,
         attempts: <int>[-1, -1],
+        failureKind: ConnectionLatencyFailureKind.cancelled,
+        source: ConnectionLatencySource.connectionProbe,
       );
     }
 
@@ -77,6 +79,8 @@ class AndroidConnectionProbe implements AndroidNodeProbe {
       latencyMs: latencyMs,
       elapsedMs: elapsedMs,
       attempts: parsedAttempts,
+      failureKind: latencyMs > 0 ? null : ConnectionLatencyFailureKind.timeout,
+      source: ConnectionLatencySource.connectionProbe,
     );
   }
 
