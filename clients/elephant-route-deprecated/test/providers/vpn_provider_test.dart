@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:elephant_network/providers/vpn_provider.dart';
 import 'package:elephant_network/providers/config_provider.dart';
 import 'package:elephant_network/core/singbox/vpn_state.dart';
 import 'package:elephant_network/core/singbox/vpn_manager.dart';
+import 'package:elephant_network/core/singbox/clash_traffic_stream.dart';
 import 'package:elephant_network/core/api/dio_client.dart';
+import 'package:elephant_network/core/api/subscription_config_cache.dart';
 import 'package:elephant_network/core/singbox/mock_vpn_service.dart';
 import 'package:elephant_network/utils/constants.dart';
 import '../test_bootstrap.dart';
@@ -14,6 +18,9 @@ void main() {
 
   group('VpnProvider 测试', () {
     late VpnProvider vpnProvider;
+    late _ImmediateVpnManager vpnManager;
+    late _FakeTrafficStreamClient trafficClient;
+    late _FakeSubscriptionConfigCache subscriptionConfigCache;
 
     setUp(() {
       final dioClient = DioClient();
@@ -55,12 +62,23 @@ void main() {
         ),
       );
 
-      // 使用真实的 MockVpnService 和 ConfigProvider
-      vpnProvider = VpnProvider(dioClient, MockVpnService(), ConfigProvider());
+      vpnManager = _ImmediateVpnManager();
+      trafficClient = _FakeTrafficStreamClient();
+      subscriptionConfigCache = _FakeSubscriptionConfigCache();
+      vpnProvider = VpnProvider(
+        dioClient,
+        vpnManager,
+        ConfigProvider(),
+        trafficStreamClient: trafficClient,
+        trafficRetryDelay: (_) => const Duration(milliseconds: 10),
+        subscriptionConfigCache: subscriptionConfigCache,
+      );
     });
 
     tearDown(() {
       vpnProvider.dispose();
+      vpnManager.dispose();
+      trafficClient.dispose();
     });
 
     test('初始状态应该是未连接', () {
@@ -80,6 +98,20 @@ void main() {
       // Assert
       expect(result, true);
       expect(vpnProvider.isConnected, true);
+      expect(subscriptionConfigCache.writeCalls, 1);
+    });
+
+    test('存在上次可用配置时不等待远程刷新即可连接', () async {
+      subscriptionConfigCache.value =
+          '{"outbounds":[{"type":"direct","tag":"direct"}]}';
+
+      final result = await vpnProvider.connect();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(result, isTrue);
+      expect(vpnManager.startCalls, 1);
+      expect(subscriptionConfigCache.readCalls, 1);
+      expect(vpnProvider.state.status, VpnStatus.connected);
     });
 
     test('disconnect 应该将状态改为未连接', () async {
@@ -144,6 +176,95 @@ void main() {
       expect(notificationCount, greaterThan(0));
     });
 
+    test('连接期间只打开一条流并累计没有原生统计的流量', () async {
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+
+      expect(trafficClient.openCalls, 1);
+      expect(trafficClient.activeSubscriptions, 1);
+
+      trafficClient.emit(const TrafficSample(up: 100, down: 200));
+      await Future<void>.delayed(Duration.zero);
+      trafficClient.emit(const TrafficSample(up: 300, down: 400));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vpnProvider.state.upSpeed, 300);
+      expect(vpnProvider.state.downSpeed, 400);
+      expect(vpnProvider.state.totalUp, 400);
+      expect(vpnProvider.state.totalDown, 600);
+      expect(trafficClient.maxActiveSubscriptions, 1);
+    });
+
+    test('重复启动和流错误重连不会产生重叠订阅', () async {
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+
+      expect(trafficClient.openCalls, 2);
+      expect(trafficClient.activeSubscriptions, 1);
+      expect(trafficClient.maxActiveSubscriptions, 1);
+
+      trafficClient.fail(StateError('stream closed'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(trafficClient.openCalls, 3);
+      expect(trafficClient.activeSubscriptions, 1);
+      expect(trafficClient.maxActiveSubscriptions, 1);
+    });
+
+    test('快速连接状态抖动后只有最后一代流量会话存活', () async {
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+      trafficClient.closeDelay = const Duration(milliseconds: 5);
+
+      vpnManager.emitStatus(VpnStatus.coreStarting);
+      vpnManager.emitStatus(VpnStatus.connected);
+      vpnManager.emitStatus(VpnStatus.coreStarting);
+      vpnManager.emitStatus(VpnStatus.connected);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(trafficClient.activeSubscriptions, 1);
+      expect(trafficClient.maxActiveSubscriptions, 1);
+    });
+
+    test('断开和销毁会停止流量流且旧会话不能回写', () async {
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+      final firstController = trafficClient.latestController;
+
+      await vpnProvider.disconnect();
+      await _settleTrafficLifecycle();
+      final disconnectedState = vpnProvider.state;
+      firstController.add(const TrafficSample(up: 999, down: 999));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(trafficClient.activeSubscriptions, 0);
+      expect(trafficClient.closeCalls, greaterThan(0));
+      expect(vpnProvider.state, same(disconnectedState));
+
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+      vpnProvider.dispose();
+      await Future<void>.delayed(Duration.zero);
+      expect(trafficClient.activeSubscriptions, 0);
+    });
+
+    test('原生累计流量存在时流式样本只更新速度', () async {
+      await vpnProvider.connect();
+      await _settleTrafficLifecycle();
+      vpnManager.emitTraffic(totalUp: 1000, totalDown: 2000);
+      await Future<void>.delayed(Duration.zero);
+
+      trafficClient.emit(const TrafficSample(up: 100, down: 200));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vpnProvider.state.upSpeed, 100);
+      expect(vpnProvider.state.downSpeed, 200);
+      expect(vpnProvider.state.totalUp, 1000);
+      expect(vpnProvider.state.totalDown, 2000);
+    });
+
     test('dispose 不应该释放注入的 VpnManager', () {
       final manager = _CountingVpnManager();
       final provider = VpnProvider(DioClient(), manager, ConfigProvider());
@@ -155,6 +276,146 @@ void main() {
       manager.dispose();
     });
   });
+}
+
+class _ImmediateVpnManager implements VpnManager {
+  final StreamController<VpnState> _controller =
+      StreamController<VpnState>.broadcast();
+  VpnState _state = const VpnState(status: VpnStatus.disconnected);
+  int startCalls = 0;
+
+  @override
+  VpnState get currentState => _state;
+
+  @override
+  Stream<VpnState> get stateStream => _controller.stream;
+
+  @override
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<void> start(String config) async {
+    startCalls++;
+    _state = const VpnState(status: VpnStatus.connecting);
+    _controller.add(_state);
+    _state = const VpnState(status: VpnStatus.connected);
+    _controller.add(_state);
+  }
+
+  @override
+  Future<void> stop({
+    VpnStopReason reason = VpnStopReason.unspecified,
+  }) async {
+    _state = const VpnState(status: VpnStatus.disconnected);
+    _controller.add(_state);
+  }
+
+  void emitTraffic({required int totalUp, required int totalDown}) {
+    _state = _state.copyWith(
+      upSpeed: 7,
+      downSpeed: 8,
+      totalUp: totalUp,
+      totalDown: totalDown,
+    );
+    _controller.add(_state);
+  }
+
+  void emitStatus(VpnStatus status) {
+    _state = _state.copyWith(status: status);
+    _controller.add(_state);
+  }
+
+  @override
+  Future<void> prepareSpeedTest(String config) async {}
+
+  @override
+  Future<void> stopSpeedTest() async {}
+
+  @override
+  Future<int> urlTest(String groupTag) async => -1;
+
+  @override
+  Future<void> selectOutbound(String groupTag, String outboundTag) async {}
+
+  @override
+  void dispose() {
+    if (!_controller.isClosed) _controller.close();
+  }
+}
+
+class _FakeSubscriptionConfigCache implements SubscriptionConfigCache {
+  String? value;
+  int readCalls = 0;
+  int writeCalls = 0;
+
+  @override
+  Future<String?> read() async {
+    readCalls++;
+    return value;
+  }
+
+  @override
+  Future<void> write(String config) async {
+    writeCalls++;
+    value = config;
+  }
+
+  @override
+  Future<void> clear() async {
+    value = null;
+  }
+}
+
+Future<void> _settleTrafficLifecycle() {
+  return Future<void>.delayed(const Duration(milliseconds: 1));
+}
+
+class _FakeTrafficStreamClient implements TrafficStreamClient {
+  final List<StreamController<TrafficSample>> _controllers = [];
+  int openCalls = 0;
+  int closeCalls = 0;
+  int activeSubscriptions = 0;
+  int maxActiveSubscriptions = 0;
+  Duration closeDelay = Duration.zero;
+
+  StreamController<TrafficSample> get latestController => _controllers.last;
+
+  @override
+  Stream<TrafficSample> open() {
+    openCalls++;
+    late final StreamController<TrafficSample> controller;
+    controller = StreamController<TrafficSample>(
+      onListen: () {
+        activeSubscriptions++;
+        if (activeSubscriptions > maxActiveSubscriptions) {
+          maxActiveSubscriptions = activeSubscriptions;
+        }
+      },
+      onCancel: () {
+        activeSubscriptions--;
+      },
+    );
+    _controllers.add(controller);
+    return controller.stream;
+  }
+
+  void emit(TrafficSample sample) => latestController.add(sample);
+
+  void fail(Object error) => latestController.addError(error);
+
+  @override
+  Future<void> close() async {
+    closeCalls++;
+    if (closeDelay > Duration.zero) {
+      await Future<void>.delayed(closeDelay);
+    }
+  }
+
+  void dispose() {
+    for (final controller in _controllers) {
+      if (!controller.isClosed) controller.close();
+    }
+  }
 }
 
 class _CountingVpnManager extends MockVpnService {

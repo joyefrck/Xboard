@@ -135,4 +135,21 @@ void main() {
     expect(helperSource, contains('latestCoreOutput'));
     expect(helperSource, contains('process.isRunning'));
   });
+
+  test('TUN start delegates stale-core cleanup to the privileged helper once',
+      () {
+    final appSource = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    final helperSource =
+        File('macos/ElephantTunHelper/main.swift').readAsStringSync();
+
+    final startTunBody = RegExp(
+      r'private func startTunMode[\s\S]*?\n  private func stopCoreInternal',
+    ).firstMatch(appSource)!.group(0)!;
+
+    expect(startTunBody, isNot(contains('stopCoreInternal(')));
+    expect(startTunBody, isNot(contains('activeTunnelConflictDescription()')));
+    expect(helperSource, contains('_ = stopTunInternal()'));
+    expect(helperSource,
+        contains('if let conflict = activeTunnelConflictDescription()'));
+  });
 }

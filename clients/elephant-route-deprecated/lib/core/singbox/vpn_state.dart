@@ -66,6 +66,15 @@ class VpnState {
       status == VpnStatus.applyingProxy ||
       status == VpnStatus.disconnecting;
 
+  /// Whether the UI should render the power switch in its enabled position.
+  /// Connecting states belong on the enabled side so a click has immediate
+  /// visual feedback instead of appearing ignored until the core is healthy.
+  bool get showsConnectionIntent =>
+      status == VpnStatus.connecting ||
+      status == VpnStatus.coreStarting ||
+      status == VpnStatus.applyingProxy ||
+      status == VpnStatus.connected;
+
   VpnState copyWith({
     VpnStatus? status,
     String? errorMessage,

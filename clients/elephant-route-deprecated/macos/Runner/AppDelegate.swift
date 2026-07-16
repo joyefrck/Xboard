@@ -282,16 +282,6 @@ class AppDelegate: FlutterAppDelegate {
 
   private func startTunMode(configPath: String, binaryPath: String) -> [String: Any] {
     log("Starting TUN mode with binary=\(binaryPath)")
-    _ = stopCoreInternal(
-      restoreProxy: true,
-      updateRuntime: false,
-      reason: "start_tun_cleanup"
-    )
-
-    if let conflict = activeTunnelConflictDescription() {
-      updateRuntimeState(status: "error", mode: "tun", lastError: conflict, configPath: configPath, binaryPath: binaryPath)
-      return ["ok": false, "error": conflict, "code": "TUN_CONFLICT"]
-    }
 
     let helperStatus = getTunHelperStatus()
     if helperStatus["status"] as? String != "enabled" {
@@ -300,6 +290,9 @@ class AppDelegate: FlutterAppDelegate {
       return ["ok": false, "error": error, "code": helperStatus["code"] as? String ?? "HELPER_NOT_ENABLED"]
     }
 
+    // The privileged helper owns the TUN process and performs stale-process
+    // cleanup immediately before its conflict check. Doing a second full stop
+    // here added an unnecessary XPC round-trip and exit wait to every start.
     let startResult = callTunHelper { helper, reply in
       helper.startTun(configPath: configPath, withReply: reply)
     }
