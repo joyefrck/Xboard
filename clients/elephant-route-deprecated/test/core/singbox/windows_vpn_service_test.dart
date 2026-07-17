@@ -22,6 +22,14 @@ void main() {
       if (call.method == 'urlTest') {
         return {'status': 'connected', 'delay': 42};
       }
+      if (call.method == 'getNetworkProfile') {
+        return {
+          'status': 'ready',
+          'default_interface': 'Ethernet',
+          'tun_ipv4_address': '172.31.255.1/30',
+          'strict_route': false,
+        };
+      }
       return {'status': call.method == 'stop' ? 'disconnected' : 'connected'};
     });
   });
@@ -51,8 +59,45 @@ void main() {
     expect(config.containsKey('use_tun_mode'), isFalse);
     expect(inbounds.where((item) => item['type'] == 'tun'), hasLength(1));
     expect(inbounds.where((item) => item['type'] == 'mixed'), isEmpty);
+    final tun = inbounds.singleWhere((item) => item['type'] == 'tun') as Map;
+    expect(tun['address'], contains('172.31.255.1/30'));
+    expect(tun['strict_route'], isFalse);
+    final route = config['route'] as Map;
+    expect(route['auto_detect_interface'], isFalse);
+    expect(route['default_interface'], 'Ethernet');
     expect(service.currentState.status, VpnStatus.connected);
     expect(service.currentState.connectionMode, VpnConnectionMode.tun);
+    service.dispose();
+  });
+
+  test('does not start when Windows has no usable default interface', () async {
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getNetworkProfile') {
+        return {
+          'status': 'error',
+          'error_code': 'default_interface_missing',
+          'error_message': 'No default interface',
+        };
+      }
+      return {'status': 'connected'};
+    });
+
+    final service = WindowsVpnService();
+    await service.start(jsonEncode({
+      'inbounds': <Object>[],
+      'outbounds': [
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+      'route': {'rules': <Object>[]},
+    }));
+
+    expect(calls.map((call) => call.method), ['getNetworkProfile']);
+    expect(service.currentState.status, VpnStatus.error);
+    expect(
+      service.currentState.runtimeDetails?['error_code'],
+      'default_interface_missing',
+    );
     service.dispose();
   });
 

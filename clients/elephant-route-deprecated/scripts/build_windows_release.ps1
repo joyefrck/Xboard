@@ -59,6 +59,18 @@ if ($WebViewSignature.Status -ne 'Valid' -or
   throw 'The downloaded WebView2 bootstrapper does not have a valid Microsoft signature.'
 }
 
+$VCRedist = Join-Path $InstallerDir 'vc_redist.x64.exe'
+if (!(Test-Path $VCRedist)) {
+  Invoke-WebRequest `
+    -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' `
+    -OutFile $VCRedist
+}
+$VCRedistSignature = Get-AuthenticodeSignature $VCRedist
+if ($VCRedistSignature.Status -ne 'Valid' -or
+    $VCRedistSignature.SignerCertificate.Subject -notmatch 'Microsoft') {
+  throw 'The downloaded Visual C++ runtime does not have a valid Microsoft signature.'
+}
+
 & $Iscc "/DAppVersion=$Version" "/DAppBuild=$BuildNumber" `
   "/DSourceDir=$ReleaseDir" (Join-Path $InstallerDir 'ElephantNetwork.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed.' }

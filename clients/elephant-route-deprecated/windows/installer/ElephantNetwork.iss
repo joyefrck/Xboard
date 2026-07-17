@@ -41,6 +41,7 @@ MinVersion=10.0.17763
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall skipifsourcedoesntexist
+Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\大象网络"; Filename: "{app}\ElephantNetwork.exe"
@@ -50,6 +51,7 @@ Name: "{autodesktop}\大象网络"; Filename: "{app}\ElephantNetwork.exe"; Tasks
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式："; Flags: unchecked
 
 [Run]
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "正在安装 Microsoft Visual C++ 运行库..."; Flags: waituntilterminated runhidden; Check: VCRedistAvailable
 Filename: "{sys}\sc.exe"; Parameters: "stop ElephantNetworkService"; Flags: runhidden waituntilterminated; Check: ServiceExists
 Filename: "{sys}\sc.exe"; Parameters: "config ElephantNetworkService binPath= ""{app}\ElephantNetworkService.exe"" start= auto DisplayName= ""Elephant Network TUN Service"""; Flags: runhidden waituntilterminated; Check: ServiceExists
 Filename: "{sys}\sc.exe"; Parameters: "create ElephantNetworkService binPath= ""{app}\ElephantNetworkService.exe"" start= auto DisplayName= ""Elephant Network TUN Service"""; Flags: runhidden waituntilterminated; Check: ServiceMissing
@@ -77,6 +79,11 @@ function ServiceExists: Boolean;
 begin
   Result := RegKeyExists(HKLM64,
     'SYSTEM\CurrentControlSet\Services\ElephantNetworkService');
+end;
+
+function VCRedistAvailable: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{tmp}\vc_redist.x64.exe'));
 end;
 
 function ServiceMissing: Boolean;

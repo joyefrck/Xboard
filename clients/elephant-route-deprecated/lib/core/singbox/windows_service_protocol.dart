@@ -12,6 +12,7 @@ final class WindowsServiceProtocol {
 
   static const supportedMethods = <String>{
     'getStatus',
+    'getNetworkProfile',
     'start',
     'stop',
     'urlTest',
@@ -101,7 +102,9 @@ final class WindowsServiceProtocol {
       case 'binary_missing':
         return VpnFailureReason.missingBinary;
       case 'tun_conflict':
+      case 'tun_address_unavailable':
         return VpnFailureReason.routeConflict;
+      case 'default_interface_missing':
       case 'core_start_failed':
       case 'service_unavailable':
         return VpnFailureReason.coreStartFailed;

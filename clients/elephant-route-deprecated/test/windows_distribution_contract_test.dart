@@ -15,6 +15,7 @@ void main() {
     expect(installer, contains('PrivilegesRequired=admin'));
     expect(installer, contains('ElephantNetworkService'));
     expect(installer, contains('MicrosoftEdgeWebview2Setup.exe'));
+    expect(installer, contains('vc_redist.x64.exe'));
     expect(installer, contains('function PrepareToInstall'));
     expect(installer, contains('function InitializeUninstall'));
     expect(installer, contains('RemoveUserData := True'));
@@ -32,6 +33,7 @@ void main() {
     expect(script, isNot(contains('signtool.exe')));
     expect(script, contains('Get-AuthenticodeSignature'));
     expect(script, contains('MicrosoftEdgeWebview2Setup.exe'));
+    expect(script, contains('vc_redist.x64.exe'));
     expect(script, contains(r'Get-FileHash $Installer -Algorithm SHA256'));
   });
 
@@ -51,6 +53,8 @@ void main() {
     expect(service, contains('ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS'));
     expect(service, contains('ENABLE_DEPRECATED_LEGACY_DNS_SERVERS'));
     expect(service, contains('ENABLE_DEPRECATED_TUN_ADDRESS_X'));
+    expect(service, contains('getNetworkProfile'));
+    expect(service, contains('WaitForCoreReady'));
     expect(service, isNot(contains('powershell')));
   });
 

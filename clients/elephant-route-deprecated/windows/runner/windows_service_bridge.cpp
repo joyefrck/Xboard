@@ -196,7 +196,8 @@ void WindowsServiceBridge::HandleMethod(
                      elephant::JsonEscape(group.value_or("")) +
                      "\",\"outbound_tag\":\"" +
                      elephant::JsonEscape(outbound.value_or("")) + "\"}";
-  } else if (method != "getStatus" && method != "stop" &&
+  } else if (method != "getStatus" && method != "getNetworkProfile" &&
+             method != "stop" &&
              method != "stopSpeedTest") {
     result->NotImplemented();
     return;

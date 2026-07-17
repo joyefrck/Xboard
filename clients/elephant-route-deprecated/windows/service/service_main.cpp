@@ -1,14 +1,20 @@
+#include <winsock2.h>
+#include <ws2ipdef.h>
 #include <windows.h>
+#include <iphlpapi.h>
 #include <sddl.h>
 #include <shlobj.h>
 #include <winhttp.h>
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cwchar>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -29,6 +35,25 @@ std::string g_error_code;
 std::string g_error_message;
 std::atomic<ULONGLONG> g_last_client_tick{0};
 std::atomic<bool> g_speed_test{false};
+
+struct NetworkProfile {
+  std::string default_interface;
+  std::string tun_ipv4_address;
+  bool strict_route = false;
+};
+
+bool IsWindows11OrGreater() {
+  using RtlGetVersionFunction = LONG(WINAPI*)(OSVERSIONINFOW*);
+  const auto ntdll = GetModuleHandleW(L"ntdll.dll");
+  const auto rtl_get_version = ntdll
+                                   ? reinterpret_cast<RtlGetVersionFunction>(
+                                         GetProcAddress(ntdll, "RtlGetVersion"))
+                                   : nullptr;
+  if (!rtl_get_version) return false;
+  OSVERSIONINFOW version{};
+  version.dwOSVersionInfoSize = sizeof(version);
+  return rtl_get_version(&version) == 0 && version.dwBuildNumber >= 22000;
+}
 
 void ApplySingBoxCompatibilityEnvironment() {
   // sing-box 1.12 keeps legacy subscription formats behind compatibility
@@ -101,6 +126,118 @@ std::filesystem::path RuntimeDirectory() {
   std::filesystem::path result(program_data);
   CoTaskMemFree(program_data);
   return result / L"ElephantNetwork" / L"runtime";
+}
+
+bool RouteOverlapsCandidate(const MIB_IPFORWARD_ROW2& route,
+                            ULONG candidate_network) {
+  if (route.DestinationPrefix.Prefix.si_family != AF_INET ||
+      route.DestinationPrefix.PrefixLength == 0) {
+    return false;
+  }
+  const auto common_prefix =
+      std::min<UINT8>(route.DestinationPrefix.PrefixLength, 30);
+  const ULONG mask = common_prefix == 0
+                         ? 0
+                         : 0xffffffffUL << (32 - common_prefix);
+  const ULONG route_network =
+      ntohl(route.DestinationPrefix.Prefix.Ipv4.sin_addr.S_un.S_addr);
+  return (route_network & mask) == (candidate_network & mask);
+}
+
+std::optional<NetworkProfile> DetectNetworkProfile() {
+  PMIB_IPFORWARD_TABLE2 table = nullptr;
+  if (GetIpForwardTable2(AF_INET, &table) != NO_ERROR || !table) {
+    return std::nullopt;
+  }
+
+  const MIB_IF_ROW2* selected = nullptr;
+  MIB_IF_ROW2 selected_storage{};
+  ULONG best_metric = std::numeric_limits<ULONG>::max();
+  bool selected_hardware = false;
+  for (ULONG index = 0; index < table->NumEntries; ++index) {
+    const auto& route = table->Table[index];
+    if (route.DestinationPrefix.PrefixLength != 0) continue;
+    MIB_IF_ROW2 interface_row{};
+    interface_row.InterfaceLuid = route.InterfaceLuid;
+    if (GetIfEntry2(&interface_row) != NO_ERROR ||
+        interface_row.OperStatus != IfOperStatusUp ||
+        interface_row.Type == IF_TYPE_SOFTWARE_LOOPBACK ||
+        interface_row.Type == IF_TYPE_TUNNEL ||
+        _wcsicmp(interface_row.Alias, L"ElephantNetwork") == 0) {
+      continue;
+    }
+    MIB_IPINTERFACE_ROW ip_interface{};
+    InitializeIpInterfaceEntry(&ip_interface);
+    ip_interface.Family = AF_INET;
+    ip_interface.InterfaceLuid = route.InterfaceLuid;
+    const ULONG interface_metric =
+        GetIpInterfaceEntry(&ip_interface) == NO_ERROR ? ip_interface.Metric : 0;
+    const bool hardware =
+        interface_row.InterfaceAndOperStatusFlags.HardwareInterface != FALSE;
+    const ULONG metric = route.Metric + interface_metric;
+    if (!selected || (hardware && !selected_hardware) ||
+        (hardware == selected_hardware && metric < best_metric)) {
+      selected_storage = interface_row;
+      selected = &selected_storage;
+      selected_hardware = hardware;
+      best_metric = metric;
+    }
+  }
+
+  if (!selected) {
+    FreeMibTable(table);
+    return std::nullopt;
+  }
+
+  struct Candidate {
+    ULONG network;
+    const char* address;
+  };
+  constexpr Candidate candidates[] = {
+      {0xac1fff00UL, "172.31.255.1/30"},
+      {0xac1eff00UL, "172.30.255.1/30"},
+      {0xc6120000UL, "198.18.0.1/30"},
+      {0x0affff00UL, "10.255.255.1/30"},
+  };
+  const char* tun_address = nullptr;
+  for (const auto& candidate : candidates) {
+    bool overlaps = false;
+    for (ULONG index = 0; index < table->NumEntries; ++index) {
+      if (RouteOverlapsCandidate(table->Table[index], candidate.network)) {
+        overlaps = true;
+        break;
+      }
+    }
+    if (!overlaps) {
+      tun_address = candidate.address;
+      break;
+    }
+  }
+
+  NetworkProfile result;
+  result.default_interface = elephant::WideToUtf8(selected->Alias);
+  if (tun_address) result.tun_ipv4_address = tun_address;
+  result.strict_route = IsWindows11OrGreater();
+  FreeMibTable(table);
+  if (result.default_interface.empty() || result.tun_ipv4_address.empty()) {
+    return std::nullopt;
+  }
+  return result;
+}
+
+std::string NetworkProfileJson() {
+  const auto profile = DetectNetworkProfile();
+  if (!profile) {
+    return elephant::BuildError(
+        "default_interface_missing",
+        "No usable physical IPv4 default interface or TUN subnet was found");
+  }
+  return "{\"status\":\"ready\",\"default_interface\":\"" +
+         elephant::JsonEscape(profile->default_interface) +
+         "\",\"tun_ipv4_address\":\"" +
+         elephant::JsonEscape(profile->tun_ipv4_address) +
+         "\",\"strict_route\":" +
+         (profile->strict_route ? "true" : "false") + "}";
 }
 
 std::string CurrentStateJson() {
@@ -190,10 +327,45 @@ void WatchCore(HANDLE process, DWORD process_id) {
   CloseHandle(process);
 }
 
+std::string ClashRequest(const std::wstring& verb, const std::wstring& path,
+                         const std::string& body = {});
+
+bool LogContainsSince(const std::filesystem::path& path, std::uintmax_t offset,
+                      const std::string& text) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return false;
+  input.seekg(static_cast<std::streamoff>(offset));
+  const std::string contents((std::istreambuf_iterator<char>(input)),
+                             std::istreambuf_iterator<char>());
+  return contents.find(text) != std::string::npos;
+}
+
+bool WaitForCoreReady(HANDLE process, const std::filesystem::path& log_path,
+                      std::uintmax_t log_offset) {
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::seconds(8);
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (WaitForSingleObject(process, 0) == WAIT_OBJECT_0) return false;
+    if (LogContainsSince(log_path, log_offset,
+                         "network: missing default interface")) {
+      return false;
+    }
+    if (!ClashRequest(L"GET", L"/version").empty()) return true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  }
+  return false;
+}
+
 std::string StartCore(const std::string& config, bool speed_test) {
   if (config.empty() || config.size() > elephant::kMaxConfigBytes ||
       config.front() != '{' || config.find("\"type\":\"tun\"") == std::string::npos) {
     return elephant::BuildError("config_invalid", "TUN configuration is invalid");
+  }
+
+  if (!DetectNetworkProfile()) {
+    SetRuntimeState("error", "default_interface_missing",
+                    "No usable physical IPv4 default interface was found");
+    return CurrentStateJson();
   }
 
   StopCore();
@@ -220,6 +392,11 @@ std::string StartCore(const std::string& config, bool speed_test) {
   }
 
   const auto log_path = runtime_dir / L"sing-box.log";
+  std::error_code log_size_error;
+  const auto log_offset = std::filesystem::exists(log_path)
+                              ? std::filesystem::file_size(log_path,
+                                                           log_size_error)
+                              : 0;
   SECURITY_ATTRIBUTES log_security{};
   log_security.nLength = sizeof(log_security);
   log_security.bInheritHandle = TRUE;
@@ -270,9 +447,17 @@ std::string StartCore(const std::string& config, bool speed_test) {
   }
   ResumeThread(process.hThread);
   CloseHandle(process.hThread);
-  if (WaitForSingleObject(process.hProcess, 1500) == WAIT_OBJECT_0) {
+  if (!WaitForCoreReady(process.hProcess, log_path,
+                        log_size_error ? 0 : log_offset)) {
     StopCore();
-    SetRuntimeState("error", "core_start_failed", "sing-box exited during startup");
+    const bool missing_interface = LogContainsSince(
+        log_path, log_size_error ? 0 : log_offset,
+        "network: missing default interface");
+    SetRuntimeState(
+        "error",
+        missing_interface ? "default_interface_missing" : "core_start_failed",
+        missing_interface ? "sing-box could not bind the default interface"
+                          : "sing-box control API did not become ready");
     return CurrentStateJson();
   }
 
@@ -310,7 +495,7 @@ std::wstring PercentEncode(const std::string& value) {
 }
 
 std::string ClashRequest(const std::wstring& verb, const std::wstring& path,
-                         const std::string& body = {}) {
+                         const std::string& body) {
   HINTERNET session = WinHttpOpen(L"ElephantNetworkService/1.0",
                                   WINHTTP_ACCESS_TYPE_NO_PROXY,
                                   WINHTTP_NO_PROXY_NAME,
@@ -358,6 +543,7 @@ std::string HandleRequest(const std::string& request) {
   g_last_client_tick = GetTickCount64();
 
   if (*method == "getStatus") return CurrentStateJson();
+  if (*method == "getNetworkProfile") return NetworkProfileJson();
   if (*method == "stop") {
     StopCore();
     return CurrentStateJson();

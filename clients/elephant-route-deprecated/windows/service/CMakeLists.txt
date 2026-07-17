@@ -14,4 +14,5 @@ target_compile_definitions(ElephantNetworkService PRIVATE
   "FLUTTER_VERSION_MINOR=${FLUTTER_VERSION_MINOR}"
   "FLUTTER_VERSION_PATCH=${FLUTTER_VERSION_PATCH}"
   "FLUTTER_VERSION_BUILD=${FLUTTER_VERSION_BUILD}")
-target_link_libraries(ElephantNetworkService PRIVATE advapi32 winhttp shell32 ole32 version)
+target_link_libraries(ElephantNetworkService PRIVATE
+  advapi32 iphlpapi winhttp shell32 ole32 version ws2_32)

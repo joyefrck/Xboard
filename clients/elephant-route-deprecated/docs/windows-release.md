@@ -11,6 +11,13 @@ so a standard user can connect without approving a second UAC prompt. The app
 also supports system proxy mode, tray controls, optional launch at startup, and
 in-app update checks.
 
+The installer also deploys the Microsoft Visual C++ 2015-2022 x64 runtime.
+Before starting TUN, the service selects an active physical IPv4 default
+interface and a non-conflicting TUN subnet. Windows 10 uses explicit
+interface binding with the strict-route WFP kill switch disabled; the client
+reports an error instead of a false connected state when the interface or the
+local sing-box control API is unavailable.
+
 The installer supports fresh installation, in-place upgrades, and uninstall.
 Uninstall stops the app, service, and core processes and restores only legacy
 proxy settings owned by Elephant Network. Users can choose whether application

@@ -66,9 +66,17 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
       resetFailureReason: true,
     ));
 
-    final runtimeDir = _runtimeDirectory();
-    final sanitized = _sanitizeConfig(config, runtimeDir);
     try {
+      final networkProfile = await _networkProfile();
+      if (networkProfile == null) return;
+      final runtimeDir = _runtimeDirectory();
+      final sanitized = _sanitizeConfig(
+        config,
+        runtimeDir,
+        defaultInterface: networkProfile.defaultInterface,
+        tunIpv4Address: networkProfile.tunIpv4Address,
+        strictRoute: networkProfile.strictRoute,
+      );
       final result = await _invokeMap('start', {
         'protocol_version': WindowsServiceProtocol.protocolVersion,
         'config': sanitized,
@@ -91,9 +99,17 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<void> prepareSpeedTest(String config) async {
     WindowsServiceProtocol.validateConfig(config);
+    final networkProfile = await _networkProfile();
+    if (networkProfile == null) return;
     await _invokeMap('prepareSpeedTest', {
       'protocol_version': WindowsServiceProtocol.protocolVersion,
-      'config': _sanitizeConfig(config, _runtimeDirectory()),
+      'config': _sanitizeConfig(
+        config,
+        _runtimeDirectory(),
+        defaultInterface: networkProfile.defaultInterface,
+        tunIpv4Address: networkProfile.tunIpv4Address,
+        strictRoute: networkProfile.strictRoute,
+      ),
     });
   }
 
@@ -223,7 +239,37 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     return '$programData\\ElephantNetwork\\runtime';
   }
 
-  String _sanitizeConfig(String jsonConfig, String runtimeDir) {
+  Future<_WindowsNetworkProfile?> _networkProfile() async {
+    final result = await _invokeMap('getNetworkProfile');
+    final defaultInterface =
+        result['default_interface']?.toString().trim() ?? '';
+    final tunIpv4Address = result['tun_ipv4_address']?.toString().trim() ?? '';
+    if (result['status'] == 'error' ||
+        defaultInterface.isEmpty ||
+        tunIpv4Address.isEmpty) {
+      _handleState(result['status'] == 'error'
+          ? result
+          : const <String, dynamic>{
+              'status': 'error',
+              'error_code': 'default_interface_missing',
+              'error_message': '未找到可用的 Windows 默认网络接口',
+            });
+      return null;
+    }
+    return _WindowsNetworkProfile(
+      defaultInterface: defaultInterface,
+      tunIpv4Address: tunIpv4Address,
+      strictRoute: result['strict_route'] == true,
+    );
+  }
+
+  String _sanitizeConfig(
+    String jsonConfig,
+    String runtimeDir, {
+    required String defaultInterface,
+    required String tunIpv4Address,
+    required bool strictRoute,
+  }) {
     final config = Map<String, dynamic>.from(jsonDecode(jsonConfig) as Map);
     config.remove('use_tun_mode');
     config['log'] = {'level': 'warn', 'timestamp': true};
@@ -236,16 +282,24 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
       'type': 'tun',
       'tag': 'tun-in',
       'interface_name': 'ElephantNetwork',
-      'address': ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+      'address': [tunIpv4Address, 'fdfe:dcba:9876::1/126'],
       'auto_route': true,
-      'strict_route': true,
+      // strict_route installs a Windows WFP kill switch. On Windows 10 it can
+      // reject all traffic while the physical interface is still settling or
+      // when another virtualization/VPN filter is present. Explicit interface
+      // binding still prevents the sing-box outbound from looping into TUN.
+      'strict_route': strictRoute,
       'stack': 'system',
       'sniff': true,
     });
     config['inbounds'] = inbounds;
 
-    final route = config['route'];
-    if (route is Map) {
+    final route =
+        config['route'] is Map ? config['route'] as Map : <String, dynamic>{};
+    config['route'] = route;
+    {
+      route['auto_detect_interface'] = false;
+      route['default_interface'] = defaultInterface;
       final ruleSets = route['rule_set'];
       if (ruleSets is List) {
         for (var index = 0; index < ruleSets.length; index += 1) {
@@ -296,4 +350,16 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     _eventSubscription?.cancel();
     _stateController.close();
   }
+}
+
+final class _WindowsNetworkProfile {
+  const _WindowsNetworkProfile({
+    required this.defaultInterface,
+    required this.tunIpv4Address,
+    required this.strictRoute,
+  });
+
+  final String defaultInterface;
+  final String tunIpv4Address;
+  final bool strictRoute;
 }

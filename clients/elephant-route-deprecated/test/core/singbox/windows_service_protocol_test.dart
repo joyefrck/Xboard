@@ -33,6 +33,16 @@ void main() {
       expect(state.status, VpnStatus.error);
       expect(state.failureReason, VpnFailureReason.routeConflict);
       expect(state.errorMessage, contains('TUN'));
+
+      final missingInterface = WindowsServiceProtocol.parseState({
+        'status': 'error',
+        'error_code': 'default_interface_missing',
+        'error_message': 'No default interface',
+      });
+      expect(
+        missingInterface.failureReason,
+        VpnFailureReason.coreStartFailed,
+      );
     });
 
     test('rejects empty and oversized configs', () {
