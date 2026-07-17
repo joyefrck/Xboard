@@ -41,6 +41,7 @@ function loadAdminAppDownloadHelpers() {
     extractFunction(page, 'detectPlatform'),
     extractFunction(page, 'inferVersion'),
     extractFunction(page, 'slugifyAppKey'),
+    extractFunction(page, 'canonicalAppKey'),
     extractFunction(page, 'inferAppKey'),
     extractFunction(page, 'titleCase'),
     extractFunction(page, 'inferAppName'),
@@ -48,6 +49,7 @@ function loadAdminAppDownloadHelpers() {
     extractFunction(page, 'displayAppName'),
     'this.detectPlatform = detectPlatform;'
       + 'this.inferVersion = inferVersion;'
+      + 'this.canonicalAppKey = canonicalAppKey;'
       + 'this.inferAppKey = inferAppKey;'
       + 'this.inferAppName = inferAppName;'
       + 'this.hasLegacyDecimalSpacing = hasLegacyDecimalSpacing;'
@@ -79,14 +81,17 @@ test('admin app download autofill still removes ordinary dotted package versions
   );
 });
 
-test('admin app download autofill prefers stable official android app key', () => {
-  const { detectPlatform, inferAppKey, inferAppName } = loadAdminAppDownloadHelpers();
+test('admin app download autofill fixes supported platforms to client app keys', () => {
+  const { canonicalAppKey, detectPlatform, inferAppKey, inferAppName } = loadAdminAppDownloadHelpers();
   const filename = 'elephant-route-android-release-arm64-v1.1.apk';
   const platform = detectPlatform(filename);
 
   assert.equal(platform, 'android');
   assert.equal(inferAppName(filename), 'Elephant Route');
   assert.equal(inferAppKey(filename, inferAppName(filename), platform), 'elephant-route-android');
+  assert.equal(canonicalAppKey('windows'), 'elephant-route-desktop');
+  assert.equal(canonicalAppKey('macos'), 'elephant-route-desktop');
+  assert.equal(canonicalAppKey('linux'), '');
 });
 
 test('admin app download page keeps stored app names when the version is split separately', () => {
@@ -110,7 +115,9 @@ test('admin app download publish form exposes app identity and version fields', 
 
   assert.match(page, /<label>应用名称<input name="app_name"/);
   assert.match(page, /<label>应用标识<input name="app_key"/);
-  assert.match(page, /同一个软件的后续版本必须保持一致/);
+  assert.match(page, /Windows\/macOS 固定为 elephant-route-desktop/);
+  assert.match(page, /appKeyInput\.readOnly = !!canonicalKey/);
+  assert.match(page, /platform: packageForm\.querySelector\('\[name="platform"\]'\)\.value/);
   assert.match(page, /<label>版本号<input name="version"/);
   assert.doesNotMatch(page, /<input type="hidden" name="app_key"/);
   assert.doesNotMatch(page, /<input type="hidden" name="version"/);
@@ -120,6 +127,10 @@ test('admin app package save uses app key as primary software identity', () => {
   const controller = readRepoFile('app/Http/Controllers/V2/Admin/AppPackageController.php');
 
   assert.match(controller, /if \(\$existingByKey\) \{[\s\S]*\$data\['id'\]\s*=\s*\$existingByKey->id;[\s\S]*\}/);
+  assert.match(controller, /'windows'\s*=>\s*'elephant-route-desktop'/);
+  assert.match(controller, /'macos'\s*=>\s*'elephant-route-desktop'/);
+  assert.match(controller, /'android'\s*=>\s*'elephant-route-android'/);
+  assert.match(controller, /unset\(\$data\['id'\]\)/);
   assert.match(controller, /if \(empty\(\$data\['id'\]\) && empty\(\$data\['app_key'\]\)\)/);
   assert.doesNotMatch(controller, /应用标识已存在，请更换应用名称或标识/);
 });

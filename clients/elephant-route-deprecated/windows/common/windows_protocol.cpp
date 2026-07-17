@@ -148,6 +148,15 @@ std::optional<std::int64_t> JsonInteger(const std::string& json,
   return value;
 }
 
+std::optional<bool> JsonBoolean(const std::string& json,
+                                const std::string& key) {
+  const auto position = FindValue(json, key);
+  if (position == std::string::npos) return std::nullopt;
+  if (json.compare(position, 4, "true") == 0) return true;
+  if (json.compare(position, 5, "false") == 0) return false;
+  return std::nullopt;
+}
+
 std::string BuildRequest(const std::string& method,
                          const std::string& arguments_json) {
   return "{\"version\":" + std::to_string(kProtocolVersion) +

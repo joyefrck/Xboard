@@ -230,7 +230,7 @@
         <label>安装包<input type="file" name="artifact" required></label>
         <label>应用名称<input name="app_name" required placeholder="例如 Clash Verge"></label>
         <label>应用标识<input name="app_key" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="例如 elephant-route-android"></label>
-        <p class="muted">同一个软件的后续版本必须保持一致，用于客户端更新匹配。</p>
+        <p class="muted">Android 固定为 elephant-route-android；Windows/macOS 固定为 elephant-route-desktop；iOS/Linux 可自定义。</p>
         <label>版本号<input name="version" required placeholder="例如 1.1.0"></label>
         <label>平台
           <select name="platform" required>
@@ -433,6 +433,7 @@
           packageForm.querySelector('[name="is_force"]').value = 0;
           packageForm.querySelector('[name="is_enabled"]').value = 1;
         }
+        syncPackageAppIdentity();
       }
 
       function stripKnownExtension(filename) {
@@ -476,11 +477,17 @@
           .replace(/-{2,}/g, "-");
       }
 
+      function canonicalAppKey(platform) {
+        return {
+          android: "elephant-route-android",
+          windows: "elephant-route-desktop",
+          macos: "elephant-route-desktop"
+        }[String(platform || "").toLowerCase()] || "";
+      }
+
       function inferAppKey(filename, appName, platform) {
-        var joined = [filename, appName].join(" ").toLowerCase();
-        if (platform === "android" && /elephant[\s._-]*route/.test(joined)) {
-          return "elephant-route-android";
-        }
+        var canonical = canonicalAppKey(platform);
+        if (canonical) return canonical;
         return slugifyAppKey(appName);
       }
 
@@ -584,19 +591,22 @@
         var guessedName = inferAppName(file.name);
         var guessedPlatform = detectPlatform(file.name);
         var guessedVersion = inferVersion(file.name);
-        var existingApp = findExistingAppByGuess(guessedName);
+        if (guessedPlatform) {
+          packageForm.querySelector('[name="platform"]').value = guessedPlatform;
+        }
+        syncPackageAppIdentity();
+        var canonicalKey = canonicalAppKey(guessedPlatform);
+        var existingApp = canonicalKey
+          ? findExistingAppByKey(canonicalKey)
+          : findExistingAppByGuess(guessedName);
         packageForm.querySelector('[name="app_id"]').value = existingApp ? existingApp.id : "";
         packageForm.querySelector('[name="app_name"]').value = existingApp && !hasLegacyDecimalSpacing(existingApp.name, guessedName)
           ? existingApp.name
           : guessedName;
-        packageForm.querySelector('[name="app_key"]').value = existingApp
-          ? existingApp.app_key
-          : inferAppKey(file.name, guessedName, guessedPlatform);
+        packageForm.querySelector('[name="app_key"]').value = canonicalKey
+          || (existingApp ? existingApp.app_key : inferAppKey(file.name, guessedName, guessedPlatform));
         if (guessedVersion) {
           packageForm.querySelector('[name="version"]').value = guessedVersion;
-        }
-        if (guessedPlatform) {
-          packageForm.querySelector('[name="platform"]').value = guessedPlatform;
         }
       }
 
@@ -724,9 +734,31 @@
         });
       }
 
+      function syncPackageAppIdentity() {
+        var platform = packageForm.querySelector('[name="platform"]').value;
+        var appKeyInput = packageForm.querySelector('[name="app_key"]');
+        var canonicalKey = canonicalAppKey(platform);
+        var wasCanonical = appKeyInput.readOnly;
+        appKeyInput.readOnly = !!canonicalKey;
+        if (!canonicalKey) {
+          if (wasCanonical) {
+            appKeyInput.value = "";
+            packageForm.querySelector('[name="app_id"]').value = "";
+          }
+          return;
+        }
+
+        appKeyInput.value = canonicalKey;
+        var existingApp = findExistingAppByKey(canonicalKey);
+        packageForm.querySelector('[name="app_id"]').value = existingApp ? existingApp.id : "";
+      }
+
       artifactInput.addEventListener("change", function () {
         resetUploadProgress();
         autofillPackageFromArtifact();
+      });
+      packageForm.querySelector('[name="platform"]').addEventListener("change", function () {
+        syncPackageAppIdentity();
       });
 
       packageForm.addEventListener("submit", async function (event) {
@@ -749,6 +781,7 @@
           var appPayload = {
             name: appName,
             app_key: appKey,
+            platform: packageForm.querySelector('[name="platform"]').value,
             description: packageForm.querySelector('[name="release_notes"]').value || "",
             is_active: 1
           };

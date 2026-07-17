@@ -40,6 +40,8 @@ void main() {
   test('native service is constrained to local IPC and the bundled core', () {
     final header = File('windows/common/windows_protocol.h').readAsStringSync();
     final service = File('windows/service/service_main.cpp').readAsStringSync();
+    final bridge =
+        File('windows/runner/windows_service_bridge.cpp').readAsStringSync();
 
     expect(header, contains('kPipeName'));
     expect(header, contains('ElephantNetworkService.v1'));
@@ -56,6 +58,9 @@ void main() {
     expect(service, contains('getNetworkProfile'));
     expect(service, contains('WaitForCoreReady'));
     expect(service, isNot(contains('powershell')));
+    expect(bridge, contains('"default_interface"'));
+    expect(bridge, contains('"tun_ipv4_address"'));
+    expect(bridge, contains('JsonBoolean(json, "strict_route")'));
   });
 
   test(

@@ -18,6 +18,8 @@ std::optional<std::string> JsonString(const std::string& json,
                                       const std::string& key);
 std::optional<std::int64_t> JsonInteger(const std::string& json,
                                         const std::string& key);
+std::optional<bool> JsonBoolean(const std::string& json,
+                                const std::string& key);
 std::string BuildRequest(const std::string& method,
                          const std::string& arguments_json = "{}");
 std::string BuildError(const std::string& code, const std::string& message);

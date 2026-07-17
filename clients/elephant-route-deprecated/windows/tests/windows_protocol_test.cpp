@@ -17,6 +17,11 @@ int main() {
   assert(elephant::JsonString(error, "error_code") == "config_invalid");
   assert(elephant::JsonString(error, "error_message") == "bad \"value\"");
 
+  const std::string profile =
+      R"({"default_interface":"Ethernet","strict_route":false})";
+  assert(elephant::JsonBoolean(profile, "strict_route") == false);
+  assert(!elephant::JsonBoolean(profile, "missing").has_value());
+
   const auto wide = elephant::Utf8ToWide("大象网络");
   assert(!wide.empty());
   assert(elephant::WideToUtf8(wide) == "大象网络");

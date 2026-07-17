@@ -30,7 +30,9 @@ std::optional<std::string> StringArgument(
 
 EncodableValue ResponseValue(const std::string& json) {
   EncodableMap map;
-  for (const auto* key : {"status", "mode", "core_version", "error_code", "error_message"}) {
+  for (const auto* key : {"status", "mode", "core_version", "error_code",
+                          "error_message", "default_interface",
+                          "tun_ipv4_address"}) {
     if (const auto value = elephant::JsonString(json, key)) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }
@@ -39,6 +41,9 @@ EncodableValue ResponseValue(const std::string& json) {
     if (const auto value = elephant::JsonInteger(json, key)) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }
+  }
+  if (const auto strict_route = elephant::JsonBoolean(json, "strict_route")) {
+    map[EncodableValue("strict_route")] = EncodableValue(*strict_route);
   }
   return EncodableValue(map);
 }

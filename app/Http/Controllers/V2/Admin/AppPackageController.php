@@ -73,12 +73,31 @@ class AppPackageController extends Controller
                 'max:64',
                 'regex:/^[a-z0-9][a-z0-9-]*[a-z0-9]$/',
             ],
+            'platform' => [
+                'nullable',
+                'string',
+                Rule::in(['android', 'windows', 'macos', 'ios', 'linux']),
+            ],
             'description' => 'nullable|string|max:2000',
             'is_active' => 'nullable|boolean',
         ]);
 
         $data['is_active'] = (bool) ($data['is_active'] ?? true);
         $data['app_key'] = trim((string) ($data['app_key'] ?? ''));
+        $platform = strtolower(trim((string) ($data['platform'] ?? '')));
+        unset($data['platform']);
+
+        $canonicalPackageAppKeys = [
+            'android' => 'elephant-route-android',
+            'windows' => 'elephant-route-desktop',
+            'macos' => 'elephant-route-desktop',
+        ];
+        if (isset($canonicalPackageAppKeys[$platform])) {
+            $data['app_key'] = $canonicalPackageAppKeys[$platform];
+            // Package publishing resolves identity from the platform. Ignore a
+            // stale or forged app id and reuse only the canonical app below.
+            unset($data['id']);
+        }
 
         if ($data['app_key'] !== '') {
             $existingByKey = DistributionApp::query()
