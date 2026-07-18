@@ -74,3 +74,13 @@ test('official versions require the platform reserved app key', () => {
   assert.match(controller, /officialAppKeyForPlatform\(\$data\['platform'\]\)/);
   assert.match(controller, /官方应用标识与发布平台不匹配/);
 });
+
+test('public downloads retain both distribution scopes', () => {
+  const controller = readRepoFile(
+    'app/Http/Controllers/V1/Guest/AppDownloadController.php'
+  );
+
+  assert.match(controller, /where\('is_enabled',\s*true\)/);
+  assert.match(controller, /whereHas\('app',[\s\S]*is_active/);
+  assert.doesNotMatch(controller, /distribution_scope/);
+});
