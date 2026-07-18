@@ -228,9 +228,15 @@
         <input type="hidden" name="is_force" value="0">
         <input type="hidden" name="is_enabled" value="1">
         <label>安装包<input type="file" name="artifact" required></label>
+        <label>应用类型
+          <select name="distribution_scope" required>
+            <option value="download_only" selected>第三方 App（仅供下载）</option>
+            <option value="official_update">大象官方 App（支持自动更新）</option>
+          </select>
+        </label>
         <label>应用名称<input name="app_name" required placeholder="例如 Clash Verge"></label>
         <label>应用标识<input name="app_key" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="例如 elephant-route-android"></label>
-        <p class="muted">Android 固定为 elephant-route-android；Windows/macOS 固定为 elephant-route-desktop；iOS/Linux 可自定义。</p>
+        <p class="muted">第三方 App 的标识只用于归档，同一个软件的后续版本必须保持一致，且不能使用大象官方保留标识；官方 App 会按平台自动锁定标识，Windows/macOS 共用 elephant-route-desktop。</p>
         <label>版本号<input name="version" required placeholder="例如 1.1.0"></label>
         <label>平台
           <select name="platform" required>
@@ -433,7 +439,7 @@
           packageForm.querySelector('[name="is_force"]').value = 0;
           packageForm.querySelector('[name="is_enabled"]').value = 1;
         }
-        syncPackageAppIdentity();
+        syncAppIdentityControls();
       }
 
       function stripKnownExtension(filename) {
@@ -477,7 +483,7 @@
           .replace(/-{2,}/g, "-");
       }
 
-      function canonicalAppKey(platform) {
+      function officialAppKeyForPlatform(platform) {
         return {
           android: "elephant-route-android",
           windows: "elephant-route-desktop",
@@ -485,10 +491,37 @@
         }[String(platform || "").toLowerCase()] || "";
       }
 
-      function inferAppKey(filename, appName, platform) {
-        var canonical = canonicalAppKey(platform);
-        if (canonical) return canonical;
+      function inferAppKey(filename, appName, platform, distributionScope) {
+        if (distributionScope === "official_update") {
+          return officialAppKeyForPlatform(platform);
+        }
         return slugifyAppKey(appName);
+      }
+
+      function syncAppIdentityControls() {
+        var scopeInput = packageForm.querySelector('[name="distribution_scope"]');
+        var platformInput = packageForm.querySelector('[name="platform"]');
+        var appNameInput = packageForm.querySelector('[name="app_name"]');
+        var appKeyInput = packageForm.querySelector('[name="app_key"]');
+        var appIdInput = packageForm.querySelector('[name="app_id"]');
+        var isOfficial = scopeInput.value === "official_update";
+
+        appKeyInput.readOnly = isOfficial;
+        if (isOfficial) {
+          appKeyInput.value = officialAppKeyForPlatform(platformInput.value);
+        } else if (!appKeyInput.value
+          || officialAppKeyForPlatform("android") === appKeyInput.value
+          || officialAppKeyForPlatform("windows") === appKeyInput.value
+          || officialAppKeyForPlatform("macos") === appKeyInput.value) {
+          appKeyInput.value = slugifyAppKey(appNameInput.value);
+        }
+
+        var currentApp = appIdInput.value ? findExistingAppById(appIdInput.value) : null;
+        if (currentApp
+          && (String(currentApp.distribution_scope || "download_only") !== scopeInput.value
+            || String(currentApp.app_key || "").toLowerCase() !== appKeyInput.value.toLowerCase())) {
+          appIdInput.value = "";
+        }
       }
 
       function titleCase(words) {
@@ -570,16 +603,18 @@
           + (buildNumber ? "<br><span class=\"muted\">Build " + escapeHtml(buildNumber) + "</span>" : "");
       }
 
-      function findExistingAppByGuess(name) {
+      function findExistingAppByGuess(name, distributionScope) {
         var normalized = String(name || "").trim().toLowerCase();
         var compact = normalized.replace(/[^a-z0-9]+/g, "");
         return apps.find(function (app) {
           var appName = String(app.name || "").trim().toLowerCase();
           var appKey = String(app.app_key || "").trim().toLowerCase();
-          return appName === normalized
-            || appKey === normalized.replace(/\s+/g, "-")
-            || appName.replace(/[^a-z0-9]+/g, "") === compact
-            || appKey.replace(/[^a-z0-9]+/g, "") === compact;
+          var appScope = String(app.distribution_scope || "download_only");
+          return appScope === distributionScope
+            && (appName === normalized
+              || appKey === normalized.replace(/\s+/g, "-")
+              || appName.replace(/[^a-z0-9]+/g, "") === compact
+              || appKey.replace(/[^a-z0-9]+/g, "") === compact);
         });
       }
 
@@ -591,23 +626,24 @@
         var guessedName = inferAppName(file.name);
         var guessedPlatform = detectPlatform(file.name);
         var guessedVersion = inferVersion(file.name);
+        var distributionScope = packageForm.querySelector('[name="distribution_scope"]').value;
+        var inferredAppKey = inferAppKey(file.name, guessedName, guessedPlatform, distributionScope);
+        var existingApp = findExistingAppByKey(inferredAppKey, distributionScope)
+          || findExistingAppByGuess(guessedName, distributionScope);
         if (guessedPlatform) {
           packageForm.querySelector('[name="platform"]').value = guessedPlatform;
         }
-        syncPackageAppIdentity();
-        var canonicalKey = canonicalAppKey(guessedPlatform);
-        var existingApp = canonicalKey
-          ? findExistingAppByKey(canonicalKey)
-          : findExistingAppByGuess(guessedName);
         packageForm.querySelector('[name="app_id"]').value = existingApp ? existingApp.id : "";
         packageForm.querySelector('[name="app_name"]').value = existingApp && !hasLegacyDecimalSpacing(existingApp.name, guessedName)
           ? existingApp.name
           : guessedName;
-        packageForm.querySelector('[name="app_key"]').value = canonicalKey
-          || (existingApp ? existingApp.app_key : inferAppKey(file.name, guessedName, guessedPlatform));
+        packageForm.querySelector('[name="app_key"]').value = existingApp
+          ? existingApp.app_key
+          : inferredAppKey;
         if (guessedVersion) {
           packageForm.querySelector('[name="version"]').value = guessedVersion;
         }
+        syncAppIdentityControls();
       }
 
       async function loadApps() {
@@ -711,20 +747,24 @@
         }
       });
 
-      function findExistingAppByName(name) {
+      function findExistingAppByName(name, distributionScope) {
         var normalized = String(name || "").trim().toLowerCase();
         return apps.find(function (app) {
-          return String(app.name || "").trim().toLowerCase() === normalized;
+          return String(app.name || "").trim().toLowerCase() === normalized
+            && (!distributionScope
+              || String(app.distribution_scope || "download_only") === distributionScope);
         });
       }
 
-      function findExistingAppByKey(appKey) {
+      function findExistingAppByKey(appKey, distributionScope) {
         var normalized = String(appKey || "").trim().toLowerCase();
         if (!normalized) {
           return null;
         }
         return apps.find(function (app) {
-          return String(app.app_key || "").trim().toLowerCase() === normalized;
+          return String(app.app_key || "").trim().toLowerCase() === normalized
+            && (!distributionScope
+              || String(app.distribution_scope || "download_only") === distributionScope);
         });
       }
 
@@ -734,32 +774,12 @@
         });
       }
 
-      function syncPackageAppIdentity() {
-        var platform = packageForm.querySelector('[name="platform"]').value;
-        var appKeyInput = packageForm.querySelector('[name="app_key"]');
-        var canonicalKey = canonicalAppKey(platform);
-        var wasCanonical = appKeyInput.readOnly;
-        appKeyInput.readOnly = !!canonicalKey;
-        if (!canonicalKey) {
-          if (wasCanonical) {
-            appKeyInput.value = "";
-            packageForm.querySelector('[name="app_id"]').value = "";
-          }
-          return;
-        }
-
-        appKeyInput.value = canonicalKey;
-        var existingApp = findExistingAppByKey(canonicalKey);
-        packageForm.querySelector('[name="app_id"]').value = existingApp ? existingApp.id : "";
-      }
-
       artifactInput.addEventListener("change", function () {
         resetUploadProgress();
         autofillPackageFromArtifact();
       });
-      packageForm.querySelector('[name="platform"]').addEventListener("change", function () {
-        syncPackageAppIdentity();
-      });
+      packageForm.querySelector('[name="distribution_scope"]').addEventListener("change", syncAppIdentityControls);
+      packageForm.querySelector('[name="platform"]').addEventListener("change", syncAppIdentityControls);
 
       packageForm.addEventListener("submit", async function (event) {
         event.preventDefault();
@@ -769,7 +789,11 @@
           setPackageDefaults(false);
           var appName = packageForm.querySelector('[name="app_name"]').value.trim();
           var appKey = packageForm.querySelector('[name="app_key"]').value.trim();
-          var existingApp = findExistingAppByKey(appKey) || findExistingAppByName(appName);
+          var distributionScope = packageForm.querySelector('[name="distribution_scope"]').value;
+          var existingApp = findExistingAppByKey(appKey, distributionScope)
+            || (distributionScope === "download_only"
+              ? findExistingAppByName(appName, distributionScope)
+              : null);
           var currentAppId = packageForm.querySelector('[name="app_id"]').value;
           var currentApp = currentAppId ? findExistingAppById(currentAppId) : null;
           if (currentApp
@@ -782,6 +806,7 @@
             name: appName,
             app_key: appKey,
             platform: packageForm.querySelector('[name="platform"]').value,
+            distribution_scope: distributionScope,
             description: packageForm.querySelector('[name="release_notes"]').value || "",
             is_active: 1
           };
@@ -813,6 +838,7 @@
           showStatus("安装包已发布", true);
           packageForm.reset();
           setPackageDefaults(true);
+          syncAppIdentityControls();
           await refreshAll();
         } catch (e) {
           showStatus(e.message, false);
@@ -827,6 +853,7 @@
         packageForm.querySelector('[name="app_id"]').value = "";
         resetUploadProgress();
         setPackageDefaults(true);
+        syncAppIdentityControls();
       });
       document.getElementById("refresh").addEventListener("click", function () {
         refreshAll().catch(function (e) { showStatus(e.message, false); });

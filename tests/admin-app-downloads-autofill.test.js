@@ -41,7 +41,7 @@ function loadAdminAppDownloadHelpers() {
     extractFunction(page, 'detectPlatform'),
     extractFunction(page, 'inferVersion'),
     extractFunction(page, 'slugifyAppKey'),
-    extractFunction(page, 'canonicalAppKey'),
+    extractFunction(page, 'officialAppKeyForPlatform'),
     extractFunction(page, 'inferAppKey'),
     extractFunction(page, 'titleCase'),
     extractFunction(page, 'inferAppName'),
@@ -49,7 +49,7 @@ function loadAdminAppDownloadHelpers() {
     extractFunction(page, 'displayAppName'),
     'this.detectPlatform = detectPlatform;'
       + 'this.inferVersion = inferVersion;'
-      + 'this.canonicalAppKey = canonicalAppKey;'
+      + 'this.officialAppKeyForPlatform = officialAppKeyForPlatform;'
       + 'this.inferAppKey = inferAppKey;'
       + 'this.inferAppName = inferAppName;'
       + 'this.hasLegacyDecimalSpacing = hasLegacyDecimalSpacing;'
@@ -81,17 +81,54 @@ test('admin app download autofill still removes ordinary dotted package versions
   );
 });
 
-test('admin app download autofill fixes supported platforms to client app keys', () => {
-  const { canonicalAppKey, detectPlatform, inferAppKey, inferAppName } = loadAdminAppDownloadHelpers();
+test('admin app identity separates third-party and official package keys', () => {
+  const {
+    detectPlatform,
+    inferAppKey,
+    inferAppName,
+    officialAppKeyForPlatform,
+  } = loadAdminAppDownloadHelpers();
   const filename = 'elephant-route-android-release-arm64-v1.1.apk';
   const platform = detectPlatform(filename);
+  const appName = inferAppName(filename);
 
   assert.equal(platform, 'android');
-  assert.equal(inferAppName(filename), 'Elephant Route');
-  assert.equal(inferAppKey(filename, inferAppName(filename), platform), 'elephant-route-android');
-  assert.equal(canonicalAppKey('windows'), 'elephant-route-desktop');
-  assert.equal(canonicalAppKey('macos'), 'elephant-route-desktop');
-  assert.equal(canonicalAppKey('linux'), '');
+  assert.equal(appName, 'Elephant Route');
+  assert.equal(inferAppKey(filename, appName, platform, 'download_only'), 'elephant-route');
+  assert.equal(
+    inferAppKey(filename, appName, platform, 'official_update'),
+    'elephant-route-android'
+  );
+  assert.equal(officialAppKeyForPlatform('windows'), 'elephant-route-desktop');
+  assert.equal(officialAppKeyForPlatform('macos'), 'elephant-route-desktop');
+});
+
+test('admin publish form defaults to third-party and submits distribution scope', () => {
+  const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
+
+  assert.match(page, /<select name="distribution_scope" required>/);
+  assert.match(page, /<option value="download_only" selected>/);
+  assert.match(page, /<option value="official_update">/);
+  assert.match(page, /distribution_scope:\s*distributionScope/);
+  assert.match(page, /appKeyInput\.readOnly\s*=\s*isOfficial/);
+});
+
+test('admin publish form resynchronizes identity on scope, platform, upload and reset', () => {
+  const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
+
+  assert.match(page, /function syncAppIdentityControls\(\)/);
+  assert.match(page, /\[name="distribution_scope"\][\s\S]*addEventListener\("change", syncAppIdentityControls\)/);
+  assert.match(page, /\[name="platform"\][\s\S]*addEventListener\("change", syncAppIdentityControls\)/);
+  assert.match(page, /function autofillPackageFromArtifact\(\)[\s\S]*syncAppIdentityControls\(\)/);
+  assert.match(page, /resetPackageButton\.addEventListener\("click"[\s\S]*syncAppIdentityControls\(\)/);
+});
+
+test('admin publish form only reuses applications from the selected scope', () => {
+  const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
+
+  assert.match(page, /findExistingAppByKey\(inferredAppKey,\s*distributionScope\)\s*\|\|\s*findExistingAppByGuess/);
+  assert.match(page, /findExistingAppByKey\(appKey,\s*distributionScope\)/);
+  assert.match(page, /distributionScope === "download_only"\s*\?\s*findExistingAppByName\(appName,\s*distributionScope\)/);
 });
 
 test('admin app download page keeps stored app names when the version is split separately', () => {
@@ -115,9 +152,10 @@ test('admin app download publish form exposes app identity and version fields', 
 
   assert.match(page, /<label>应用名称<input name="app_name"/);
   assert.match(page, /<label>应用标识<input name="app_key"/);
-  assert.match(page, /Windows\/macOS 固定为 elephant-route-desktop/);
-  assert.match(page, /appKeyInput\.readOnly = !!canonicalKey/);
+  assert.match(page, /Windows\/macOS 共用 elephant-route-desktop/);
+  assert.match(page, /appKeyInput\.readOnly\s*=\s*isOfficial/);
   assert.match(page, /platform: packageForm\.querySelector\('\[name="platform"\]'\)\.value/);
+  assert.match(page, /distribution_scope:\s*distributionScope/);
   assert.match(page, /<label>版本号<input name="version"/);
   assert.doesNotMatch(page, /<input type="hidden" name="app_key"/);
   assert.doesNotMatch(page, /<input type="hidden" name="version"/);
