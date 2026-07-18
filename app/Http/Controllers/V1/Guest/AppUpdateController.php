@@ -32,6 +32,7 @@ class AppUpdateController extends Controller
         $app = null;
         if ($appKey !== '') {
             $app = DistributionApp::where('app_key', $appKey)
+                ->where('distribution_scope', DistributionApp::SCOPE_OFFICIAL_UPDATE)
                 ->where('is_active', true)
                 ->first();
 
@@ -51,7 +52,8 @@ class AppUpdateController extends Controller
             ->whereNotNull('published_at')
             ->whereHas('artifact')
             ->whereHas('app', function ($query) {
-                $query->where('is_active', true);
+                $query->where('distribution_scope', DistributionApp::SCOPE_OFFICIAL_UPDATE)
+                    ->where('is_active', true);
             })
             ->where(function ($query) use ($arch) {
                 if (!$arch) {

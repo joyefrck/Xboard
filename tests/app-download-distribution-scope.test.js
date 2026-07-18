@@ -35,3 +35,18 @@ test('distribution app model owns scope and reserved identity policy', () => {
   assert.match(model, /public static function isReservedAppKey/);
   assert.match(model, /'distribution_scope'/);
 });
+
+test('guest update checks only resolve official-update applications', () => {
+  const controller = readRepoFile(
+    'app/Http/Controllers/V1/Guest/AppUpdateController.php'
+  );
+
+  assert.match(
+    controller,
+    /where\('distribution_scope',\s*DistributionApp::SCOPE_OFFICIAL_UPDATE\)/
+  );
+  assert.match(
+    controller,
+    /whereHas\('app',[\s\S]*distribution_scope[\s\S]*SCOPE_OFFICIAL_UPDATE/
+  );
+});
