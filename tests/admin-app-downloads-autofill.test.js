@@ -127,9 +127,8 @@ test('admin app package save uses app key as primary software identity', () => {
   const controller = readRepoFile('app/Http/Controllers/V2/Admin/AppPackageController.php');
 
   assert.match(controller, /if \(\$existingByKey\) \{[\s\S]*\$data\['id'\]\s*=\s*\$existingByKey->id;[\s\S]*\}/);
-  assert.match(controller, /'windows'\s*=>\s*'elephant-route-desktop'/);
-  assert.match(controller, /'macos'\s*=>\s*'elephant-route-desktop'/);
-  assert.match(controller, /'android'\s*=>\s*'elephant-route-android'/);
+  assert.match(controller, /DistributionApp::officialAppKeyForPlatform\(\$platform\)/);
+  assert.match(controller, /\$data\['distribution_scope'\]\s*===\s*DistributionApp::SCOPE_OFFICIAL_UPDATE/);
   assert.match(controller, /unset\(\$data\['id'\]\)/);
   assert.match(controller, /if \(empty\(\$data\['id'\]\) && empty\(\$data\['app_key'\]\)\)/);
   assert.doesNotMatch(controller, /应用标识已存在，请更换应用名称或标识/);

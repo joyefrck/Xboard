@@ -79,21 +79,24 @@ class AppPackageController extends Controller
                 Rule::in(['android', 'windows', 'macos', 'ios', 'linux']),
             ],
             'description' => 'nullable|string|max:2000',
+            'distribution_scope' => [
+                'nullable',
+                'string',
+                Rule::in(DistributionApp::scopes()),
+            ],
             'is_active' => 'nullable|boolean',
         ]);
 
         $data['is_active'] = (bool) ($data['is_active'] ?? true);
         $data['app_key'] = trim((string) ($data['app_key'] ?? ''));
+        $data['distribution_scope'] = $data['distribution_scope']
+            ?? DistributionApp::SCOPE_DOWNLOAD_ONLY;
         $platform = strtolower(trim((string) ($data['platform'] ?? '')));
         unset($data['platform']);
 
-        $canonicalPackageAppKeys = [
-            'android' => 'elephant-route-android',
-            'windows' => 'elephant-route-desktop',
-            'macos' => 'elephant-route-desktop',
-        ];
-        if (isset($canonicalPackageAppKeys[$platform])) {
-            $data['app_key'] = $canonicalPackageAppKeys[$platform];
+        $officialAppKey = DistributionApp::officialAppKeyForPlatform($platform);
+        if ($data['distribution_scope'] === DistributionApp::SCOPE_OFFICIAL_UPDATE && $officialAppKey) {
+            $data['app_key'] = $officialAppKey;
             // Package publishing resolves identity from the platform. Ignore a
             // stale or forged app id and reuse only the canonical app below.
             unset($data['id']);
@@ -134,9 +137,24 @@ class AppPackageController extends Controller
             }
         }
 
+        $existingApp = empty($data['id']) ? null : DistributionApp::findOrFail($data['id']);
+        if ($existingApp
+            && $existingApp->distribution_scope !== $data['distribution_scope']
+            && $existingApp->versions()->exists()) {
+            return $this->fail([400, '已有版本的应用不能修改应用类型']);
+        }
+
+        $isReservedKey = DistributionApp::isReservedAppKey($data['app_key']);
+        if ($data['distribution_scope'] === DistributionApp::SCOPE_DOWNLOAD_ONLY && $isReservedKey) {
+            return $this->fail([400, '第三方应用不能使用大象官方保留标识']);
+        }
+        if ($data['distribution_scope'] === DistributionApp::SCOPE_OFFICIAL_UPDATE && !$isReservedKey) {
+            return $this->fail([400, '大象官方应用必须使用平台对应的官方标识']);
+        }
+
         $app = empty($data['id'])
             ? DistributionApp::create($data)
-            : tap(DistributionApp::findOrFail($data['id']))->update($data);
+            : tap($existingApp)->update($data);
 
         return $this->success($app);
     }
@@ -206,6 +224,16 @@ class AppPackageController extends Controller
         $data['is_enabled'] = (bool) ($data['is_enabled'] ?? false);
         $data['published_at'] = $data['published_at'] ?? ($data['is_enabled'] ? time() : null);
         $data['download_url'] = '';
+
+        $app = DistributionApp::findOrFail($data['app_id']);
+        if ($app->isOfficialUpdate()) {
+            $officialAppKey = DistributionApp::officialAppKeyForPlatform($data['platform']);
+            if (!$officialAppKey || $app->app_key !== $officialAppKey) {
+                return $this->fail([400, '官方应用标识与发布平台不匹配']);
+            }
+        } elseif (DistributionApp::isReservedAppKey($app->app_key)) {
+            return $this->fail([400, '第三方应用不能使用大象官方保留标识']);
+        }
 
         if (empty($data['id']) && !$request->hasFile('artifact')) {
             return $this->fail([400, '创建版本必须上传安装包']);
