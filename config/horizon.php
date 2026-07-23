@@ -170,20 +170,40 @@ return [
 
     'environments' => [
         'local' => [
-            'Xboard' => [
+            'XboardTraffic' => [
+                'connection' => 'redis',
+                'queue' => ['traffic_fetch'],
+                'balance' => false,
+                'minProcesses' => 2,
+                'maxProcesses' => 2,
+                'tries' => 1,
+            ],
+            'XboardStat' => [
+                'connection' => 'redis',
+                'queue' => ['stat'],
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
+                'tries' => 1,
+            ],
+            'XboardOnline' => [
+                'connection' => 'redis',
+                'queue' => ['online_sync'],
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
+                'tries' => 1,
+            ],
+            'XboardCore' => [
                 'connection' => 'redis',
                 'queue' => [
                     'order_handle',
-                    'traffic_fetch',
-                    'stat',
                     'send_telegram',
-                    'online_sync'
                 ],
-                'balance' => 'auto',
+                'balance' => false,
                 'minProcesses' => 1,
-                'maxProcesses' => 20,
+                'maxProcesses' => 1,
                 'tries' => 1,
-                'balanceCooldown' => 3,
             ],
             'XboardEmail' => [
                 'connection' => 'redis',

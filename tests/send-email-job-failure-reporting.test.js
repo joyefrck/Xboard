@@ -40,8 +40,12 @@ test('horizon runs email queues in a low-concurrency supervisor', () => {
   assert.match(horizon, /'queue'\s*=>\s*\[\s*'send_email',\s*'send_email_mass'\s*\]/);
   assert.match(horizon, /'maxProcesses'\s*=>\s*2/);
 
-  const mainSupervisor = horizon.match(/'Xboard'\s*=>\s*\[[\s\S]*?\n\s{12}\],/);
-  assert.ok(mainSupervisor, 'expected main Xboard supervisor config');
-  assert.doesNotMatch(mainSupervisor[0], /'send_email'/);
-  assert.doesNotMatch(mainSupervisor[0], /'send_email_mass'/);
+  for (const name of ['XboardTraffic', 'XboardStat', 'XboardOnline', 'XboardCore']) {
+    const supervisor = horizon.match(
+      new RegExp(`'${name}'\\s*=>\\s*\\[[\\s\\S]*?\\n\\s{12}\\],`),
+    );
+    assert.ok(supervisor, `expected ${name} supervisor config`);
+    assert.doesNotMatch(supervisor[0], /'send_email'/);
+    assert.doesNotMatch(supervisor[0], /'send_email_mass'/);
+  }
 });
