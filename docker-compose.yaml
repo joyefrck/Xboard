@@ -13,12 +13,18 @@ services:
       - "7001:7001"
     command: php artisan octane:start --port=7001 --host=0.0.0.0
     restart: always
+    networks:
+      - default
+      - 1panel-network
   horizon:
     image: ghcr.io/cedar2025/xboard:new
     volumes:
       - ./.docker/.data/redis/:/data/
       - ./:/www/
     restart: always
+    networks:
+      - default
+      - 1panel-network
     command: php artisan horizon
     depends_on:
       redis:
@@ -34,3 +40,7 @@ services:
       retries: 10
     volumes:
       - ./.docker/.data/redis:/data
+
+networks:
+  1panel-network:
+    external: true
