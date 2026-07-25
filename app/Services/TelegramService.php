@@ -6,25 +6,33 @@ use App\Exceptions\ApiException;
 use App\Jobs\SendTelegramJob;
 use App\Models\User;
 use App\Services\Plugin\HookManager;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpClient\NativeHttpClient;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class TelegramService
 {
-    protected PendingRequest $http;
+    private const MAX_ATTEMPTS = 3;
+    private const REQUEST_TIMEOUT_SECONDS = 10;
+    private const DEFAULT_RETRY_DELAY_SECONDS = 1;
+    private const MAX_RETRY_AFTER_SECONDS = 5;
+
+    protected HttpClientInterface $http;
     protected string $apiUrl;
 
-    public function __construct(?string $token = null)
+    public function __construct(?string $token = null, ?HttpClientInterface $http = null)
     {
         $botToken = admin_setting('telegram_bot_token', $token);
         $this->apiUrl = "https://api.telegram.org/bot{$botToken}/";
 
-        $this->http = Http::timeout(30)
-            ->retry(3, 1000)
-            ->withHeaders([
+        $this->http = $http ?? new NativeHttpClient([
+            'headers' => [
                 'Accept' => 'application/json',
-            ]);
+            ],
+            'timeout' => self::REQUEST_TIMEOUT_SECONDS,
+            'max_duration' => self::REQUEST_TIMEOUT_SECONDS,
+        ]);
     }
 
     public function sendMessage(int $chatId, string $text, string $parseMode = '', array $options = []): void
@@ -166,26 +174,62 @@ class TelegramService
     protected function request(string $method, array $params = []): object
     {
         try {
-            $response = $this->http->get($this->apiUrl . $method, $params);
+            for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+                try {
+                    $response = $this->http->request('GET', $this->apiUrl . $method, [
+                        'query' => $params,
+                    ]);
+                    $status = $response->getStatusCode();
+                    $content = $response->getContent(false);
+                } catch (TransportExceptionInterface $e) {
+                    if ($attempt < self::MAX_ATTEMPTS) {
+                        $this->sleepBeforeRetry(self::DEFAULT_RETRY_DELAY_SECONDS);
+                        continue;
+                    }
 
-            if (!$response->successful()) {
-                throw new ApiException("HTTP 请求失败: {$response->status()}");
+                    throw $e;
+                }
+
+                $data = json_decode($content);
+
+                if ($status === 429 && $attempt < self::MAX_ATTEMPTS) {
+                    $retryAfter = is_object($data)
+                        ? $this->telegramRetryAfterSeconds($data)
+                        : self::DEFAULT_RETRY_DELAY_SECONDS;
+                    $this->sleepBeforeRetry($retryAfter);
+                    continue;
+                }
+
+                if ($status >= 500 && $attempt < self::MAX_ATTEMPTS) {
+                    $this->sleepBeforeRetry(self::DEFAULT_RETRY_DELAY_SECONDS);
+                    continue;
+                }
+
+                if (!is_object($data)) {
+                    throw new ApiException('无效的 Telegram API 响应');
+                }
+
+                if ($status < 200 || $status >= 300) {
+                    $description = $data->description ?? null;
+                    throw new ApiException($description
+                        ? "Telegram API 错误: {$description}"
+                        : "HTTP 请求失败: {$status}");
+                }
+
+                if (!isset($data->ok)) {
+                    throw new ApiException('无效的 Telegram API 响应');
+                }
+
+                if (!$data->ok) {
+                    $description = $data->description ?? '未知错误';
+                    throw new ApiException("Telegram API 错误: {$description}");
+                }
+
+                return $data;
             }
 
-            $data = $response->object();
-
-            if (!isset($data->ok)) {
-                throw new ApiException('无效的 Telegram API 响应');
-            }
-
-            if (!$data->ok) {
-                $description = $data->description ?? '未知错误';
-                throw new ApiException("Telegram API 错误: {$description}");
-            }
-
-            return $data;
-
-        } catch (\Exception $e) {
+            throw new ApiException('Telegram API 重试次数已耗尽');
+        } catch (\Throwable $e) {
             Log::error('Telegram API 请求失败', [
                 'method' => $method,
                 'params' => $params,
@@ -194,5 +238,20 @@ class TelegramService
 
             throw new ApiException("Telegram 服务错误: {$e->getMessage()}");
         }
+    }
+
+    private function telegramRetryAfterSeconds(object $data): int
+    {
+        $retryAfter = (int)($data->parameters->retry_after ?? self::DEFAULT_RETRY_DELAY_SECONDS);
+
+        return min(
+            self::MAX_RETRY_AFTER_SECONDS,
+            max(self::DEFAULT_RETRY_DELAY_SECONDS, $retryAfter)
+        );
+    }
+
+    private function sleepBeforeRetry(int $seconds): void
+    {
+        usleep($seconds * 1_000_000);
     }
 }

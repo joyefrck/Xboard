@@ -194,16 +194,23 @@ return [
                 'maxProcesses' => 1,
                 'tries' => 1,
             ],
-            'XboardCore' => [
+            'XboardOrder' => [
                 'connection' => 'redis',
-                'queue' => [
-                    'order_handle',
-                    'send_telegram',
-                ],
+                'queue' => ['order_handle'],
                 'balance' => false,
                 'minProcesses' => 1,
                 'maxProcesses' => 1,
                 'tries' => 1,
+            ],
+            'XboardTelegram' => [
+                'connection' => 'redis',
+                'queue' => ['send_telegram'],
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
+                'tries' => 1,
+                'maxJobs' => 25,
+                'maxTime' => 900,
             ],
             'XboardEmail' => [
                 'connection' => 'redis',
