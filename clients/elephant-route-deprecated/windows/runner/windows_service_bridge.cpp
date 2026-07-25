@@ -37,7 +37,8 @@ EncodableValue ResponseValue(const std::string& json) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }
   }
-  for (const auto* key : {"up_speed", "down_speed", "total_up", "total_down", "core_pid", "delay"}) {
+  for (const auto* key : {"up_speed", "down_speed", "total_up", "total_down",
+                          "core_pid", "core_exit_code", "delay"}) {
     if (const auto value = elephant::JsonInteger(json, key)) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }

@@ -98,13 +98,19 @@ final class WindowsServiceProtocol {
       case 'permission_denied':
         return VpnFailureReason.permissionDenied;
       case 'config_invalid':
+      case 'core_config_invalid':
         return VpnFailureReason.invalidConfig;
       case 'binary_missing':
         return VpnFailureReason.missingBinary;
       case 'tun_conflict':
       case 'tun_address_unavailable':
+      case 'tun_start_failed':
         return VpnFailureReason.routeConflict;
       case 'default_interface_missing':
+      case 'control_port_in_use':
+      case 'core_blocked_or_crashed':
+      case 'core_exited':
+      case 'control_api_timeout':
       case 'core_start_failed':
       case 'service_unavailable':
         return VpnFailureReason.coreStartFailed;

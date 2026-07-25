@@ -1,6 +1,7 @@
 add_executable(ElephantNetworkService
   "service_main.cpp"
   "service.rc"
+  "../common/windows_core_diagnostics.cpp"
   "../common/windows_protocol.cpp"
 )
 

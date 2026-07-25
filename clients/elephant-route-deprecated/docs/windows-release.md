@@ -64,3 +64,42 @@ Verify fresh install, standard-user TUN connection without a second UAC prompt,
 upgrade while disconnected, upgrade while connected, data-retaining uninstall,
 default data-deleting uninstall, and absence of the app/service/core processes
 after uninstall.
+
+## Win10 startup diagnostics
+
+`sing-box control API did not become ready` means the Windows service launched
+the bundled core but could not reach its local control endpoint. It is not a
+remote proxy-node connectivity result. Current builds report separate error
+codes for a port conflict, rejected configuration, TUN startup failure, an
+early core exit, and a live core whose control API timed out.
+
+After reproducing the failure, run these commands in an elevated PowerShell:
+
+```powershell
+Get-Content "$env:ProgramData\ElephantNetwork\runtime\sing-box.log" -Tail 200
+
+$listener = Get-NetTCPConnection -State Listen -LocalPort 9090 -ErrorAction SilentlyContinue
+$listener
+if ($listener) {
+  Get-Process -Id $listener.OwningProcess |
+    Select-Object Id, ProcessName, Path
+}
+
+Get-Service ElephantNetworkService |
+  Select-Object Name, Status, StartType
+```
+
+If the log is inconclusive, validate the generated configuration without
+starting a connection:
+
+```powershell
+$env:ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS = "true"
+$env:ENABLE_DEPRECATED_LEGACY_DNS_SERVERS = "true"
+$env:ENABLE_DEPRECATED_TUN_ADDRESS_X = "true"
+
+& "C:\Program Files\ElephantNetwork\sing-box-windows-amd64.exe" check `
+  -c "$env:ProgramData\ElephantNetwork\runtime\config.json"
+```
+
+Support requests may include the command output and `sing-box.log`. Never ask
+users to upload `config.json`; it can contain proxy credentials.

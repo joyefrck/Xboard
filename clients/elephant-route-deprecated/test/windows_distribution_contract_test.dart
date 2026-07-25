@@ -57,10 +57,24 @@ void main() {
     expect(service, contains('ENABLE_DEPRECATED_TUN_ADDRESS_X'));
     expect(service, contains('getNetworkProfile'));
     expect(service, contains('WaitForCoreReady'));
+    expect(service, contains('ListeningProcessId(9090)'));
+    expect(service, contains('ClassifyCoreStartFailure'));
+    expect(service, contains('core_exit_code'));
     expect(service, isNot(contains('powershell')));
     expect(bridge, contains('"default_interface"'));
     expect(bridge, contains('"tun_ipv4_address"'));
     expect(bridge, contains('JsonBoolean(json, "strict_route")'));
+    expect(bridge, contains('"core_exit_code"'));
+  });
+
+  test('Windows support guide collects diagnostics without sharing config', () {
+    final guide = File('docs/windows-release.md').readAsStringSync();
+
+    expect(guide, contains('Get-NetTCPConnection'));
+    expect(guide, contains('Get-Service ElephantNetworkService'));
+    expect(guide, contains('sing-box-windows-amd64.exe" check'));
+    expect(guide, contains('Never ask'));
+    expect(guide, contains('users to upload `config.json`'));
   });
 
   test(

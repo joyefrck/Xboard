@@ -19,6 +19,7 @@
 #include <thread>
 #include <vector>
 
+#include "windows_core_diagnostics.h"
 #include "windows_protocol.h"
 
 namespace {
@@ -33,6 +34,7 @@ std::mutex g_state_mutex;
 std::string g_runtime_status = "disconnected";
 std::string g_error_code;
 std::string g_error_message;
+std::optional<DWORD> g_core_exit_code;
 std::atomic<ULONGLONG> g_last_client_tick{0};
 std::atomic<bool> g_speed_test{false};
 
@@ -110,11 +112,13 @@ void SetServiceState(DWORD state, DWORD error = NO_ERROR) {
 }
 
 void SetRuntimeState(std::string status, std::string code = {},
-                     std::string message = {}) {
+                     std::string message = {},
+                     std::optional<DWORD> core_exit_code = std::nullopt) {
   std::lock_guard<std::mutex> lock(g_state_mutex);
   g_runtime_status = std::move(status);
   g_error_code = std::move(code);
   g_error_message = std::move(message);
+  g_core_exit_code = core_exit_code;
 }
 
 std::filesystem::path RuntimeDirectory() {
@@ -126,6 +130,28 @@ std::filesystem::path RuntimeDirectory() {
   std::filesystem::path result(program_data);
   CoTaskMemFree(program_data);
   return result / L"ElephantNetwork" / L"runtime";
+}
+
+std::optional<DWORD> ListeningProcessId(USHORT host_port) {
+  DWORD size = 0;
+  const auto initial = GetExtendedTcpTable(
+      nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
+  if (initial != ERROR_INSUFFICIENT_BUFFER || size == 0) {
+    return std::nullopt;
+  }
+  std::vector<BYTE> buffer(size);
+  auto* table = reinterpret_cast<PMIB_TCPTABLE_OWNER_PID>(buffer.data());
+  if (GetExtendedTcpTable(table, &size, FALSE, AF_INET,
+                          TCP_TABLE_OWNER_PID_LISTENER, 0) != NO_ERROR) {
+    return std::nullopt;
+  }
+  for (DWORD index = 0; index < table->dwNumEntries; ++index) {
+    const auto& row = table->table[index];
+    if (ntohs(static_cast<u_short>(row.dwLocalPort)) == host_port) {
+      return row.dwOwningPid;
+    }
+  }
+  return std::nullopt;
 }
 
 bool RouteOverlapsCandidate(const MIB_IPFORWARD_ROW2& route,
@@ -253,6 +279,9 @@ std::string CurrentStateJson() {
   if (!g_error_message.empty()) {
     result += ",\"error_message\":\"" + elephant::JsonEscape(g_error_message) + "\"";
   }
+  if (g_core_exit_code) {
+    result += ",\"core_exit_code\":" + std::to_string(*g_core_exit_code);
+  }
   result += "}";
   return result;
 }
@@ -319,6 +348,10 @@ void WatchCore(HANDLE process, DWORD process_id) {
         g_runtime_status = "error";
         g_error_code = "core_start_failed";
         g_error_message = "sing-box exited unexpectedly";
+        DWORD core_exit_code = 0;
+        if (GetExitCodeProcess(process, &core_exit_code)) {
+          g_core_exit_code = core_exit_code;
+        }
       }
     }
     if (owned_process) CloseHandle(owned_process);
@@ -330,30 +363,57 @@ void WatchCore(HANDLE process, DWORD process_id) {
 std::string ClashRequest(const std::wstring& verb, const std::wstring& path,
                          const std::string& body = {});
 
-bool LogContainsSince(const std::filesystem::path& path, std::uintmax_t offset,
-                      const std::string& text) {
+std::string ReadLogSince(const std::filesystem::path& path,
+                         std::uintmax_t offset) {
+  constexpr std::uintmax_t kMaxDiagnosticLogBytes = 64 * 1024;
   std::ifstream input(path, std::ios::binary);
-  if (!input) return false;
-  input.seekg(static_cast<std::streamoff>(offset));
-  const std::string contents((std::istreambuf_iterator<char>(input)),
-                             std::istreambuf_iterator<char>());
-  return contents.find(text) != std::string::npos;
+  if (!input) return {};
+  input.seekg(0, std::ios::end);
+  const auto end = input.tellg();
+  if (end <= 0) return {};
+  const auto size = static_cast<std::uintmax_t>(end);
+  const auto start = std::max(offset, size > kMaxDiagnosticLogBytes
+                                         ? size - kMaxDiagnosticLogBytes
+                                         : std::uintmax_t{0});
+  if (start >= size) return {};
+  input.seekg(static_cast<std::streamoff>(start));
+  return std::string((std::istreambuf_iterator<char>(input)),
+                     std::istreambuf_iterator<char>());
 }
 
-bool WaitForCoreReady(HANDLE process, const std::filesystem::path& log_path,
-                      std::uintmax_t log_offset) {
+enum class CoreReadyState {
+  ready,
+  process_exited,
+  default_interface_missing,
+  timeout,
+};
+
+struct CoreReadyResult {
+  CoreReadyState state = CoreReadyState::timeout;
+  DWORD exit_code = 0;
+};
+
+CoreReadyResult WaitForCoreReady(HANDLE process,
+                                 const std::filesystem::path& log_path,
+                                 std::uintmax_t log_offset) {
   const auto deadline = std::chrono::steady_clock::now() +
                         std::chrono::seconds(8);
   while (std::chrono::steady_clock::now() < deadline) {
-    if (WaitForSingleObject(process, 0) == WAIT_OBJECT_0) return false;
-    if (LogContainsSince(log_path, log_offset,
-                         "network: missing default interface")) {
-      return false;
+    if (WaitForSingleObject(process, 0) == WAIT_OBJECT_0) {
+      DWORD exit_code = 0;
+      GetExitCodeProcess(process, &exit_code);
+      return {CoreReadyState::process_exited, exit_code};
     }
-    if (!ClashRequest(L"GET", L"/version").empty()) return true;
+    if (ReadLogSince(log_path, log_offset).find(
+            "network: missing default interface") != std::string::npos) {
+      return {CoreReadyState::default_interface_missing, 0};
+    }
+    if (!ClashRequest(L"GET", L"/version").empty()) {
+      return {CoreReadyState::ready, 0};
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
-  return false;
+  return {CoreReadyState::timeout, 0};
 }
 
 std::string StartCore(const std::string& config, bool speed_test) {
@@ -369,6 +429,13 @@ std::string StartCore(const std::string& config, bool speed_test) {
   }
 
   StopCore();
+  if (const auto owner = ListeningProcessId(9090)) {
+    SetRuntimeState(
+        "error", "control_port_in_use",
+        "本机 9090 控制端口已被进程 " + std::to_string(*owner) +
+            " 占用，请退出其他代理或 VPN 后重试。");
+    return CurrentStateJson();
+  }
   SetRuntimeState("core_starting");
   const auto runtime_dir = RuntimeDirectory();
   std::error_code filesystem_error;
@@ -447,17 +514,19 @@ std::string StartCore(const std::string& config, bool speed_test) {
   }
   ResumeThread(process.hThread);
   CloseHandle(process.hThread);
-  if (!WaitForCoreReady(process.hProcess, log_path,
-                        log_size_error ? 0 : log_offset)) {
+  const auto ready = WaitForCoreReady(
+      process.hProcess, log_path, log_size_error ? 0 : log_offset);
+  if (ready.state != CoreReadyState::ready) {
+    const auto log_tail = ReadLogSince(
+        log_path, log_size_error ? 0 : log_offset);
     StopCore();
-    const bool missing_interface = LogContainsSince(
-        log_path, log_size_error ? 0 : log_offset,
-        "network: missing default interface");
-    SetRuntimeState(
-        "error",
-        missing_interface ? "default_interface_missing" : "core_start_failed",
-        missing_interface ? "sing-box could not bind the default interface"
-                          : "sing-box control API did not become ready");
+    const auto failure = elephant::ClassifyCoreStartFailure(
+        log_tail, ready.state == CoreReadyState::process_exited,
+        ready.exit_code);
+    SetRuntimeState("error", failure.code, failure.message,
+                    failure.exit_code
+                        ? std::optional<DWORD>(*failure.exit_code)
+                        : std::nullopt);
     return CurrentStateJson();
   }
 

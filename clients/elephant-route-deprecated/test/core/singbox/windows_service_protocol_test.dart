@@ -43,6 +43,28 @@ void main() {
         missingInterface.failureReason,
         VpnFailureReason.coreStartFailed,
       );
+
+      const expectedReasons = <String, VpnFailureReason>{
+        'control_port_in_use': VpnFailureReason.coreStartFailed,
+        'core_config_invalid': VpnFailureReason.invalidConfig,
+        'tun_start_failed': VpnFailureReason.routeConflict,
+        'core_blocked_or_crashed': VpnFailureReason.coreStartFailed,
+        'control_api_timeout': VpnFailureReason.coreStartFailed,
+      };
+      for (final entry in expectedReasons.entries) {
+        final diagnosticState = WindowsServiceProtocol.parseState({
+          'status': 'error',
+          'error_code': entry.key,
+          'error_message': 'diagnostic',
+          'core_exit_code': 1,
+        });
+        expect(
+          diagnosticState.failureReason,
+          entry.value,
+          reason: entry.key,
+        );
+        expect(diagnosticState.runtimeDetails?['core_exit_code'], 1);
+      }
     });
 
     test('rejects empty and oversized configs', () {
