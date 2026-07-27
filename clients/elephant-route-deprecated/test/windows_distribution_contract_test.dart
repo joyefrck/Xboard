@@ -7,6 +7,7 @@ void main() {
   test('Windows installer has stable identity and lifecycle cleanup', () {
     final installer =
         File('windows/installer/ElephantNetwork.iss').readAsStringSync();
+    final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(
       installer,
@@ -21,6 +22,9 @@ void main() {
     expect(installer, contains('RemoveUserData := True'));
     expect(installer, contains('RestoreOwnedLegacyProxy'));
     expect(installer, contains('/IM sing-box-windows-amd64.exe'));
+    expect(installer, contains('#define AppVersion "1.6.5"'));
+    expect(installer, contains('#define AppBuild "10605"'));
+    expect(pubspec, contains('version: 1.6.5+10605'));
   });
 
   test(
@@ -70,6 +74,20 @@ void main() {
     expect(bridge, contains('"tun_ipv4_address"'));
     expect(bridge, contains('JsonBoolean(json, "strict_route")'));
     expect(bridge, contains('"core_exit_code"'));
+  });
+
+  test('connected Windows latency uses the in-process service core', () {
+    final vpnService =
+        File('lib/core/singbox/windows_vpn_service.dart').readAsStringSync();
+    final runner = File('lib/core/singbox/windows_service_latency_runner.dart')
+        .readAsStringSync();
+    final guide = File('docs/windows-release.md').readAsStringSync();
+
+    expect(vpnService, contains('WindowsServiceLatencyRunner'));
+    expect(vpnService, isNot(contains('WindowsLatencySession')));
+    expect(vpnService, isNot(contains('sing-box-windows-amd64.exe')));
+    expect(runner, contains('ConnectionLatencySource.clashFallback'));
+    expect(guide, contains('do not launch a second sing-box or `curl.exe`'));
   });
 
   test('Windows support guide collects diagnostics without sharing config', () {

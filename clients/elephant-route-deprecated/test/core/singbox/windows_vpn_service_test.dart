@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
 import 'package:elephant_network/core/singbox/vpn_state.dart';
 import 'package:elephant_network/core/singbox/windows_service_protocol.dart';
 import 'package:elephant_network/core/singbox/windows_vpn_service.dart';
@@ -98,6 +99,68 @@ void main() {
       service.currentState.runtimeDetails?['error_code'],
       'default_interface_missing',
     );
+    service.dispose();
+  });
+
+  test('preserves strict route on Windows 11 profiles', () async {
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getNetworkProfile') {
+        return {
+          'status': 'ready',
+          'default_interface': 'Wi-Fi',
+          'tun_ipv4_address': '172.31.255.1/30',
+          'strict_route': true,
+        };
+      }
+      return {'status': 'connected'};
+    });
+
+    final service = WindowsVpnService();
+    await service.start(jsonEncode({
+      'inbounds': <Object>[],
+      'outbounds': [
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+      'route': {'rules': <Object>[]},
+    }));
+
+    final startCall = calls.singleWhere((call) => call.method == 'start');
+    final arguments = Map<String, dynamic>.from(startCall.arguments as Map);
+    final config = jsonDecode(arguments['config'] as String) as Map;
+    final tun = (config['inbounds'] as List)
+        .singleWhere((item) => item['type'] == 'tun') as Map;
+    expect(tun['strict_route'], isTrue);
+    service.dispose();
+  });
+
+  test('tests concrete nodes through the connected service core', () async {
+    final callbacks = <String, ConnectionLatencyResult>{};
+    final service = WindowsVpnService();
+    await service.start(jsonEncode({
+      'inbounds': <Object>[],
+      'outbounds': [
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+      'route': {'rules': <Object>[]},
+    }));
+
+    final results = await service.testConnectionLatencies(
+      nodeTags: const ['Tokyo', 'Osaka'],
+      testUrl: 'https://www.gstatic.com/generate_204',
+      timeoutMs: 5000,
+      concurrency: 2,
+      onResult: (nodeTag, result) => callbacks[nodeTag] = result,
+    );
+
+    final testedNodes = calls
+        .where((call) => call.method == 'urlTest')
+        .map((call) => (call.arguments as Map)['group_tag'])
+        .toSet();
+    expect(testedNodes, {'Tokyo', 'Osaka'});
+    expect(results['Tokyo']?.latencyMs, 42);
+    expect(results['Osaka']?.latencyMs, 42);
+    expect(callbacks.keys, containsAll(const ['Tokyo', 'Osaka']));
     service.dispose();
   });
 

@@ -19,8 +19,11 @@ The in-process service is a separately licensed GPL-3.0-or-later component.
 Its complete source and dependency lock files are in `windows/service_go`.
 The Flutter application and its C++ pipe client remain separate processes
 communicating through the stable `ElephantNetworkService.v1` IPC protocol.
-The standalone `sing-box-windows-amd64.exe` remains in the first migration
-package only for isolated configuration checks and connection-latency tools.
+Connected node latency tests call the in-process core through the named-pipe
+service and do not launch a second sing-box or `curl.exe`. This keeps latency
+testing compatible with the Windows 11 strict-route WFP rules. The standalone
+`sing-box-windows-amd64.exe` remains packaged only for isolated configuration
+checks.
 
 The installer also deploys the Microsoft Visual C++ 2015-2022 x64 runtime.
 Before starting TUN, the service selects an active physical IPv4 default
@@ -38,7 +41,7 @@ data is retained.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\build_windows_release.ps1 -Version 1.6.4 -BuildNumber 10604
+.\scripts\build_windows_release.ps1 -Version 1.6.5 -BuildNumber 10605
 ```
 
 The application binaries, Windows service, and installer are intentionally
@@ -67,7 +70,7 @@ hash does not match the release metadata.
 ## Manual verification
 
 ```powershell
-Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.4.exe -Algorithm SHA256
+Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.5.exe -Algorithm SHA256
 sc.exe query ElephantNetworkService
 ```
 

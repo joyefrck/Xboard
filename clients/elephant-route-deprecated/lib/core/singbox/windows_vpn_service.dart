@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'connection_latency_manager.dart';
 import 'vpn_manager.dart';
 import 'vpn_state.dart';
-import 'windows_latency_session.dart';
+import 'windows_service_latency_runner.dart';
 import 'windows_service_protocol.dart';
 
 class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
@@ -38,8 +38,7 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     connectionMode: VpnConnectionMode.tun,
   );
   bool _disposed = false;
-  String? _lastRuntimeConfig;
-  WindowsLatencySession? _latencySession;
+  int _latencyRunGeneration = 0;
 
   @override
   Future<bool> requestPermission() async {
@@ -82,9 +81,6 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
         'config': sanitized,
       });
       _handleState(result);
-      if (_state.status == VpnStatus.connected) {
-        _lastRuntimeConfig = sanitized;
-      }
     } on PlatformException catch (error) {
       _updateState(VpnState(
         status: VpnStatus.error,
@@ -164,35 +160,26 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     required int concurrency,
     ConnectionLatencyResultCallback? onResult,
   }) async {
-    final sourceConfig = _lastRuntimeConfig;
-    if (_state.status != VpnStatus.connected || sourceConfig == null) {
-      throw const WindowsLatencyException('请先开启加速后再测速');
+    if (_state.status != VpnStatus.connected) {
+      throw const ConnectionLatencyUnavailableException('请先开启加速后再测速');
     }
     await stopConnectionLatencyTest();
-    final executableDirectory = File(Platform.resolvedExecutable).parent.path;
-    final session = WindowsLatencySession(
-      binaryPath: '$executableDirectory\\sing-box-windows-amd64.exe',
-      sourceConfig: sourceConfig,
-      nodeTags: nodeTags,
-      testUrl: testUrl,
-      timeoutMs: timeoutMs,
-      workerCount: concurrency,
+    final generation = _latencyRunGeneration;
+    final runner = WindowsServiceLatencyRunner(
+      probe: urlTest,
     );
-    _latencySession = session;
-    try {
-      return await session.run(onResult: onResult);
-    } finally {
-      if (identical(_latencySession, session)) {
-        _latencySession = null;
-      }
-    }
+    return runner.run(
+      nodeTags: nodeTags,
+      timeoutMs: timeoutMs,
+      concurrency: concurrency,
+      isCancelled: () => _disposed || generation != _latencyRunGeneration,
+      onResult: onResult,
+    );
   }
 
   @override
   Future<void> stopConnectionLatencyTest() async {
-    final session = _latencySession;
-    _latencySession = null;
-    await session?.close();
+    _latencyRunGeneration++;
   }
 
   @override

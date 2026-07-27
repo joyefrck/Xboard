@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.6.4"
+  #define AppVersion "1.6.5"
 #endif
 #ifndef AppBuild
-  #define AppBuild "10604"
+  #define AppBuild "10605"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\build\windows\x64\runner\Release"
