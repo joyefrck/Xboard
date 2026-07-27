@@ -172,7 +172,7 @@ git commit -m "docs: plan Windows reconnect diagnostics fix"
 - Workflow: `.github/workflows/windows-client.yml`
 - Artifact: `clients/elephant-route-deprecated/build/releases/windows/1.6.3-reconnect-fix/ElephantNetwork-Setup-x64-v1.6.3.exe`
 
-- [ ] **Step 1: Push the current master commits**
+- [x] **Step 1: Push the current master commits**
 
 Run:
 
@@ -182,7 +182,7 @@ git push origin master
 
 Expected: `origin/master` advances to the local implementation-plan commit.
 
-- [ ] **Step 2: Dispatch the versioned Windows workflow**
+- [x] **Step 2: Dispatch the versioned Windows workflow**
 
 Run:
 
@@ -196,7 +196,7 @@ gh workflow run windows-client.yml \
 
 Expected: GitHub returns a new workflow URL.
 
-- [ ] **Step 3: Wait for all Windows-native gates**
+- [x] **Step 3: Wait for all Windows-native gates**
 
 Run:
 
@@ -217,7 +217,7 @@ Expected: analyzer, Flutter tests, Windows release build, two native C++ tests,
 Inno Setup packaging, install/service/uninstall smoke testing, and artifact
 upload all succeed.
 
-- [ ] **Step 4: Download and hash the installer**
+- [x] **Step 4: Download and hash the installer**
 
 Run:
 
