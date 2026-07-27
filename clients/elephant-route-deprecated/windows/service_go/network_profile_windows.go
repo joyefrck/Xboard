@@ -20,10 +20,9 @@ const (
 )
 
 var (
-	iphlpapiDLL             = windows.NewLazySystemDLL("iphlpapi.dll")
-	procGetIpForwardTable2  = iphlpapiDLL.NewProc("GetIpForwardTable2")
-	procFreeMibTable        = iphlpapiDLL.NewProc("FreeMibTable")
-	procGetIpInterfaceEntry = iphlpapiDLL.NewProc("GetIpInterfaceEntry")
+	iphlpapiDLL            = windows.NewLazySystemDLL("iphlpapi.dll")
+	procGetIpForwardTable2 = iphlpapiDLL.NewProc("GetIpForwardTable2")
+	procFreeMibTable       = iphlpapiDLL.NewProc("FreeMibTable")
 )
 
 type nativeIPAddressPrefix struct {
@@ -53,46 +52,12 @@ type nativeIPForwardRow2 struct {
 }
 
 func detectWindowsNetworkProfile() (networkProfile, error) {
-	var table uintptr
-	result, _, _ := procGetIpForwardTable2.Call(
-		uintptr(addressFamilyIPv4),
-		uintptr(unsafe.Pointer(&table)),
-	)
-	if result != 0 {
-		return networkProfile{}, syscall.Errno(result)
+	routes, _ := readWindowsRoutePrefixes()
+	defaults, err := readWindowsAdapterDefaults()
+	if err != nil {
+		return networkProfile{}, err
 	}
-	if table == 0 {
-		return networkProfile{}, errors.New("empty IPv4 route table")
-	}
-	defer procFreeMibTable.Call(table)
-
-	count := *(*uint32)(unsafe.Pointer(table))
-	rowSize := unsafe.Sizeof(nativeIPForwardRow2{})
-	const tableRowsOffset = uintptr(8)
-	routes := make([]routeObservation, 0, count)
-	interfaceCache := make(map[uint64]routeInterface)
-	for index := uint32(0); index < count; index++ {
-		row := (*nativeIPForwardRow2)(unsafe.Pointer(table + tableRowsOffset + uintptr(index)*rowSize))
-		prefix, ok := nativeIPv4Prefix(row.DestinationPrefix)
-		if !ok {
-			continue
-		}
-		observation := routeObservation{Prefix: prefix, Metric: uint64(row.Metric)}
-		if prefix.Bits() == 0 {
-			info, found := interfaceCache[row.InterfaceLuid]
-			if !found {
-				info = readRouteInterface(row.InterfaceLuid)
-				interfaceCache[row.InterfaceLuid] = info
-			}
-			observation.Alias = info.alias
-			observation.Up = info.up
-			observation.Hardware = info.hardware
-			observation.Tunnel = info.tunnel
-			observation.Loopback = info.loopback
-			observation.Metric += uint64(info.metric)
-		}
-		routes = append(routes, observation)
-	}
+	routes = append(routes, defaults...)
 	profile, ok := selectNetworkProfile(routes, windows.RtlGetVersion().BuildNumber)
 	if !ok {
 		return networkProfile{}, errors.New("no usable physical IPv4 default interface or TUN subnet")
@@ -100,36 +65,99 @@ func detectWindowsNetworkProfile() (networkProfile, error) {
 	return profile, nil
 }
 
-type routeInterface struct {
-	alias    string
-	metric   uint32
-	up       bool
-	hardware bool
-	tunnel   bool
-	loopback bool
+func readWindowsRoutePrefixes() ([]routeObservation, error) {
+	var table uintptr
+	result, _, _ := procGetIpForwardTable2.Call(
+		uintptr(addressFamilyIPv4),
+		uintptr(unsafe.Pointer(&table)),
+	)
+	if result != 0 {
+		return nil, syscall.Errno(result)
+	}
+	if table == 0 {
+		return nil, errors.New("empty IPv4 route table")
+	}
+	defer procFreeMibTable.Call(table)
+
+	count := *(*uint32)(unsafe.Pointer(table))
+	rowSize := unsafe.Sizeof(nativeIPForwardRow2{})
+	const tableRowsOffset = uintptr(8)
+	routes := make([]routeObservation, 0, count)
+	for index := uint32(0); index < count; index++ {
+		row := (*nativeIPForwardRow2)(unsafe.Pointer(table + tableRowsOffset + uintptr(index)*rowSize))
+		prefix, ok := nativeIPv4Prefix(row.DestinationPrefix)
+		if !ok {
+			continue
+		}
+		routes = append(routes, routeObservation{Prefix: prefix})
+	}
+	return routes, nil
 }
 
-func readRouteInterface(luid uint64) routeInterface {
-	row := windows.MibIfRow2{InterfaceLuid: luid}
-	if err := windows.GetIfEntry2Ex(windows.MibIfEntryNormalWithoutStatistics, &row); err != nil {
-		return routeInterface{}
+func readWindowsAdapterDefaults() ([]routeObservation, error) {
+	size := uint32(15 * 1024)
+	flags := uint32(
+		windows.GAA_FLAG_INCLUDE_GATEWAYS |
+			windows.GAA_FLAG_SKIP_ANYCAST |
+			windows.GAA_FLAG_SKIP_MULTICAST |
+			windows.GAA_FLAG_SKIP_DNS_SERVER,
+	)
+	for attempt := 0; attempt < 3; attempt++ {
+		buffer := make([]byte, size)
+		first := (*windows.IpAdapterAddresses)(unsafe.Pointer(&buffer[0]))
+		err := windows.GetAdaptersAddresses(
+			addressFamilyIPv4,
+			flags,
+			0,
+			first,
+			&size,
+		)
+		if errors.Is(err, windows.ERROR_BUFFER_OVERFLOW) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		var routes []routeObservation
+		for adapter := first; adapter != nil; adapter = adapter.Next {
+			if !hasIPv4Gateway(adapter.FirstGatewayAddress) {
+				continue
+			}
+			routes = append(routes, routeObservation{
+				Prefix:   netip.MustParsePrefix("0.0.0.0/0"),
+				Alias:    windows.UTF16PtrToString(adapter.FriendlyName),
+				Metric:   uint64(adapter.Ipv4Metric),
+				Up:       adapter.OperStatus == windows.IfOperStatusUp,
+				Hardware: isHardwareInterface(adapter.IfType),
+				Tunnel:   adapter.IfType == ifTypeTunnel,
+				Loopback: adapter.IfType == ifTypeSoftwareLoopback,
+			})
+		}
+		return routes, nil
 	}
-	ipRow := windows.MibIpInterfaceRow{
-		Family:        addressFamilyIPv4,
-		InterfaceLuid: luid,
+	return nil, windows.ERROR_BUFFER_OVERFLOW
+}
+
+func hasIPv4Gateway(gateway *windows.IpAdapterGatewayAddress) bool {
+	for current := gateway; current != nil; current = current.Next {
+		ip := current.Address.IP()
+		if ip != nil && ip.To4() != nil && !ip.IsUnspecified() {
+			return true
+		}
 	}
-	result, _, _ := procGetIpInterfaceEntry.Call(uintptr(unsafe.Pointer(&ipRow)))
-	metric := uint32(0)
-	if result == 0 {
-		metric = ipRow.Metric
-	}
-	return routeInterface{
-		alias:    windows.UTF16ToString(row.Alias[:]),
-		metric:   metric,
-		up:       row.OperStatus == windows.IfOperStatusUp,
-		hardware: row.InterfaceAndOperStatusFlags&1 != 0,
-		tunnel:   row.Type == ifTypeTunnel,
-		loopback: row.Type == ifTypeSoftwareLoopback,
+	return false
+}
+
+func isHardwareInterface(ifType uint32) bool {
+	switch ifType {
+	case windows.IF_TYPE_ETHERNET_CSMACD,
+		windows.IF_TYPE_ISO88025_TOKENRING,
+		windows.IF_TYPE_ATM,
+		windows.IF_TYPE_IEEE80211,
+		windows.IF_TYPE_IEEE1394:
+		return true
+	default:
+		return false
 	}
 }
 
