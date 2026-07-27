@@ -1,19 +1,33 @@
-add_executable(ElephantNetworkService
-  "service_main.cpp"
-  "service.rc"
-  "../common/windows_core_diagnostics.cpp"
-  "../common/windows_protocol.cpp"
-)
+find_program(GO_EXECUTABLE go REQUIRED)
 
-apply_standard_settings(ElephantNetworkService)
-target_compile_options(ElephantNetworkService PRIVATE /utf-8)
-target_include_directories(ElephantNetworkService PRIVATE "../common")
-target_compile_definitions(ElephantNetworkService PRIVATE UNICODE _UNICODE NOMINMAX)
-target_compile_definitions(ElephantNetworkService PRIVATE
-  "FLUTTER_VERSION=\"${FLUTTER_VERSION}\""
-  "FLUTTER_VERSION_MAJOR=${FLUTTER_VERSION_MAJOR}"
-  "FLUTTER_VERSION_MINOR=${FLUTTER_VERSION_MINOR}"
-  "FLUTTER_VERSION_PATCH=${FLUTTER_VERSION_PATCH}"
-  "FLUTTER_VERSION_BUILD=${FLUTTER_VERSION_BUILD}")
-target_link_libraries(ElephantNetworkService PRIVATE
-  advapi32 iphlpapi winhttp shell32 ole32 version ws2_32)
+set(ELEPHANT_SERVICE_GO_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../service_go")
+set(ELEPHANT_SERVICE_EXE
+  "${CMAKE_CURRENT_BINARY_DIR}/ElephantNetworkService.exe")
+file(GLOB_RECURSE ELEPHANT_SERVICE_GO_SOURCES CONFIGURE_DEPENDS
+  "${ELEPHANT_SERVICE_GO_DIR}/*.go"
+  "${ELEPHANT_SERVICE_GO_DIR}/go.mod"
+  "${ELEPHANT_SERVICE_GO_DIR}/go.sum")
+
+add_custom_command(
+  OUTPUT "${ELEPHANT_SERVICE_EXE}"
+  COMMAND "${CMAKE_COMMAND}" -E env
+    "CGO_ENABLED=0"
+    "GOOS=windows"
+    "GOARCH=amd64"
+    "${GO_EXECUTABLE}" build
+    -trimpath
+    -tags
+    "with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_acme,with_clash_api,with_tailscale"
+    -ldflags
+    "-s -w -X github.com/sagernet/sing-box/constant.Version=1.12.25"
+    -o "${ELEPHANT_SERVICE_EXE}"
+    .
+  WORKING_DIRECTORY "${ELEPHANT_SERVICE_GO_DIR}"
+  DEPENDS ${ELEPHANT_SERVICE_GO_SOURCES}
+  COMMENT "Building in-process ElephantNetworkService"
+  VERBATIM)
+
+add_custom_target(ElephantNetworkService ALL
+  DEPENDS "${ELEPHANT_SERVICE_EXE}")
+set(ELEPHANT_SERVICE_EXE "${ELEPHANT_SERVICE_EXE}" PARENT_SCOPE)

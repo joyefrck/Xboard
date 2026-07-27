@@ -37,30 +37,35 @@ void main() {
     expect(script, contains(r'Get-FileHash $Installer -Algorithm SHA256'));
   });
 
-  test('native service is constrained to local IPC and the bundled core', () {
+  test('native service is constrained to local IPC and hosts sing-box', () {
     final header = File('windows/common/windows_protocol.h').readAsStringSync();
-    final service = File('windows/service/service_main.cpp').readAsStringSync();
+    final goModule = File('windows/service_go/go.mod').readAsStringSync();
+    final pipe = File('windows/service_go/pipe_windows.go').readAsStringSync();
+    final service =
+        File('windows/service_go/service_windows.go').readAsStringSync();
+    final core = File('windows/service_go/core_singbox.go').readAsStringSync();
+    final legacyService = File('windows/service/service_main.cpp');
     final bridge =
         File('windows/runner/windows_service_bridge.cpp').readAsStringSync();
 
     expect(header, contains('kPipeName'));
     expect(header, contains('ElephantNetworkService.v1'));
     expect(header, contains('kMaxConfigBytes = 4 * 1024 * 1024'));
-    expect(service, contains('PIPE_REJECT_REMOTE_CLIENTS'));
+    expect(goModule, contains('github.com/sagernet/sing-box v1.12.25'));
+    expect(legacyService.existsSync(), isFalse);
+    expect(pipe, contains(r'\\.\pipe\ElephantNetworkService.v1'));
     expect(
-      service,
+      pipe,
       contains(r'D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;IU)'),
     );
-    expect(service, contains('sing-box-windows-amd64.exe'));
-    expect(service, contains('ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS'));
-    expect(service, contains('ENABLE_DEPRECATED_LEGACY_DNS_SERVERS'));
-    expect(service, contains('ENABLE_DEPRECATED_TUN_ADDRESS_X'));
-    expect(service, contains('getNetworkProfile'));
-    expect(service, contains('WaitForCoreReady'));
-    expect(service, contains('ListeningProcessId(9090)'));
-    expect(service, contains('ClassifyCoreStartFailure'));
-    expect(service, contains('core_exit_code'));
-    expect(service, isNot(contains('powershell')));
+    expect(service, contains('svc.Run(serviceName, host)'));
+    expect(service, contains('coreStartTimeout = 60 * time.Second'));
+    expect(core, contains('box.New'));
+    expect(core, contains('ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS'));
+    expect(core, contains('ENABLE_DEPRECATED_LEGACY_DNS_SERVERS'));
+    expect(core, contains('ENABLE_DEPRECATED_TUN_ADDRESS_X'));
+    expect(core, isNot(contains('CreateProcess')));
+    expect(core, isNot(contains('sing-box-windows-amd64.exe')));
     expect(bridge, contains('"default_interface"'));
     expect(bridge, contains('"tun_ipv4_address"'));
     expect(bridge, contains('JsonBoolean(json, "strict_route")'));

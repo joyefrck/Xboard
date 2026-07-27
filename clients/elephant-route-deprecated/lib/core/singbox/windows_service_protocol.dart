@@ -111,6 +111,7 @@ final class WindowsServiceProtocol {
       case 'core_blocked_or_crashed':
       case 'core_exited':
       case 'control_api_timeout':
+      case 'core_start_timeout':
       case 'core_start_failed':
       case 'service_unavailable':
         return VpnFailureReason.coreStartFailed;

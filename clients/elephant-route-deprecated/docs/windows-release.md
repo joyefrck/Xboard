@@ -1,15 +1,26 @@
 # Windows x64 release
 
 The Windows client is built and packaged only on Windows 10/11 x64 with Visual
-Studio 2022 Desktop development with C++, Flutter, and Inno Setup 6.
+Studio 2022 Desktop development with C++, Go 1.25.8, Flutter, and Inno Setup 6.
 
 ## Production capabilities
 
 The production package installs the desktop application, the bundled sing-box
-core, and `ElephantNetworkService`. The service provides local IPC for TUN mode
-so a standard user can connect without approving a second UAC prompt. The app
-also supports system proxy mode, tray controls, optional launch at startup, and
-in-app update checks.
+tools, and `ElephantNetworkService`. The service links sing-box 1.12.25 and
+hosts the production TUN core in the service process. It does not launch a
+separate sing-box child for a normal connection. This removes the
+LocalSystem-to-child startup boundary that could leave the core alive without
+its local controller becoming ready on Windows 10. The service provides local
+named-pipe IPC so a standard user can connect without approving a second UAC
+prompt. The app also supports system proxy mode, tray controls, optional launch
+at startup, and in-app update checks.
+
+The in-process service is a separately licensed GPL-3.0-or-later component.
+Its complete source and dependency lock files are in `windows/service_go`.
+The Flutter application and its C++ pipe client remain separate processes
+communicating through the stable `ElephantNetworkService.v1` IPC protocol.
+The standalone `sing-box-windows-amd64.exe` remains in the first migration
+package only for isolated configuration checks and connection-latency tools.
 
 The installer also deploys the Microsoft Visual C++ 2015-2022 x64 runtime.
 Before starting TUN, the service selects an active physical IPv4 default
@@ -27,7 +38,7 @@ data is retained.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\build_windows_release.ps1 -Version 1.5.0 -BuildNumber 10500
+.\scripts\build_windows_release.ps1 -Version 1.6.4 -BuildNumber 10604
 ```
 
 The application binaries, Windows service, and installer are intentionally
@@ -56,7 +67,7 @@ hash does not match the release metadata.
 ## Manual verification
 
 ```powershell
-Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.5.0.exe -Algorithm SHA256
+Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.4.exe -Algorithm SHA256
 sc.exe query ElephantNetworkService
 ```
 
@@ -67,16 +78,18 @@ after uninstall.
 
 ## Win10 startup diagnostics
 
-`sing-box control API did not become ready` means the Windows service launched
-the bundled core but could not reach its local control endpoint. It is not a
-remote proxy-node connectivity result. Current builds report separate error
-codes for a port conflict, rejected configuration, TUN startup failure, an
-early core exit, and a live core whose control API timed out.
+`sing-box core startup timed out` means in-process core initialization did not
+finish within 60 seconds. It is not a remote proxy-node connectivity result.
+Current builds report separate error codes for rejected configuration, TUN
+startup failure, and an in-process startup timeout. The service lifecycle log
+contains only safe state transitions and error codes; it never contains the
+subscription configuration.
 
 After reproducing the failure, run these commands in an elevated PowerShell:
 
 ```powershell
 Get-Content "$env:ProgramData\ElephantNetwork\runtime\sing-box.log" -Tail 200
+Get-Content "$env:ProgramData\ElephantNetwork\runtime\service.log" -Tail 100
 
 $listener = Get-NetTCPConnection -State Listen -LocalPort 9090 -ErrorAction SilentlyContinue
 $listener

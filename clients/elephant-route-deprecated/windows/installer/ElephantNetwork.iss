@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.5.0"
+  #define AppVersion "1.6.4"
 #endif
 #ifndef AppBuild
-  #define AppBuild "10500"
+  #define AppBuild "10604"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\build\windows\x64\runner\Release"
@@ -114,6 +114,9 @@ begin
   end;
   Exec(ExpandConstant('{sys}\taskkill.exe'),
     '/F /IM sing-box-windows-amd64.exe', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\taskkill.exe'),
+    '/F /IM ElephantNetworkService.exe', '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode);
 end;
 

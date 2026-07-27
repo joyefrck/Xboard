@@ -50,6 +50,7 @@ void main() {
         'tun_start_failed': VpnFailureReason.routeConflict,
         'core_blocked_or_crashed': VpnFailureReason.coreStartFailed,
         'control_api_timeout': VpnFailureReason.coreStartFailed,
+        'core_start_timeout': VpnFailureReason.coreStartFailed,
       };
       for (final entry in expectedReasons.entries) {
         final diagnosticState = WindowsServiceProtocol.parseState({

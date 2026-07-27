@@ -8,6 +8,7 @@ $ClientRoot = Split-Path -Parent $PSScriptRoot
 $InstallerDir = Join-Path $ClientRoot 'windows\installer'
 $ReleaseDir = Join-Path $ClientRoot 'build\windows\x64\runner\Release'
 $OutputDir = Join-Path $InstallerDir 'output'
+$ServiceDir = Join-Path $ClientRoot 'windows\service_go'
 
 function Resolve-Tool([string]$Name, [string[]]$Candidates) {
   $command = Get-Command $Name -ErrorAction SilentlyContinue
@@ -30,6 +31,16 @@ $Iscc = Resolve-Tool 'ISCC.exe' @(
   '%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe',
   '%ProgramFiles%\Inno Setup 6\ISCC.exe'
 )
+
+Push-Location $ServiceDir
+try {
+  go version
+  Assert-NativeSuccess 'go version'
+  go test ./...
+  Assert-NativeSuccess 'Go service tests'
+} finally {
+  Pop-Location
+}
 
 Push-Location $ClientRoot
 try {

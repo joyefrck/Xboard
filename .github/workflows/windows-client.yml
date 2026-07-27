@@ -6,11 +6,11 @@ on:
       version:
         description: Release version
         required: false
-        default: 1.5.0
+        default: 1.6.4
       build_number:
         description: Numeric build number
         required: false
-        default: '10500'
+        default: '10604'
   push:
     paths:
       - 'clients/elephant-route-deprecated/lib/**'
@@ -35,11 +35,16 @@ jobs:
       run:
         working-directory: clients/elephant-route-deprecated
     env:
-      RELEASE_VERSION: ${{ inputs.version || '1.5.0' }}
-      RELEASE_BUILD: ${{ inputs.build_number || '10500' }}
+      RELEASE_VERSION: ${{ inputs.version || '1.6.4' }}
+      RELEASE_BUILD: ${{ inputs.build_number || '10604' }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.8'
+          cache-dependency-path: clients/elephant-route-deprecated/windows/service_go/go.sum
 
       - uses: subosito/flutter-action@v2
         with:
@@ -53,6 +58,11 @@ jobs:
 
       - name: Flutter dependencies
         run: flutter pub get
+
+      - name: Go service tests
+        shell: pwsh
+        run: go test ./...
+        working-directory: clients/elephant-route-deprecated/windows/service_go
 
       - name: Flutter analyzer
         run: flutter analyze
@@ -81,6 +91,13 @@ jobs:
           Start-Process $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
           sc.exe query ElephantNetworkService
           if ($LASTEXITCODE -ne 0) { throw 'ElephantNetworkService was not installed' }
+          $service = Get-CimInstance Win32_Service -Filter "Name='ElephantNetworkService'"
+          if ($service.StartName -ne 'LocalSystem') { throw 'Unexpected service account' }
+          if ($service.PathName -notmatch 'ElephantNetworkService.exe') {
+            throw 'Unexpected service binary'
+          }
+          $legacy = Get-Process -Name 'sing-box-windows-amd64' -ErrorAction SilentlyContinue
+          if ($legacy) { throw 'Legacy child core is running after service installation' }
           $uninstall = (Get-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
             Where-Object DisplayName -eq "大象网络 $env:RELEASE_VERSION" |
             Select-Object -First 1 -ExpandProperty UninstallString)
