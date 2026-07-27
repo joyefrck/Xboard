@@ -200,7 +200,7 @@ class AppPackageController extends Controller
         ]);
 
         $data = $request->validate([
-            'id' => 'nullable|integer|exists:v2_app_versions,id',
+            'id' => 'prohibited',
             'app_id' => 'required|integer|exists:v2_distribution_apps,id',
             'platform' => ['required', 'string', 'max:32', Rule::in(['android', 'windows', 'macos', 'ios', 'linux'])],
             'channel' => ['nullable', 'string', 'max:32', Rule::in(['stable', 'beta'])],
@@ -235,18 +235,14 @@ class AppPackageController extends Controller
             return $this->fail([400, '第三方应用不能使用大象官方保留标识']);
         }
 
-        if (empty($data['id']) && !$request->hasFile('artifact')) {
+        if (!$request->hasFile('artifact')) {
             return $this->fail([400, '创建版本必须上传安装包']);
         }
 
         try {
-            $version = empty($data['id'])
-                ? AppVersion::create($data)
-                : tap(AppVersion::findOrFail($data['id']))->update($data);
+            $version = AppVersion::create($data);
 
-            if ($request->hasFile('artifact')) {
-                $storage->store($version->load('artifact'), $request->file('artifact'), $request->user()?->id);
-            }
+            $storage->store($version->load('artifact'), $request->file('artifact'), $request->user()?->id);
         } catch (InvalidArgumentException $e) {
             return $this->fail([400, $e->getMessage()]);
         } catch (\Throwable $e) {
@@ -255,6 +251,47 @@ class AppPackageController extends Controller
         }
 
         return $this->success($version->load(['app', 'artifact']));
+    }
+
+    public function updateVersion(Request $request, AppArtifactStorage $storage)
+    {
+        $data = $request->validate([
+            'id' => 'required|integer|exists:v2_app_versions,id',
+            'version' => 'required|string|max:32',
+            'release_notes' => 'nullable|string|max:20000',
+            'artifact' => 'nullable|file|max:2097152',
+            'app_id' => 'prohibited',
+            'platform' => 'prohibited',
+            'channel' => 'prohibited',
+            'arch' => 'prohibited',
+            'build_number' => 'prohibited',
+            'min_supported_build' => 'prohibited',
+            'is_force' => 'prohibited',
+            'is_enabled' => 'prohibited',
+            'published_at' => 'prohibited',
+        ]);
+
+        $version = AppVersion::findOrFail($data['id']);
+        $attributes = [
+            'version' => $data['version'],
+            'release_notes' => $data['release_notes'] ?? null,
+        ];
+
+        try {
+            $storage->updateVersion(
+                $version,
+                $attributes,
+                $request->file('artifact'),
+                $request->user()?->id
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail([400, $e->getMessage()]);
+        } catch (\Throwable $e) {
+            \Log::error($e);
+            return $this->fail([500, '更新版本失败，原版本和安装包未更改']);
+        }
+
+        return $this->success(true);
     }
 
     public function publish(Request $request)

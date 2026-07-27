@@ -188,6 +188,51 @@
       color: #be123c;
       background: #ffe4e6;
     }
+    .modal[aria-hidden="true"] {
+      display: none;
+    }
+    .modal {
+      position: fixed;
+      z-index: 50;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 20px;
+      background: rgb(15 23 42 / 0.58);
+      backdrop-filter: blur(2px);
+    }
+    .modal-panel {
+      width: min(560px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      border-radius: 10px;
+      background: #fff;
+      padding: 20px;
+      box-shadow: 0 24px 60px rgb(15 23 42 / 0.28);
+    }
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .modal-close {
+      min-width: 36px;
+      padding: 7px;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .locked-fields {
+      margin-top: 14px;
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: #475569;
+      background: #f8fafc;
+      font-size: 13px;
+      line-height: 1.7;
+    }
   </style>
 </head>
 <body>
@@ -290,6 +335,47 @@
     </section>
   </main>
 
+  <div
+    class="modal"
+    id="version-edit-modal"
+    aria-hidden="true"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="version-edit-title"
+  >
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <h2 id="version-edit-title">编辑已发布版本</h2>
+          <p class="muted" style="margin-bottom:0">保存后保持当前上架状态，并立即更新公开下载信息。</p>
+        </div>
+        <button class="modal-close" type="button" id="version-edit-close" aria-label="关闭">×</button>
+      </div>
+      <div class="locked-fields">
+        <div><strong>应用 / 平台：</strong><span id="version-edit-identity">-</span></div>
+        <div><strong>应用类型：</strong><span id="version-edit-app-type">-</span></div>
+        <div><strong>当前安装包：</strong><span id="version-edit-current-artifact">-</span></div>
+      </div>
+      <form id="version-edit-form" enctype="multipart/form-data">
+        <input type="hidden" name="id">
+        <label>版本号<input name="version" required maxlength="32"></label>
+        <label>发布说明<textarea name="release_notes" maxlength="20000" placeholder="用于公开下载页展示"></textarea></label>
+        <label>新安装包（可选）<input type="file" name="artifact"></label>
+        <p class="muted">未选择文件时只更新版本号和发布说明；选择新安装包将替换并删除旧文件，累计下载次数保持不变。</p>
+        <div class="row" style="margin-top:14px">
+          <button class="primary" type="submit">保存修改</button>
+          <button type="button" id="version-edit-cancel">取消</button>
+        </div>
+        <div class="upload-progress" id="version-edit-progress">
+          <div class="upload-progress-track">
+            <div class="upload-progress-bar" id="version-edit-progress-bar"></div>
+          </div>
+          <div class="upload-progress-text" id="version-edit-progress-text">等待保存</div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     (function () {
       var securePath = @json($secure_path);
@@ -308,6 +394,18 @@
       var uploadProgressBar = document.getElementById("upload-progress-bar");
       var uploadProgressText = document.getElementById("upload-progress-text");
       var versionRows = document.getElementById("version-rows");
+      var versionEditModal = document.getElementById("version-edit-modal");
+      var versionEditForm = document.getElementById("version-edit-form");
+      var versionEditIdentity = document.getElementById("version-edit-identity");
+      var versionEditAppType = document.getElementById("version-edit-app-type");
+      var versionEditCurrentArtifact = document.getElementById("version-edit-current-artifact");
+      var versionEditClose = document.getElementById("version-edit-close");
+      var versionEditCancel = document.getElementById("version-edit-cancel");
+      var versionEditSubmit = versionEditForm.querySelector('button[type="submit"]');
+      var versionEditProgress = document.getElementById("version-edit-progress");
+      var versionEditProgressBar = document.getElementById("version-edit-progress-bar");
+      var versionEditProgressText = document.getElementById("version-edit-progress-text");
+      var versionEditBusy = false;
 
       function token() {
         var raw = localStorage.getItem("XBOARD_ACCESS_TOKEN") || localStorage.getItem("access_token");
@@ -347,6 +445,28 @@
         uploadProgress.className = "upload-progress";
         uploadProgressBar.style.width = "0%";
         uploadProgressText.textContent = "等待上传";
+      }
+
+      function setVersionEditBusy(busy) {
+        versionEditBusy = busy;
+        versionEditSubmit.disabled = busy;
+        versionEditClose.disabled = busy;
+        versionEditCancel.disabled = busy;
+        versionEditForm.querySelector('[name="artifact"]').disabled = busy;
+        versionEditSubmit.textContent = busy ? "保存中..." : "保存修改";
+      }
+
+      function updateVersionEditProgress(percent, message) {
+        var normalized = Math.max(0, Math.min(100, Math.round(percent)));
+        versionEditProgress.className = "upload-progress show";
+        versionEditProgressBar.style.width = normalized + "%";
+        versionEditProgressText.textContent = message || ("正在上传 " + normalized + "%");
+      }
+
+      function resetVersionEditProgress() {
+        versionEditProgress.className = "upload-progress";
+        versionEditProgressBar.style.width = "0%";
+        versionEditProgressText.textContent = "等待保存";
       }
 
       async function request(path, options) {
@@ -603,6 +723,53 @@
           + (buildNumber ? "<br><span class=\"muted\">Build " + escapeHtml(buildNumber) + "</span>" : "");
       }
 
+      function formatFileSize(bytes) {
+        if (!bytes) {
+          return "未知大小";
+        }
+        var megabytes = Number(bytes) / 1024 / 1024;
+        return (Math.round(megabytes * 10) / 10) + " MB";
+      }
+
+      function formatDistributionScope(scope) {
+        return String(scope || "download_only") === "official_update"
+          ? "大象官方 App（支持自动更新）"
+          : "第三方 App（仅供下载）";
+      }
+
+      function openVersionEditor(version) {
+        var artifact = version.artifact;
+        versionEditForm.reset();
+        versionEditForm.querySelector('[name="id"]').value = version.id;
+        versionEditForm.querySelector('[name="version"]').value = version.version || "";
+        versionEditForm.querySelector('[name="release_notes"]').value = version.release_notes || "";
+        versionEditIdentity.textContent = (displayAppName(version)
+          || (version.app && version.app.app_key)
+          || "-")
+          + " / " + (version.platform || "-");
+        versionEditAppType.textContent = formatDistributionScope(
+          version.app && version.app.distribution_scope
+        );
+        versionEditCurrentArtifact.textContent = artifact
+          ? artifact.original_name + "（" + formatFileSize(artifact.file_size) + "）"
+          : "未上传";
+        resetVersionEditProgress();
+        setVersionEditBusy(false);
+        versionEditModal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        versionEditForm.querySelector('[name="version"]').focus();
+      }
+
+      function closeVersionEditor() {
+        if (versionEditBusy) {
+          return;
+        }
+        versionEditModal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+        versionEditForm.reset();
+        resetVersionEditProgress();
+      }
+
       function findExistingAppByGuess(name, distributionScope) {
         var normalized = String(name || "").trim().toLowerCase();
         var compact = normalized.replace(/[^a-z0-9]+/g, "");
@@ -696,6 +863,7 @@
             : '<span class="badge off">disabled</span>';
 
           var actions = row.querySelector(".row");
+          actions.appendChild(actionButton("编辑", function () { openVersionEditor(version); }));
           if (version.is_enabled) {
             actions.appendChild(actionButton("下架", function () { mutate("/versions/disable", { id: version.id }); }, "warn"));
           } else {
@@ -744,6 +912,41 @@
           await loadDownloadSettings();
         } catch (e) {
           showStatus(e.message, false);
+        }
+      });
+
+      versionEditForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        var replacementInput = versionEditForm.querySelector('[name="artifact"]');
+        var replacementFile = replacementInput.files && replacementInput.files[0];
+        if (replacementFile && !confirm("保存后将立即切换到新安装包并删除旧文件，确认继续？")) {
+          return;
+        }
+
+        setVersionEditBusy(true);
+        updateVersionEditProgress(0, replacementFile ? "准备上传新安装包..." : "正在保存版本信息...");
+        try {
+          var data = new FormData(versionEditForm);
+          await uploadRequest("/versions/update", data, function (percent) {
+            if (percent === null) {
+              updateVersionEditProgress(5, replacementFile ? "正在上传新安装包..." : "正在保存...");
+              return;
+            }
+            var capped = percent >= 100 ? 99 : percent;
+            updateVersionEditProgress(capped, replacementFile
+              ? "正在上传 " + Math.round(capped) + "%"
+              : "正在保存...");
+          });
+          updateVersionEditProgress(100, replacementFile ? "安装包已替换" : "版本信息已更新");
+          setVersionEditBusy(false);
+          closeVersionEditor();
+          showStatus(replacementFile ? "版本和安装包已更新" : "版本信息已更新", true);
+          await loadVersions();
+        } catch (e) {
+          showStatus(e.message, false);
+          updateVersionEditProgress(0, e.message);
+        } finally {
+          setVersionEditBusy(false);
         }
       });
 
@@ -854,6 +1057,18 @@
         resetUploadProgress();
         setPackageDefaults(true);
         syncAppIdentityControls();
+      });
+      versionEditClose.addEventListener("click", closeVersionEditor);
+      versionEditCancel.addEventListener("click", closeVersionEditor);
+      versionEditModal.addEventListener("click", function (event) {
+        if (event.target === versionEditModal) {
+          closeVersionEditor();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && versionEditModal.getAttribute("aria-hidden") === "false") {
+          closeVersionEditor();
+        }
       });
       document.getElementById("refresh").addEventListener("click", function () {
         refreshAll().catch(function (e) { showStatus(e.message, false); });

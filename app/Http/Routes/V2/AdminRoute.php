@@ -175,6 +175,7 @@ class AdminRoute
                 $router->post('/apps/drop', [AppPackageController::class, 'dropApp']);
                 $router->get('/versions', [AppPackageController::class, 'versions']);
                 $router->post('/versions/save', [AppPackageController::class, 'saveVersion']);
+                $router->post('/versions/update', [AppPackageController::class, 'updateVersion']);
                 $router->post('/versions/publish', [AppPackageController::class, 'publish']);
                 $router->post('/versions/disable', [AppPackageController::class, 'disable']);
                 $router->post('/versions/drop', [AppPackageController::class, 'drop']);
