@@ -385,8 +385,8 @@ func (singBoxFactory) New(
 Build with:
 
 ```text
-with_gvisor,with_quic,with_dhcp,with_wireguard,with_ech,with_utls,
-with_reality_server,with_acme,with_clash_api,with_tailscale
+with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_acme,
+with_clash_api,with_tailscale
 ```
 
 - [ ] **Step 4: Verify tests and binary metadata**
@@ -394,9 +394,9 @@ with_reality_server,with_acme,with_clash_api,with_tailscale
 Run:
 
 ```bash
-go test -tags "with_gvisor with_quic with_dhcp with_wireguard with_ech with_utls with_reality_server with_acme with_clash_api with_tailscale" ./...
+go test -tags "with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale" ./...
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
-  -tags "with_gvisor with_quic with_dhcp with_wireguard with_ech with_utls with_reality_server with_acme with_clash_api with_tailscale" \
+  -tags "with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale" \
   -o /tmp/ElephantNetworkService.exe .
 go version -m /tmp/ElephantNetworkService.exe
 ```
@@ -581,7 +581,7 @@ Run:
 ```bash
 go test -race ./...
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
-  -tags "with_gvisor with_quic with_dhcp with_wireguard with_ech with_utls with_reality_server with_acme with_clash_api with_tailscale" \
+  -tags "with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale" \
   -o /tmp/ElephantNetworkService.exe .
 ```
 
@@ -642,7 +642,7 @@ add_custom_command(
     "CGO_ENABLED=0" "GOOS=windows" "GOARCH=amd64"
     go build
     -trimpath
-    -tags "with_gvisor,with_quic,with_dhcp,with_wireguard,with_ech,with_utls,with_reality_server,with_acme,with_clash_api,with_tailscale"
+    -tags "with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_acme,with_clash_api,with_tailscale"
     -o "${ELEPHANT_SERVICE_EXE}"
     .
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../service_go"
@@ -905,3 +905,32 @@ Report the absolute installer path, SHA-256, unsigned/SmartScreen status,
 workflow URL, and the architectural change. State that automated verification
 passed without claiming Win10 runtime acceptance until the user installs the
 final package.
+
+---
+
+## Verification evidence
+
+Recorded on 2026-07-27:
+
+- Implementation commit: `54c02767` (`fix: host Windows sing-box core in service`)
+- Windows adapter follow-up: `46f82ae3` (`fix: detect Windows default adapter reliably`)
+- Local Go verification:
+  - `go vet ./...`
+  - `go test ./...`
+  - `go test -race ./...`
+  - Windows amd64 cross-build with the official sing-box 1.12.25 feature tags
+- Local Flutter verification:
+  - `flutter analyze`: no issues
+  - `flutter test --no-pub`: 198 tests passed, one Windows-only test skipped
+- Windows workflow:
+  - Run: https://github.com/joyefrck/Xboard/actions/runs/30264184424
+  - Result: success
+  - Go service tests, Windows adapter ABI/runtime test, Flutter analyzer,
+    Flutter tests, Windows release build, native protocol tests, unsigned
+    installer build, install/service/uninstall smoke, and artifact upload all
+    passed.
+- Artifact:
+  - `build/releases/windows/1.6.4-in-process/ElephantNetwork-Setup-x64-v1.6.4.exe`
+  - Size: approximately 69 MB
+  - SHA-256:
+    `564ec2d2a80218fde4010cb6fc1be0a90621b3bcbbe4be68f9bb75899b0d4766`
