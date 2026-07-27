@@ -52,7 +52,7 @@ CoreStartFailure ClassifyCoreStartFailure(const std::string& log_tail,
         process_exited, exit_code);
   }
   if (ContainsAny(log, {"decode config", "parse config", "invalid config",
-                        "unknown field", "deprecated"})) {
+                        "unknown field"})) {
     return Failure(
         "core_config_invalid",
         "sing-box 拒绝了当前配置，请查看 sing-box.log 中的校验错误。",
