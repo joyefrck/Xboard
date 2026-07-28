@@ -41,7 +41,7 @@ data is retained.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\build_windows_release.ps1 -Version 1.6.5 -BuildNumber 10605
+.\scripts\build_windows_release.ps1 -Version 1.6.6 -BuildNumber 10606
 ```
 
 The application binaries, Windows service, and installer are intentionally
@@ -70,7 +70,7 @@ hash does not match the release metadata.
 ## Manual verification
 
 ```powershell
-Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.5.exe -Algorithm SHA256
+Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.6.exe -Algorithm SHA256
 sc.exe query ElephantNetworkService
 ```
 

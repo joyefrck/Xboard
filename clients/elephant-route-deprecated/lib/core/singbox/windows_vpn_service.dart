@@ -261,6 +261,14 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     config.remove('use_tun_mode');
     config['log'] = {'level': 'warn', 'timestamp': true};
 
+    // ClashMi keeps IPv6 disabled by default on Windows. Preserve Elephant's
+    // full-device TUN coverage while matching that destination behavior.
+    final dns = config['dns'] is Map
+        ? Map<String, dynamic>.from(config['dns'] as Map)
+        : <String, dynamic>{};
+    dns['strategy'] = 'ipv4_only';
+    config['dns'] = dns;
+
     final inbounds = (config['inbounds'] as List?) ?? <dynamic>[];
     inbounds.removeWhere((dynamic inbound) =>
         inbound is Map &&
@@ -269,8 +277,11 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
       'type': 'tun',
       'tag': 'tun-in',
       'interface_name': 'ElephantNetwork',
-      'address': [tunIpv4Address, 'fdfe:dcba:9876::1/126'],
+      'address': [tunIpv4Address],
       'auto_route': true,
+      'domain_strategy': 'ipv4_only',
+      'endpoint_independent_nat': true,
+      'mtu': 1500,
       // strict_route installs a Windows WFP kill switch. On Windows 10 it can
       // reject all traffic while the physical interface is still settling or
       // when another virtualization/VPN filter is present. Explicit interface
@@ -278,13 +289,51 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
       'strict_route': strictRoute,
       'stack': 'system',
       'sniff': true,
+      'sniff_override_destination': true,
     });
     config['inbounds'] = inbounds;
+
+    final outbounds = (config['outbounds'] as List?) ?? <dynamic>[];
+    final hasBlockOutbound = outbounds.any(
+      (dynamic outbound) =>
+          outbound is Map &&
+          outbound['type'] == 'block' &&
+          outbound['tag'] == 'block',
+    );
+    if (!hasBlockOutbound) {
+      outbounds.add({'type': 'block', 'tag': 'block'});
+    }
+    config['outbounds'] = outbounds;
 
     final route =
         config['route'] is Map ? config['route'] as Map : <String, dynamic>{};
     config['route'] = route;
     {
+      // ClashMi's default Windows system-proxy path does not carry browser
+      // QUIC. Reject it inside TUN so Chromium immediately retries over TCP.
+      final rules = (route['rules'] as List?) ?? <dynamic>[];
+      dynamic quicFallbackRule;
+      for (final dynamic rule in rules) {
+        if (rule is Map &&
+            rule['network'] == 'udp' &&
+            rule['port'] == 443 &&
+            rule['outbound'] == 'block') {
+          quicFallbackRule = rule;
+          break;
+        }
+      }
+      if (quicFallbackRule != null) {
+        rules.remove(quicFallbackRule);
+      } else {
+        quicFallbackRule = {
+          'network': 'udp',
+          'port': 443,
+          'outbound': 'block',
+        };
+      }
+      rules.insert(0, quicFallbackRule);
+      route['rules'] = rules;
+
       route['auto_detect_interface'] = false;
       route['default_interface'] = defaultInterface;
       final ruleSets = route['rule_set'];
