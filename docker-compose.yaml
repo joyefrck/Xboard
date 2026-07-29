@@ -21,6 +21,7 @@ services:
     volumes:
       - ./.docker/.data/redis/:/data/
       - ./:/www/
+      - ${APP_DOWNLOAD_MIRROR_KEY_DIR:-./.docker/.data/app-download-mirror}:/run/secrets/app-download-mirror:ro
     restart: always
     networks:
       - default

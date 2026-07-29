@@ -61,6 +61,17 @@ return [
             'throw' => false,
         ],
 
+        'app_download_mirror' => [
+            'driver' => 'sftp',
+            'host' => env('APP_DOWNLOAD_MIRROR_HOST'),
+            'username' => env('APP_DOWNLOAD_MIRROR_USERNAME'),
+            'privateKey' => env('APP_DOWNLOAD_MIRROR_PRIVATE_KEY'),
+            'port' => (int) env('APP_DOWNLOAD_MIRROR_PORT', 22),
+            'root' => env('APP_DOWNLOAD_MIRROR_ROOT', '/files'),
+            'timeout' => 30,
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
