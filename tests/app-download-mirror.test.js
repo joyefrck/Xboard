@@ -101,6 +101,7 @@ function extractLockCallback(source) {
   const lockEnd = extractParenthesized(source, source.indexOf('(', lockStart), 'Cache::lock');
   const blockStart = source.indexOf('->block(', lockEnd.end);
   assert.notEqual(blockStart, -1, 'Expected Cache::lock to invoke block');
+  assert.match(source.slice(lockEnd.end, blockStart), /^\s*$/, 'Cache lock block must be the same direct call chain');
   const blockArguments = extractParenthesized(source, source.indexOf('(', blockStart), 'Cache lock block');
   const callbackStart = blockArguments.body.indexOf('function');
   assert.notEqual(callbackStart, -1, 'Expected Cache lock block callback');
@@ -144,13 +145,18 @@ function extractCatchBlock(source) {
   return { start: catchStart, body: extractBlockStartingAt(source, catchStart, 'catch branch') };
 }
 
-function assertMirrorLogsAreWhitelisted(source) {
-  assert.doesNotMatch(source, /Log::channel|logger\s*\(|\$(?:logger|log)\s*->|\$this->logger->/);
-  const calls = [...source.matchAll(/(Log::\w+|logger\s*\(|\$\w+->\w+|\$this->logger->\w+)\(([\s\S]*?)\);/g)];
-  for (const [, target, argumentsText] of calls) {
-    assert.equal(target, 'Log::warning', 'only Log::warning health-check errors are allowed');
-    assert.match(argumentsText, /^'App download mirror health check failed'\s*,\s*\[\s*'artifact_id'\s*=>\s*\$artifact->id\s*,\s*'exception'\s*=>\s*\$e::class\s*\]$/);
-  }
+function assertNoRouterLogging(source) {
+  assert.doesNotMatch(source, /(?:Log::(?:debug|info|notice|warning|error|critical|alert|emergency|log)|\b(?:logger|debug|info|notice|warning|error)\s*\(|->(?:debug|info|notice|warning|error|critical|alert|emergency|log)\s*\()/);
+}
+
+function hasBoundHealthReturn(source) {
+  const health = source.match(/(\$\w+)\s*=\s*Cache::remember\(/)?.[1];
+  const signed = source.match(/(\$\w+)\s*=\s*[^;]*->(?:sign|redirectUrl)\(/)?.[1];
+  if (!health || !signed) return false;
+  const escapedHealth = health.replace('$', '\\$');
+  const escapedSigned = signed.replace('$', '\\$');
+  return new RegExp(`return\\s+${escapedHealth}\\s*\\?\\s*${escapedSigned}\\s*:\\s*null`).test(source)
+    || new RegExp(`if\\s*\\(\\s*!${escapedHealth}\\s*\\)\\s*\\{\\s*return null;\\s*\\}[\\s\\S]*?return\\s+${escapedSigned}\\s*;`).test(source);
 }
 
 function extractPhpMethod(source, name) {
@@ -204,11 +210,14 @@ test('lock callback extraction excludes sync outside an empty block', () => {
 
   assert.doesNotMatch(extractLockCallback(source), /->sync\(/);
   assert.throws(() => extractLockCallback('Cache::lock("x")->block(5); run(function () { $mirror->sync(); });'));
+  assert.throws(() => extractLockCallback('Cache::lock("x"); $runner->block(5, function () { $mirror->sync(); });'));
 });
 
-test('signed logging flow rejects an alias but permits artifact and exception context', () => {
-  assert.throws(() => assertMirrorLogsAreWhitelisted("Log::channel('x')->warning('x')"));
-  assert.doesNotThrow(() => assertMirrorLogsAreWhitelisted("Log::warning('App download mirror health check failed', ['artifact_id' => $artifact->id, 'exception' => $e::class]);"));
+test('router log and health helpers reject unbound security paths without false positives', () => {
+  assert.throws(() => assertNoRouterLogging('$target = $signed; info($target);'));
+  assert.doesNotThrow(() => assertNoRouterLogging('$response->successful();'));
+  assert.equal(hasBoundHealthReturn('if ($artifact->mirror_status !== AppArtifact::MIRROR_READY) { return null; } return $url;'), false);
+  assert.equal(hasBoundHealthReturn('$healthy = Cache::remember("x", fn () => true); $url = $signer->sign(); return $healthy ? $url : null;'), true);
 });
 
 test('catch branch fixture distinguishes cleanup from a forbidden mirror queue', () => {
@@ -346,8 +355,8 @@ test('mirror router only serves healthy ready artifacts and never logs the signe
   assert.match(redirectUrl, /Cache::remember/);
   assert.match(redirectUrl, /connectTimeout\(1\)/);
   assert.match(redirectUrl, /->head\(/i);
-  assert.match(redirectUrl, /return\s+(?:\$\w+\s*\?\s*\$\w+\s*:\s*null|null\s*;|\$\w+\s*;)/);
-  assertMirrorLogsAreWhitelisted(redirectUrl);
+  assert.ok(hasBoundHealthReturn(redirectUrl), 'health status and signed URL must be bound in the return path');
+  assertNoRouterLogging(redirectUrl);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
