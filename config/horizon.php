@@ -212,17 +212,6 @@ return [
                 'maxJobs' => 25,
                 'maxTime' => 900,
             ],
-            'XboardAppDownloadMirror' => [
-                'connection' => 'redis_mirror',
-                'queue' => ['app_download_mirror'],
-                'balance' => false,
-                'minProcesses' => 1,
-                'maxProcesses' => 1,
-                'tries' => 3,
-                'timeout' => 1800,
-                'maxJobs' => 10,
-                'maxTime' => 3600,
-            ],
             'XboardEmail' => [
                 'connection' => 'redis',
                 'queue' => [

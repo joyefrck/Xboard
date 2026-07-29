@@ -66,14 +66,6 @@ return [
             'block_for' => null,
         ],
 
-        'redis_mirror' => [
-            'driver' => 'redis',
-            'connection' => 'default',
-            'queue' => 'app_download_mirror',
-            'retry_after' => 1900,
-            'block_for' => null,
-        ],
-
     ],
 
     /*
