@@ -1,6 +1,36 @@
 import 'dart:convert';
 
+import 'connection_latency_manager.dart';
 import 'vpn_state.dart';
+
+enum WindowsLatencyJobStatus {
+  running,
+  completed,
+  cancelled,
+  error,
+}
+
+final class WindowsLatencySnapshot {
+  const WindowsLatencySnapshot({
+    required this.runId,
+    required this.status,
+    required this.completed,
+    required this.total,
+    required this.results,
+    this.errorCode,
+    this.errorMessage,
+  });
+
+  final String runId;
+  final WindowsLatencyJobStatus status;
+  final int completed;
+  final int total;
+  final Map<String, ConnectionLatencyResult> results;
+  final String? errorCode;
+  final String? errorMessage;
+
+  bool get isTerminal => status != WindowsLatencyJobStatus.running;
+}
 
 final class WindowsServiceProtocol {
   WindowsServiceProtocol._();
@@ -19,6 +49,9 @@ final class WindowsServiceProtocol {
     'selectOutbound',
     'prepareSpeedTest',
     'stopSpeedTest',
+    'startLatencyTest',
+    'getLatencyTest',
+    'cancelLatencyTest',
     'protectSecret',
     'unprotectSecret',
     'deleteSecret',
@@ -67,6 +100,58 @@ final class WindowsServiceProtocol {
     if (utf8.encode(config).length > maxConfigBytes) {
       throw const FormatException('Windows TUN 配置超过 4 MiB 限制');
     }
+  }
+
+  static WindowsLatencySnapshot parseLatencySnapshot(Object? value) {
+    if (value is! Map) {
+      throw const FormatException('Windows 测速服务返回了无效状态');
+    }
+    final map = Map<String, dynamic>.from(value);
+    final status = switch (map['latency_test_status']?.toString()) {
+      'running' => WindowsLatencyJobStatus.running,
+      'completed' => WindowsLatencyJobStatus.completed,
+      'cancelled' => WindowsLatencyJobStatus.cancelled,
+      'error' => WindowsLatencyJobStatus.error,
+      _ => throw const FormatException('Windows 测速任务状态无效'),
+    };
+    final rawResults = map['latency_results_json'];
+    if (rawResults is! String) {
+      throw const FormatException('Windows 测速结果缺失');
+    }
+    final decoded = jsonDecode(rawResults);
+    if (decoded is! Map) {
+      throw const FormatException('Windows 测速结果格式无效');
+    }
+    final results = <String, ConnectionLatencyResult>{};
+    for (final entry in decoded.entries) {
+      final rawResult = entry.value;
+      if (rawResult is! Map) {
+        throw const FormatException('Windows 节点测速结果格式无效');
+      }
+      final result = Map<String, dynamic>.from(rawResult);
+      final latencyMs = _toInt(result['latency_ms']);
+      final elapsedMs = _toInt(result['elapsed_ms']);
+      if (latencyMs == null || elapsedMs == null) {
+        throw const FormatException('Windows 节点测速结果字段无效');
+      }
+      results[entry.key.toString()] = ConnectionLatencyResult(
+        latencyMs: latencyMs,
+        elapsedMs: elapsedMs,
+        attempts: _toIntList(result['attempts']),
+        failureKind: _latencyFailure(result['failure_kind']?.toString()),
+        source: ConnectionLatencySource.connectionProbe,
+        httpStatusCodes: _toIntList(result['http_status_codes']),
+      );
+    }
+    return WindowsLatencySnapshot(
+      runId: map['run_id']?.toString() ?? '',
+      status: status,
+      completed: _toInt(map['latency_completed']) ?? results.length,
+      total: _toInt(map['latency_total']) ?? results.length,
+      results: Map<String, ConnectionLatencyResult>.unmodifiable(results),
+      errorCode: _optionalString(map['error_code']),
+      errorMessage: _optionalString(map['error_message']),
+    );
   }
 
   static VpnStatus _status(String? value) {
@@ -126,6 +211,34 @@ final class WindowsServiceProtocol {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static List<int> _toIntList(Object? value) {
+    if (value == null) return const <int>[];
+    if (value is! List) {
+      throw const FormatException('Windows 测速数组字段无效');
+    }
+    return List<int>.unmodifiable(
+      value.map((item) {
+        final parsed = _toInt(item);
+        if (parsed == null) {
+          throw const FormatException('Windows 测速数组值无效');
+        }
+        return parsed;
+      }),
+    );
+  }
+
+  static ConnectionLatencyFailureKind? _latencyFailure(String? value) {
+    return switch (value) {
+      null || '' => null,
+      'timeout' => ConnectionLatencyFailureKind.timeout,
+      'httpError' => ConnectionLatencyFailureKind.httpError,
+      'transportError' => ConnectionLatencyFailureKind.transportError,
+      'serviceError' => ConnectionLatencyFailureKind.serviceError,
+      'cancelled' => ConnectionLatencyFailureKind.cancelled,
+      _ => throw const FormatException('Windows 测速失败类型无效'),
+    };
   }
 
   static String? _optionalString(Object? value) {

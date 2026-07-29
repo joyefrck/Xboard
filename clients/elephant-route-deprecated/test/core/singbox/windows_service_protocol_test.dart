@@ -87,5 +87,30 @@ void main() {
       expect(state.status, VpnStatus.error);
       expect(state.failureReason, VpnFailureReason.unknown);
     });
+
+    test('supports bounded service-owned latency jobs', () {
+      expect(
+        WindowsServiceProtocol.supportedMethods,
+        containsAll(const [
+          'startLatencyTest',
+          'getLatencyTest',
+          'cancelLatencyTest',
+        ]),
+      );
+      final snapshot = WindowsServiceProtocol.parseLatencySnapshot({
+        'run_id': 'run-1',
+        'latency_test_status': 'running',
+        'latency_completed': 1,
+        'latency_total': 2,
+        'latency_results_json':
+            '{"Tokyo":{"latency_ms":82,"elapsed_ms":190,"attempts":[168,82],"http_status_codes":[204,204]}}',
+      });
+
+      expect(snapshot.runId, 'run-1');
+      expect(snapshot.completed, 1);
+      expect(snapshot.total, 2);
+      expect(snapshot.results['Tokyo']?.latencyMs, 82);
+      expect(snapshot.results['Tokyo']?.attempts, [168, 82]);
+    });
   });
 }

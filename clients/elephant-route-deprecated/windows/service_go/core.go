@@ -19,6 +19,7 @@ type coreInstance interface {
 type latencyCapableCore interface {
 	coreInstance
 	LatencyProbe() latencyProbeFunc
+	HasLatencyOutbound(string) bool
 }
 
 type coreFactory interface {
@@ -202,6 +203,14 @@ func (manager *coreManager) startLatencyTest(
 		return latencyJobSnapshot{}, &coreFailure{
 			Code:    "latency_unavailable",
 			Message: "Windows latency service is unavailable.",
+		}
+	}
+	for _, nodeTag := range request.NodeTags {
+		if !instance.HasLatencyOutbound(nodeTag) {
+			return latencyJobSnapshot{}, &coreFailure{
+				Code:    "latency_node_unavailable",
+				Message: "Windows latency node is unavailable.",
+			}
 		}
 	}
 	snapshot, err := manager.latency.Start(

@@ -53,6 +53,10 @@ func (core *fakeLatencyCore) LatencyProbe() latencyProbeFunc {
 	return core.probe
 }
 
+func (core *fakeLatencyCore) HasLatencyOutbound(string) bool {
+	return true
+}
+
 func TestCoreManagerRunsLatencyOnlyOnConnectedCore(t *testing.T) {
 	core := &fakeLatencyCore{
 		started: make(chan struct{}),

@@ -3,6 +3,7 @@
 #include <wincrypt.h>
 
 #include <chrono>
+#include <cstdint>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -28,17 +29,33 @@ std::optional<std::string> StringArgument(
   return std::nullopt;
 }
 
+std::optional<std::int64_t> IntegerArgument(
+    const EncodableMap* arguments, const char* key) {
+  if (!arguments) return std::nullopt;
+  const auto iterator = arguments->find(EncodableValue(key));
+  if (iterator == arguments->end()) return std::nullopt;
+  if (const auto* value = std::get_if<std::int32_t>(&iterator->second)) {
+    return *value;
+  }
+  if (const auto* value = std::get_if<std::int64_t>(&iterator->second)) {
+    return *value;
+  }
+  return std::nullopt;
+}
+
 EncodableValue ResponseValue(const std::string& json) {
   EncodableMap map;
   for (const auto* key : {"status", "mode", "core_version", "error_code",
                           "error_message", "default_interface",
-                          "tun_ipv4_address"}) {
+                          "tun_ipv4_address", "run_id",
+                          "latency_test_status", "latency_results_json"}) {
     if (const auto value = elephant::JsonString(json, key)) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }
   }
   for (const auto* key : {"up_speed", "down_speed", "total_up", "total_down",
-                          "core_pid", "core_exit_code", "delay"}) {
+                          "core_pid", "core_exit_code", "delay",
+                          "latency_completed", "latency_total"}) {
     if (const auto value = elephant::JsonInteger(json, key)) {
       map[EncodableValue(key)] = EncodableValue(*value);
     }
@@ -195,6 +212,30 @@ void WindowsServiceBridge::HandleMethod(
     const auto group = StringArgument(arguments, "group_tag");
     arguments_json = "{\"group_tag\":\"" +
                      elephant::JsonEscape(group.value_or("")) + "\"}";
+  } else if (method == "startLatencyTest") {
+    const auto node_tags = StringArgument(arguments, "node_tags_json");
+    const auto test_url = StringArgument(arguments, "test_url");
+    const auto timeout_ms = IntegerArgument(arguments, "timeout_ms");
+    const auto concurrency = IntegerArgument(arguments, "concurrency");
+    if (!node_tags || !test_url || !timeout_ms || !concurrency) {
+      result->Error("INVALID_LATENCY_REQUEST",
+                    "Missing Windows latency arguments");
+      return;
+    }
+    arguments_json =
+        "{\"node_tags_json\":\"" +
+        elephant::JsonEscape(*node_tags) +
+        "\",\"test_url\":\"" +
+        elephant::JsonEscape(*test_url) +
+        "\",\"timeout_ms\":" +
+        std::to_string(*timeout_ms) +
+        ",\"concurrency\":" +
+        std::to_string(*concurrency) + "}";
+  } else if (method == "getLatencyTest" ||
+             method == "cancelLatencyTest") {
+    const auto run_id = StringArgument(arguments, "run_id");
+    arguments_json = "{\"run_id\":\"" +
+                     elephant::JsonEscape(run_id.value_or("")) + "\"}";
   } else if (method == "selectOutbound") {
     const auto group = StringArgument(arguments, "group_tag");
     const auto outbound = StringArgument(arguments, "outbound_tag");

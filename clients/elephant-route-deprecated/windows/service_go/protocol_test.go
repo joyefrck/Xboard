@@ -66,3 +66,41 @@ func TestErrorResponseDoesNotExposeRawError(t *testing.T) {
 		t.Fatalf("response leaked configuration: %s", encoded)
 	}
 }
+
+func TestDecodeLatencyJobRequest(t *testing.T) {
+	raw := []byte(`{
+		"version":1,
+		"method":"startLatencyTest",
+		"arguments":{
+			"node_tags_json":"[\"Tokyo\",\"Osaka\"]",
+			"test_url":"https://www.gstatic.com/generate_204",
+			"timeout_ms":5000,
+			"concurrency":4
+		}
+	}`)
+	request, err := decodeRequest(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.NodeTagsJSON != `["Tokyo","Osaka"]` ||
+		request.TestURL != "https://www.gstatic.com/generate_204" ||
+		request.TimeoutMS != 5000 ||
+		request.Concurrency != 4 {
+		t.Fatalf("unexpected request: %#v", request)
+	}
+}
+
+func TestDecodeLatencySnapshotRequest(t *testing.T) {
+	raw := []byte(`{
+		"version":1,
+		"method":"getLatencyTest",
+		"arguments":{"run_id":"12345678abcdef"}
+	}`)
+	request, err := decodeRequest(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.RunID != "12345678abcdef" {
+		t.Fatalf("unexpected run ID: %#v", request)
+	}
+}

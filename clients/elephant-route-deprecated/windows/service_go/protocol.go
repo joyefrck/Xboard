@@ -32,12 +32,20 @@ var allowedMethods = map[string]struct{}{
 	"stopSpeedTest":     {},
 	"urlTest":           {},
 	"selectOutbound":    {},
+	"startLatencyTest":  {},
+	"getLatencyTest":    {},
+	"cancelLatencyTest": {},
 }
 
 type requestArguments struct {
-	Config      string `json:"config,omitempty"`
-	GroupTag    string `json:"group_tag,omitempty"`
-	OutboundTag string `json:"outbound_tag,omitempty"`
+	Config       string `json:"config,omitempty"`
+	GroupTag     string `json:"group_tag,omitempty"`
+	OutboundTag  string `json:"outbound_tag,omitempty"`
+	NodeTagsJSON string `json:"node_tags_json,omitempty"`
+	TestURL      string `json:"test_url,omitempty"`
+	TimeoutMS    int    `json:"timeout_ms,omitempty"`
+	Concurrency  int    `json:"concurrency,omitempty"`
+	RunID        string `json:"run_id,omitempty"`
 }
 
 type requestEnvelope struct {
@@ -47,29 +55,39 @@ type requestEnvelope struct {
 }
 
 type request struct {
-	Version     int
-	Method      string
-	Config      string
-	GroupTag    string
-	OutboundTag string
+	Version      int
+	Method       string
+	Config       string
+	GroupTag     string
+	OutboundTag  string
+	NodeTagsJSON string
+	TestURL      string
+	TimeoutMS    int
+	Concurrency  int
+	RunID        string
 }
 
 type response struct {
-	Status           string         `json:"status"`
-	Mode             string         `json:"mode,omitempty"`
-	UpSpeed          int64          `json:"up_speed,omitempty"`
-	DownSpeed        int64          `json:"down_speed,omitempty"`
-	TotalUp          int64          `json:"total_up,omitempty"`
-	TotalDown        int64          `json:"total_down,omitempty"`
-	CoreVersion      string         `json:"core_version,omitempty"`
-	CorePID          int            `json:"core_pid,omitempty"`
-	ErrorCode        string         `json:"error_code,omitempty"`
-	ErrorMessage     string         `json:"error_message,omitempty"`
-	DefaultInterface string         `json:"default_interface,omitempty"`
-	TunIPv4Address   string         `json:"tun_ipv4_address,omitempty"`
-	StrictRoute      bool           `json:"strict_route,omitempty"`
-	Delay            *int           `json:"delay,omitempty"`
-	LatencyMap       map[string]int `json:"latency_map,omitempty"`
+	Status             string         `json:"status"`
+	Mode               string         `json:"mode,omitempty"`
+	UpSpeed            int64          `json:"up_speed,omitempty"`
+	DownSpeed          int64          `json:"down_speed,omitempty"`
+	TotalUp            int64          `json:"total_up,omitempty"`
+	TotalDown          int64          `json:"total_down,omitempty"`
+	CoreVersion        string         `json:"core_version,omitempty"`
+	CorePID            int            `json:"core_pid,omitempty"`
+	ErrorCode          string         `json:"error_code,omitempty"`
+	ErrorMessage       string         `json:"error_message,omitempty"`
+	DefaultInterface   string         `json:"default_interface,omitempty"`
+	TunIPv4Address     string         `json:"tun_ipv4_address,omitempty"`
+	StrictRoute        bool           `json:"strict_route,omitempty"`
+	Delay              *int           `json:"delay,omitempty"`
+	LatencyMap         map[string]int `json:"latency_map,omitempty"`
+	RunID              string         `json:"run_id,omitempty"`
+	LatencyTestStatus  string         `json:"latency_test_status,omitempty"`
+	LatencyCompleted   int            `json:"latency_completed,omitempty"`
+	LatencyTotal       int            `json:"latency_total,omitempty"`
+	LatencyResultsJSON string         `json:"latency_results_json,omitempty"`
 }
 
 func decodeRequest(payload []byte) (request, error) {
@@ -98,11 +116,16 @@ func decodeRequest(payload []byte) (request, error) {
 		return request{}, errMessageTooLarge
 	}
 	return request{
-		Version:     envelope.Version,
-		Method:      envelope.Method,
-		Config:      envelope.Arguments.Config,
-		GroupTag:    envelope.Arguments.GroupTag,
-		OutboundTag: envelope.Arguments.OutboundTag,
+		Version:      envelope.Version,
+		Method:       envelope.Method,
+		Config:       envelope.Arguments.Config,
+		GroupTag:     envelope.Arguments.GroupTag,
+		OutboundTag:  envelope.Arguments.OutboundTag,
+		NodeTagsJSON: envelope.Arguments.NodeTagsJSON,
+		TestURL:      envelope.Arguments.TestURL,
+		TimeoutMS:    envelope.Arguments.TimeoutMS,
+		Concurrency:  envelope.Arguments.Concurrency,
+		RunID:        envelope.Arguments.RunID,
 	}, nil
 }
 
