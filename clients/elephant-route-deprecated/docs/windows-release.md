@@ -21,7 +21,13 @@ The Flutter application and its C++ pipe client remain separate processes
 communicating through the stable `ElephantNetworkService.v1` IPC protocol.
 Connected node latency tests call the in-process core through the named-pipe
 service and do not launch a second sing-box or `curl.exe`. This keeps latency
-testing compatible with the Windows 11 strict-route WFP rules. The standalone
+testing compatible with the Windows 11 strict-route WFP rules. Version 1.6.7
+starts one asynchronous service-owned job for the complete node list, with up
+to four concurrent nodes. Each concrete outbound performs two sequential HTTP
+requests through one reusable transport and reports the lower successful
+latency, matching the macOS two-sample policy. The Flutter process only polls
+short job snapshots, so slow Windows machines cannot serialize long named-pipe
+calls until every per-node deadline expires. The standalone
 `sing-box-windows-amd64.exe` remains packaged only for isolated configuration
 checks.
 
@@ -41,7 +47,7 @@ data is retained.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\build_windows_release.ps1 -Version 1.6.6 -BuildNumber 10606
+.\scripts\build_windows_release.ps1 -Version 1.6.7 -BuildNumber 10607
 ```
 
 The application binaries, Windows service, and installer are intentionally
@@ -70,7 +76,7 @@ hash does not match the release metadata.
 ## Manual verification
 
 ```powershell
-Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.6.exe -Algorithm SHA256
+Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.7.exe -Algorithm SHA256
 sc.exe query ElephantNetworkService
 ```
 
@@ -87,6 +93,13 @@ Current builds report separate error codes for rejected configuration, TUN
 startup failure, and an in-process startup timeout. The service lifecycle log
 contains only safe state transitions and error codes; it never contains the
 subscription configuration.
+
+For latency incidents, `service.log` records `latency_start`, `latency_node`,
+`latency_complete`, and `latency_cancel`. The fields include only a shortened
+run ID, node tag, two attempt values, elapsed milliseconds, failure category,
+progress, timeout, and concurrency. Use these events to distinguish an HTTP
+response failure, transport failure, timeout, cancellation, or unavailable
+outbound without collecting the subscription configuration.
 
 After reproducing the failure, run these commands in an elevated PowerShell:
 
