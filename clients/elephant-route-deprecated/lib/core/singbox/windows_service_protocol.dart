@@ -107,14 +107,17 @@ final class WindowsServiceProtocol {
       throw const FormatException('Windows 测速服务返回了无效状态');
     }
     final map = Map<String, dynamic>.from(value);
-    final status = switch (map['latency_test_status']?.toString()) {
+    final rawStatus = map['latency_test_status']?.toString() ??
+        (_optionalString(map['error_code']) == null ? null : 'error');
+    final status = switch (rawStatus) {
       'running' => WindowsLatencyJobStatus.running,
       'completed' => WindowsLatencyJobStatus.completed,
       'cancelled' => WindowsLatencyJobStatus.cancelled,
       'error' => WindowsLatencyJobStatus.error,
       _ => throw const FormatException('Windows 测速任务状态无效'),
     };
-    final rawResults = map['latency_results_json'];
+    final rawResults = map['latency_results_json'] ??
+        (status == WindowsLatencyJobStatus.error ? '{}' : null);
     if (rawResults is! String) {
       throw const FormatException('Windows 测速结果缺失');
     }
