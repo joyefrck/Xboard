@@ -34,13 +34,91 @@ function extractBlockStartingAt(source, start, description) {
   assert.notEqual(bodyStart, -1, `${description} should have a body`);
 
   let depth = 0;
+  let state = 'code';
   for (let index = bodyStart; index < source.length; index += 1) {
-    if (source[index] === '{') depth += 1;
-    if (source[index] === '}') depth -= 1;
+    const character = source[index];
+    const nextCharacter = source[index + 1];
+
+    if (state === 'line-comment') {
+      if (character === '\n') state = 'code';
+      continue;
+    }
+    if (state === 'block-comment') {
+      if (character === '*' && nextCharacter === '/') {
+        state = 'code';
+        index += 1;
+      }
+      continue;
+    }
+    if (state === 'single-quote' || state === 'double-quote') {
+      if (character === '\\') {
+        index += 1;
+      } else if ((state === 'single-quote' && character === "'")
+        || (state === 'double-quote' && character === '"')) {
+        state = 'code';
+      }
+      continue;
+    }
+
+    if (character === '/' && nextCharacter === '/') {
+      state = 'line-comment';
+      index += 1;
+      continue;
+    }
+    if (character === '/' && nextCharacter === '*') {
+      state = 'block-comment';
+      index += 1;
+      continue;
+    }
+    if (character === '#') {
+      state = 'line-comment';
+      continue;
+    }
+    if (character === "'") {
+      state = 'single-quote';
+      continue;
+    }
+    if (character === '"') {
+      state = 'double-quote';
+      continue;
+    }
+    if (character === '{') depth += 1;
+    if (character === '}') depth -= 1;
     if (depth === 0) return source.slice(start, index + 1);
   }
 
   assert.fail(`${description} body was not closed`);
+}
+
+function assertNoSensitiveMirrorLogFields(source) {
+  const logCall = /(?:Log::\w+|logger\s*\(\s*\)\s*->\w+|logger\s*\(|\$(?:logger|log)\s*->\w+|\$this->logger\s*->\w+)\(([\s\S]*?)\);/g;
+  const sensitiveField = /['"](?:url|uri|location|signature|md5|signer)['"]\s*=>|\$\w*(?:url|uri|location|signature|md5|signer)\w*/i;
+
+  for (const match of source.matchAll(logCall)) {
+    assert.doesNotMatch(
+      match[1],
+      sensitiveField,
+      'mirror logs may include artifact_id and exceptions, but not signed URL material'
+    );
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertMirrorSyncRunsInsideCacheLock(handle) {
+  const callbackWithMirrorSync = String.raw`->block\([\s\S]*?(?:function\s*\([^)]*\)|fn\s*\([^)]*\)\s*=>)[\s\S]*?(?:\$this->mirror|\$mirror)->sync\(`;
+  const directLock = new RegExp(`Cache::lock\\([\\s\\S]*?${callbackWithMirrorSync}`);
+  if (directLock.test(handle)) return;
+
+  const assignedLock = handle.match(/(\$[A-Za-z_]\w*)\s*=\s*Cache::lock\(/);
+  assert.ok(assignedLock, 'handle should acquire a cache lock before mirror synchronization');
+  assert.match(
+    handle,
+    new RegExp(`${escapeRegExp(assignedLock[1])}\\s*${callbackWithMirrorSync}`),
+    'the acquired cache lock block callback must contain mirror synchronization'
+  );
 }
 
 function extractPhpMethod(source, name) {
@@ -82,42 +160,63 @@ function extractIfBlocks(source, condition, description) {
   return branches;
 }
 
-test('app artifact mirror schema, model, queue, Horizon, and environment contracts exist', () => {
+test('PHP block extraction ignores braces in strings and comments', () => {
+  const source = "function fixture() { $single = '}'; $double = \"{\"; // }\n# {\n/* } */\nif (true) { return '}'; }\n} trailing";
+  const block = extractBlockStartingAt(source, 0, 'fixture');
+
+  assert.equal(block, source.slice(0, source.lastIndexOf('}') + 1));
+});
+
+test('app artifact mirror migration persists mirror fields', () => {
   const migration = readRepoFile(
     'database/migrations/2026_07_29_000001_add_mirror_fields_to_app_artifacts.php'
   );
-  const model = readRepoFile('app/Models/AppArtifact.php');
-  const queue = readRepoFile('config/queue.php');
-  const horizon = readRepoFile('config/horizon.php');
-  const environment = readRepoFile('.env.example');
-  const mirrorQueue = extractPhpArrayBlock(queue, "'redis_mirror'");
-  const mirrorSupervisor = extractPhpArrayBlock(horizon, "'XboardAppDownloadMirror'");
 
   assert.match(migration, /mirror_status/);
   assert.match(migration, /mirror_path/);
   assert.match(migration, /mirror_error/);
   assert.match(migration, /mirrored_at/);
+});
+
+test('app artifact model owns mirror states', () => {
+  const model = readRepoFile('app/Models/AppArtifact.php');
+
   assert.match(model, /MIRROR_LOCAL\s*=\s*'local'/);
   assert.match(model, /MIRROR_PENDING\s*=\s*'pending'/);
   assert.match(model, /MIRROR_SYNCING\s*=\s*'syncing'/);
   assert.match(model, /MIRROR_READY\s*=\s*'ready'/);
   assert.match(model, /MIRROR_FAILED\s*=\s*'failed'/);
+});
+
+test('mirror queue and Horizon supervisor are isolated', () => {
+  const queue = readRepoFile('config/queue.php');
+  const horizon = readRepoFile('config/horizon.php');
+  const mirrorQueue = extractPhpArrayBlock(queue, "'redis_mirror'");
+  const mirrorSupervisor = extractPhpArrayBlock(horizon, "'XboardAppDownloadMirror'");
+
   assert.match(mirrorQueue, /'retry_after'\s*=>\s*1900/);
   assert.match(mirrorSupervisor, /'connection'\s*=>\s*'redis_mirror'/);
   assert.match(mirrorSupervisor, /'queue'\s*=>\s*\[[^\]]*'app_download_mirror'/);
+});
+
+test('mirror feature flags default to disabled', () => {
+  const environment = readRepoFile('.env.example');
+
   assert.match(environment, /^APP_DOWNLOAD_MIRROR_ENABLED=false$/m);
   assert.match(environment, /^APP_DOWNLOAD_MIRROR_SYNC_ENABLED=false$/m);
 });
 
 test('mirror sync streams through a partial file and atomically moves only after remote size verification', () => {
   const mirror = readRepoFile('app/Services/AppDownloadMirror.php');
+  const sync = extractPhpMethod(mirror, 'sync');
 
-  assert.match(mirror, /readStream/);
-  assert.match(mirror, /\.part-/);
-  assert.match(mirror, /->size\(/);
-  assert.match(mirror, /->move\(/);
+  assert.match(sync, /readStream/);
+  assert.match(sync, /\.part-/);
+  assert.match(sync, /->size\(/);
+  assert.match(sync, /->move\(/);
+  assert.match(sync, /if\s*\([^)]*(?:size|Size)[^)]*(?:!==|!=)[^)]*\)\s*\{\s*(?:throw|return)/);
   assertAppearsBefore(
-    mirror,
+    sync,
     '->size(',
     '->move(',
     'remote size must be verified before the partial file is moved into place'
@@ -126,28 +225,33 @@ test('mirror sync streams through a partial file and atomically moves only after
 
 test('mirror sync job protects against stale content and concurrent duplicate work', () => {
   const job = readRepoFile('app/Jobs/SyncAppArtifactMirror.php');
+  const handle = extractPhpMethod(job, 'handle');
 
   assert.match(job, /expectedSha256/);
-  assert.match(job, /hash_equals\(\$this->expectedSha256,\s*\$artifact->sha256\)/);
-  assert.match(job, /Cache::lock/);
+  assert.match(
+    handle,
+    /if\s*\(\s*!\s*hash_equals\(\$this->expectedSha256,\s*\$artifact->sha256\)\s*\)\s*\{\s*return;/
+  );
+  assertMirrorSyncRunsInsideCacheLock(handle);
   assert.match(job, /\$tries\s*=\s*3/);
   assert.match(job, /\$timeout\s*=\s*1800/);
 });
 
 test('guest download logs before returning a mirror redirect or local download response', () => {
   const controller = readRepoFile('app/Http/Controllers/V1/Guest/AppDownloadController.php');
+  const download = extractPhpMethod(controller, 'download');
 
-  assert.match(controller, /AppDownloadLog::create/);
-  assert.match(controller, /redirect\(\)->away/);
-  assert.match(controller, /response\(\)->download/);
+  assert.match(download, /AppDownloadLog::create/);
+  assert.match(download, /redirect\(\)->away/);
+  assert.match(download, /response\(\)->download/);
   assertAppearsBefore(
-    controller,
+    download,
     'AppDownloadLog::create',
     'redirect()->away',
     'download logging must happen before a mirror redirect'
   );
   assertAppearsBefore(
-    controller,
+    download,
     'redirect()->away',
     'response()->download',
     'the ready mirror redirect must be preferred over the local download response'
@@ -192,14 +296,15 @@ test('mirror router only serves healthy ready artifacts and never logs the signe
   const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
   const redirectUrl = extractPhpMethod(router, 'redirectUrl');
 
-  assert.match(redirectUrl, /\$artifact->mirror_status\s*!==\s*AppArtifact::MIRROR_READY/);
+  assert.match(
+    redirectUrl,
+    /if\s*\(\s*\$artifact->mirror_status\s*!==\s*AppArtifact::MIRROR_READY\s*\)\s*\{\s*return null;/
+  );
   assert.match(redirectUrl, /Cache::remember/);
   assert.match(redirectUrl, /connectTimeout\(1\)/);
   assert.match(redirectUrl, /->head\(/i);
   assert.match(redirectUrl, /healthy\s*\?\s*\$url\s*:\s*null/);
-  assert.doesNotMatch(redirectUrl, /Log::\w+\([^;]*\$url/s);
-  assert.doesNotMatch(redirectUrl, /logger\s*\(\s*\$url\s*\)|logger\s*\(\s*\)\s*->\w+\([^;]*\$url/s);
-  assert.doesNotMatch(redirectUrl, /\$(?:logger|log)\s*->\w+\([^;]*\$url|->logger\s*->\w+\([^;]*\$url/s);
+  assertNoSensitiveMirrorLogFields(redirectUrl);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
@@ -234,11 +339,22 @@ test('artifact lifecycle queues mirrors only for new artifacts and removes mirro
     )),
     'updateVersion should queue a mirror only in a post-transaction, post-cleanup new-artifact branch'
   );
+  assert.equal(
+    (updateVersion.match(/->queueMirrorSync\(/g) || []).length,
+    1,
+    'updateVersion should queue exactly once when replacing an artifact'
+  );
   assert.match(
     queueMirrorSync,
     /SyncAppArtifactMirror::dispatch\(\$artifact->id,\s*\$artifact->sha256\)->afterCommit\(\)/
   );
   assert.match(drop, /DeleteAppArtifactMirror::dispatch\([^)]*\)->afterCommit\(\)/);
+  assertAppearsBefore(
+    drop,
+    '$version->delete()',
+    'DeleteAppArtifactMirror::dispatch',
+    'mirror deletion must be dispatched after the version is deleted'
+  );
   assert.match(retryMirror, /\$storage->exists\(\$artifact\)/);
   assert.match(retryMirror, /queueMirrorSync/);
   assert.match(deleteJob, /class DeleteAppArtifactMirror/);
