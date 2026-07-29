@@ -29,6 +29,49 @@ function assertAppearsBefore(source, first, second, message) {
   assert.ok(firstIndex < secondIndex, message);
 }
 
+function extractBlockStartingAt(source, start, description) {
+  const bodyStart = source.indexOf('{', start);
+  assert.notEqual(bodyStart, -1, `${description} should have a body`);
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+
+  assert.fail(`${description} body was not closed`);
+}
+
+function extractPhpMethod(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `Expected method ${name} to exist`);
+  return extractBlockStartingAt(source, start, `Method ${name}`);
+}
+
+function extractPhpArrayBlock(source, arrayKey) {
+  const start = source.indexOf(arrayKey);
+  assert.notEqual(start, -1, `Expected array block ${arrayKey} to exist`);
+
+  const bodyStart = source.indexOf('[', start);
+  assert.notEqual(bodyStart, -1, `Array block ${arrayKey} should open with [`);
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '[') depth += 1;
+    if (source[index] === ']') depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+
+  assert.fail(`Array block ${arrayKey} was not closed`);
+}
+
+function extractIfBlock(source, condition, description) {
+  const match = condition.exec(source);
+  assert.ok(match, `Expected ${description} conditional branch to exist`);
+  return extractBlockStartingAt(source, match.index, description);
+}
+
 test('app artifact mirror schema, model, queue, Horizon, and environment contracts exist', () => {
   const migration = readRepoFile(
     'database/migrations/2026_07_29_000001_add_mirror_fields_to_app_artifacts.php'
@@ -37,6 +80,8 @@ test('app artifact mirror schema, model, queue, Horizon, and environment contrac
   const queue = readRepoFile('config/queue.php');
   const horizon = readRepoFile('config/horizon.php');
   const environment = readRepoFile('.env.example');
+  const mirrorQueue = extractPhpArrayBlock(queue, "'redis_mirror'");
+  const mirrorSupervisor = extractPhpArrayBlock(horizon, "'XboardAppDownloadMirror'");
 
   assert.match(migration, /mirror_status/);
   assert.match(migration, /mirror_path/);
@@ -47,8 +92,9 @@ test('app artifact mirror schema, model, queue, Horizon, and environment contrac
   assert.match(model, /MIRROR_SYNCING\s*=\s*'syncing'/);
   assert.match(model, /MIRROR_READY\s*=\s*'ready'/);
   assert.match(model, /MIRROR_FAILED\s*=\s*'failed'/);
-  assert.match(queue, /'redis_mirror'\s*=>\s*\[[\s\S]*'retry_after'\s*=>\s*1900/);
-  assert.match(horizon, /'XboardAppDownloadMirror'\s*=>\s*\[[\s\S]*'connection'\s*=>\s*'redis_mirror'/);
+  assert.match(mirrorQueue, /'retry_after'\s*=>\s*1900/);
+  assert.match(mirrorSupervisor, /'connection'\s*=>\s*'redis_mirror'/);
+  assert.match(mirrorSupervisor, /'queue'\s*=>\s*\[[^\]]*'app_download_mirror'/);
   assert.match(environment, /^APP_DOWNLOAD_MIRROR_ENABLED=false$/m);
   assert.match(environment, /^APP_DOWNLOAD_MIRROR_SYNC_ENABLED=false$/m);
 });
@@ -58,15 +104,21 @@ test('mirror sync streams through a partial file and atomically moves only after
 
   assert.match(mirror, /readStream/);
   assert.match(mirror, /\.part-/);
-  assert.match(mirror, /(?:remote|expected).*size|size.*(?:remote|expected)/i);
+  assert.match(mirror, /->size\(/);
   assert.match(mirror, /->move\(/);
+  assertAppearsBefore(
+    mirror,
+    '->size(',
+    '->move(',
+    'remote size must be verified before the partial file is moved into place'
+  );
 });
 
 test('mirror sync job protects against stale content and concurrent duplicate work', () => {
   const job = readRepoFile('app/Jobs/SyncAppArtifactMirror.php');
 
   assert.match(job, /expectedSha256/);
-  assert.match(job, /hash_equals/);
+  assert.match(job, /hash_equals\(\$this->expectedSha256,\s*\$artifact->sha256\)/);
   assert.match(job, /Cache::lock/);
   assert.match(job, /\$tries\s*=\s*3/);
   assert.match(job, /\$timeout\s*=\s*1800/);
@@ -96,7 +148,10 @@ test('admin routes and page expose retryable mirror status without breaking arti
   const routes = readRepoFile('app/Http/Routes/V2/AdminRoute.php');
   const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
 
-  assert.match(routes, /\$router->post\('\/versions\/mirror\/retry'/);
+  assert.match(
+    routes,
+    /\$router->post\('\/versions\/mirror\/retry',\s*\[AppPackageController::class,\s*'retryMirror'\]\)/
+  );
   assert.match(page, /镜像状态/);
   assert.match(page, /重新同步/);
   assert.match(page, /安装包已发布，正在同步到下载服务器/);
@@ -116,36 +171,53 @@ test('secure-link signing fixture is stable and router signer follows the Nginx 
     .replace(/=+$/, '');
 
   assert.equal(signature, 'vu3Yo33ecUPO1ROEJu4anw');
-  const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
+  const signer = readRepoFile('app/Services/AppDownloadMirrorUrlSigner.php');
 
-  assert.match(router, /md5\(\$expires\s*\.\s*\$uri\s*\.\s*' '\s*\.\s*\$key,\s*true\)/);
-  assert.match(router, /base64_encode/);
-  assert.match(router, /strtr\([^,]+,\s*'\+\/'\s*,\s*'-_'/);
+  assert.match(signer, /md5\(\$expires\s*\.\s*\$uri\s*\.\s*' '\s*\.\s*\$key,\s*true\)/);
+  assert.match(signer, /base64_encode/);
+  assert.match(signer, /strtr\([^,]+,\s*'\+\/'\s*,\s*'-_'/);
+  assert.match(signer, /rtrim\([^,]+,\s*'='\s*\)/);
 });
 
 test('mirror router only serves healthy ready artifacts and never logs the signed URL', () => {
   const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
 
-  assert.match(router, /MIRROR_READY/);
+  assert.match(
+    router,
+    /if\s*\((?=[^)]*\$artifact->mirror_status)(?=[^)]*MIRROR_READY)[^)]*\)/
+  );
   assert.match(router, /Cache::remember/);
   assert.match(router, /connectTimeout\(1\)/);
   assert.match(router, /->head\(/i);
   assert.match(router, /healthy\s*\?\s*\$url\s*:\s*null/);
   assert.doesNotMatch(router, /Log::\w+\([^;]*\$url/s);
+  assert.doesNotMatch(router, /logger\s*\(\s*\$url\s*\)|logger\s*\(\s*\)\s*->\w+\([^;]*\$url/s);
+  assert.doesNotMatch(router, /\$(?:logger|log)\s*->\w+\([^;]*\$url|->logger\s*->\w+\([^;]*\$url/s);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
   const storage = readRepoFile('app/Services/AppArtifactStorage.php');
   const controller = readRepoFile('app/Http/Controllers/V2/Admin/AppPackageController.php');
   const deleteJob = readRepoFile('app/Jobs/DeleteAppArtifactMirror.php');
+  const store = extractPhpMethod(storage, 'store');
+  const updateVersion = extractPhpMethod(storage, 'updateVersion');
+  const replaceArtifact = extractIfBlock(
+    updateVersion,
+    /if\s*\(\s*\$storedFile\s*\)/g,
+    'updateVersion new-artifact'
+  );
+  const queueMirrorSync = extractPhpMethod(storage, 'queueMirrorSync');
+  const drop = extractPhpMethod(controller, 'drop');
+  const retryMirror = extractPhpMethod(controller, 'retryMirror');
 
-  assert.match(storage, /queueMirrorSync/);
-  assert.match(storage, /if\s*\(\s*\$storedFile\s*\)/);
-  assert.match(storage, /SyncAppArtifactMirror::dispatch\(\$artifact->id,\s*\$artifact->sha256\)/);
-  assert.match(storage, /SyncAppArtifactMirror::dispatch\([\s\S]*->afterCommit\(\)/);
-  assert.match(controller, /DeleteAppArtifactMirror/);
-  assert.match(controller, /DeleteAppArtifactMirror::dispatch/);
-  assert.match(controller, /->afterCommit\(\)/);
-  assert.match(controller, /exists\(\$artifact\)|\$storage->exists\(\$artifact\)/);
+  assert.match(store, /queueMirrorSync/);
+  assert.match(replaceArtifact, /queueMirrorSync/);
+  assert.match(
+    queueMirrorSync,
+    /SyncAppArtifactMirror::dispatch\(\$artifact->id,\s*\$artifact->sha256\)->afterCommit\(\)/
+  );
+  assert.match(drop, /DeleteAppArtifactMirror::dispatch\([^)]*\)->afterCommit\(\)/);
+  assert.match(retryMirror, /\$storage->exists\(\$artifact\)/);
+  assert.match(retryMirror, /queueMirrorSync/);
   assert.match(deleteJob, /class DeleteAppArtifactMirror/);
 });
