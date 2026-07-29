@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,5 +32,20 @@ func (logger *lifecycleLogger) transition(state, errorCode string, elapsed time.
 		state,
 		errorCode,
 		elapsed.Milliseconds(),
+	)
+}
+
+func (logger *lifecycleLogger) event(name string, fields ...string) {
+	if logger == nil || logger.output == nil {
+		return
+	}
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	fmt.Fprintf(
+		logger.output,
+		"%s event=%s %s\n",
+		time.Now().UTC().Format(time.RFC3339),
+		name,
+		strings.Join(fields, " "),
 	)
 }

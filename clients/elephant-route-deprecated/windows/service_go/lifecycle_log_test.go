@@ -23,3 +23,26 @@ func TestLifecycleLogContainsOnlySafeFields(t *testing.T) {
 		}
 	}
 }
+
+func TestLifecycleLogWritesSanitizedLatencyFields(t *testing.T) {
+	var output bytes.Buffer
+	logger := newLifecycleLogger(&output)
+	logger.event(
+		"latency_node",
+		"run_id=12345678",
+		"node=Tokyo",
+		"attempts=[80_42]",
+		"failure=",
+	)
+	got := output.String()
+	for _, expected := range []string{
+		"event=latency_node",
+		"run_id=12345678",
+		"node=Tokyo",
+		"attempts=[80_42]",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("missing latency field %q: %q", expected, got)
+		}
+	}
+}
