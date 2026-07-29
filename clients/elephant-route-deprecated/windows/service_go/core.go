@@ -16,6 +16,11 @@ type coreInstance interface {
 	Close() error
 }
 
+type latencyCapableCore interface {
+	coreInstance
+	LatencyProbe() latencyProbeFunc
+}
+
 type coreFactory interface {
 	New(context.Context, []byte, string) (coreInstance, error)
 	Version() string
@@ -37,6 +42,7 @@ type coreManager struct {
 	runtimeDirectory string
 	logger           *lifecycleLogger
 	speedTest        bool
+	latency          *latencyJobManager
 }
 
 func newCoreManager(
@@ -53,6 +59,7 @@ func newCoreManager(
 		assetDirectory:   assetDirectory,
 		runtimeDirectory: runtimeDirectory,
 		logger:           logger,
+		latency:          newLatencyJobManager(logger),
 	}
 }
 
@@ -159,6 +166,7 @@ func (manager *coreManager) stopSpeedTest() response {
 }
 
 func (manager *coreManager) stopLocked() {
+	manager.latency.CancelActive("core_stop")
 	if manager.instance == nil {
 		manager.speedTest = false
 		manager.state = initialRuntimeState(manager.factory.Version())
@@ -175,6 +183,52 @@ func (manager *coreManager) stopLocked() {
 	manager.speedTest = false
 	manager.state = initialRuntimeState(manager.factory.Version())
 	manager.logger.transition(statusDisconnected, "", time.Since(startedAt))
+}
+
+func (manager *coreManager) startLatencyTest(
+	parent context.Context,
+	request latencyJobRequest,
+) (latencyJobSnapshot, *coreFailure) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	if manager.instance == nil || manager.state.Status != statusConnected {
+		return latencyJobSnapshot{}, &coreFailure{
+			Code:    "latency_unavailable",
+			Message: "Windows latency service requires a connected core.",
+		}
+	}
+	instance, supported := manager.instance.(latencyCapableCore)
+	if !supported {
+		return latencyJobSnapshot{}, &coreFailure{
+			Code:    "latency_unavailable",
+			Message: "Windows latency service is unavailable.",
+		}
+	}
+	snapshot, err := manager.latency.Start(
+		parent,
+		request,
+		instance.LatencyProbe(),
+	)
+	if err != nil {
+		return latencyJobSnapshot{}, &coreFailure{
+			Code:    "latency_start_failed",
+			Message: "Windows latency service could not start.",
+		}
+	}
+	return snapshot, nil
+}
+
+func (manager *coreManager) latencySnapshot(
+	runID string,
+) latencyJobSnapshot {
+	return manager.latency.Snapshot(runID)
+}
+
+func (manager *coreManager) cancelLatencyTest(
+	runID string,
+	reason string,
+) latencyJobSnapshot {
+	return manager.latency.Cancel(runID, reason)
 }
 
 func (manager *coreManager) failLocked(failure coreFailure, startedAt time.Time) response {

@@ -21,6 +21,31 @@ const bundledSingBoxVersion = "sing-box 1.12.25"
 
 type singBoxFactory struct{}
 
+type singBoxInstance struct {
+	box *box.Box
+}
+
+func (instance *singBoxInstance) Start() error {
+	return instance.box.Start()
+}
+
+func (instance *singBoxInstance) Close() error {
+	return instance.box.Close()
+}
+
+func (instance *singBoxInstance) LatencyProbe() latencyProbeFunc {
+	probe := newConnectionLatencyProbe(
+		func(tag string) (latencyDialer, bool) {
+			outbound, found := instance.box.Outbound().Outbound(tag)
+			if !found {
+				return nil, false
+			}
+			return outbound, true
+		},
+	)
+	return probe.Probe
+}
+
 func (singBoxFactory) Version() string {
 	return bundledSingBoxVersion
 }
@@ -51,7 +76,7 @@ func (singBoxFactory) New(
 	if err != nil {
 		return nil, fmt.Errorf("create service: %w", err)
 	}
-	return instance, nil
+	return &singBoxInstance{box: instance}, nil
 }
 
 func setSingBoxCompatibilityEnvironment() {
