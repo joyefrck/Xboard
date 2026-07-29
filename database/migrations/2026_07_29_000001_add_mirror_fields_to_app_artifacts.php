@@ -12,14 +12,21 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('v2_app_artifacts', function (Blueprint $table) {
-            if (!Schema::hasColumn('v2_app_artifacts', 'mirror_status')) {
+        if (!Schema::hasColumn('v2_app_artifacts', 'mirror_status')) {
+            Schema::table('v2_app_artifacts', function (Blueprint $table) {
                 $table->string('mirror_status', 16)
                     ->default('local')
-                    ->after('uploaded_by')
-                    ->index('v2_app_artifacts_mirror_status_index');
-            }
+                    ->after('uploaded_by');
+            });
+        }
 
+        if (!Schema::hasIndex('v2_app_artifacts', 'v2_app_artifacts_mirror_status_index')) {
+            Schema::table('v2_app_artifacts', function (Blueprint $table) {
+                $table->index('mirror_status', 'v2_app_artifacts_mirror_status_index');
+            });
+        }
+
+        Schema::table('v2_app_artifacts', function (Blueprint $table) {
             if (!Schema::hasColumn('v2_app_artifacts', 'mirror_path')) {
                 $table->string('mirror_path', 1024)->nullable();
             }
@@ -40,27 +47,23 @@ return new class extends Migration
             return;
         }
 
-        if (Schema::hasColumn('v2_app_artifacts', 'mirror_status')) {
-            try {
-                Schema::table('v2_app_artifacts', function (Blueprint $table) {
-                    $table->dropIndex('v2_app_artifacts_mirror_status_index');
-                });
-            } catch (Throwable $e) {
-                // A partially applied migration may not have created the index.
-            }
+        if (Schema::hasIndex('v2_app_artifacts', 'v2_app_artifacts_mirror_status_index')) {
+            Schema::table('v2_app_artifacts', function (Blueprint $table) {
+                $table->dropIndex('v2_app_artifacts_mirror_status_index');
+            });
         }
 
-        $columns = array_values(array_filter([
+        foreach ([
             'mirror_status',
             'mirror_path',
             'mirror_error',
             'mirrored_at',
-        ], fn (string $column): bool => Schema::hasColumn('v2_app_artifacts', $column)));
-
-        if ($columns !== []) {
-            Schema::table('v2_app_artifacts', function (Blueprint $table) use ($columns) {
-                $table->dropColumn($columns);
-            });
+        ] as $column) {
+            if (Schema::hasColumn('v2_app_artifacts', $column)) {
+                Schema::table('v2_app_artifacts', function (Blueprint $table) use ($column) {
+                    $table->dropColumn($column);
+                });
+            }
         }
     }
 };

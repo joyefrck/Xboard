@@ -221,6 +221,25 @@ test('app artifact mirror migration persists mirror fields', () => {
   assert.match(migration, /mirrored_at/);
 });
 
+test('app artifact mirror migration restores a missing status index independently', () => {
+  const migration = readRepoFile(
+    'database/migrations/2026_07_29_000001_add_mirror_fields_to_app_artifacts.php'
+  );
+
+  assert.match(
+    migration,
+    /if\s*\(\s*!Schema::hasIndex\('v2_app_artifacts',\s*'v2_app_artifacts_mirror_status_index'\)\s*\)/
+  );
+  assert.match(
+    migration,
+    /\$table->index\('mirror_status',\s*'v2_app_artifacts_mirror_status_index'\)/
+  );
+  assert.match(
+    migration,
+    /if\s*\(\s*Schema::hasIndex\('v2_app_artifacts',\s*'v2_app_artifacts_mirror_status_index'\)\s*\)/
+  );
+});
+
 test('app artifact model owns mirror states', () => {
   const model = readRepoFile('app/Models/AppArtifact.php');
 
