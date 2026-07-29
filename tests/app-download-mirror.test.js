@@ -127,11 +127,25 @@ function codeView(source) {
     const c = source[index];
     const n = source[index + 1];
     const blank = () => { output += c === '\n' ? '\n' : ' '; };
+    if (typeof state === 'object' && state.heredoc) {
+      const lineEnd = source.indexOf('\n', index);
+      const line = source.slice(index, lineEnd === -1 ? source.length : lineEnd);
+      if (new RegExp(`^${state.heredoc};?$`).test(line.trim())) state = 'code';
+      blank();
+      continue;
+    }
     if (state === 'line') { blank(); if (c === '\n') state = 'code'; continue; }
     if (state === 'block') { blank(); if (c === '*' && n === '/') { output += ' '; index += 1; state = 'code'; } continue; }
     if (typeof state === 'object') { blank(); if (c === '\\') { if (n) { output += n === '\n' ? '\n' : ' '; index += 1; } } else if (c === state.quote) state = 'code'; continue; }
     if (c === '/' && n === '/') { output += '  '; index += 1; state = 'line'; continue; }
     if (c === '/' && n === '*') { output += '  '; index += 1; state = 'block'; continue; }
+    if (c === '<' && source.slice(index).match(/^<<<\s*['"]?([A-Za-z_]\w*)['"]?[^\n]*\n/)) {
+      const match = source.slice(index).match(/^<<<\s*['"]?([A-Za-z_]\w*)['"]?[^\n]*\n/);
+      output += ' '.repeat(match[0].length - 1) + '\n';
+      index += match[0].length - 1;
+      state = { heredoc: match[1] };
+      continue;
+    }
     if (c === '#') { blank(); state = 'line'; continue; }
     if (c === "'" || c === '"' || c === '`') { blank(); state = { quote: c }; continue; }
     output += c;
@@ -205,6 +219,14 @@ test('PHP block extraction ignores braces in strings and comments', () => {
   assert.equal(block, source.slice(0, source.lastIndexOf('}') + 1));
 });
 
+test('code view ignores heredoc and nowdoc non-code braces', () => {
+  const source = "<<<TXT\n} Log::error('x')\nTXT;\n<<<'RAW'\n}\nRAW;\nrun();";
+  const view = codeView(source);
+
+  assert.doesNotMatch(view, /Log::error|}/);
+  assert.match(view, /run\(\)/);
+});
+
 test('lock callback extraction excludes sync outside an empty block', () => {
   const source = 'Cache::lock("x")->block(5, function () { }); $mirror->sync();';
 
@@ -217,6 +239,7 @@ test('router log and health helpers reject unbound security paths without false 
   assert.throws(() => assertNoRouterLogging('$target = $signed; info($target);'));
   assert.doesNotThrow(() => assertNoRouterLogging('$response->successful();'));
   assert.equal(hasBoundHealthReturn('if ($artifact->mirror_status !== AppArtifact::MIRROR_READY) { return null; } return $url;'), false);
+  assert.equal(hasBoundHealthReturn('// return $healthy ? $url : null;\nreturn $url;'), false);
   assert.equal(hasBoundHealthReturn('$healthy = Cache::remember("x", fn () => true); $url = $signer->sign(); return $healthy ? $url : null;'), true);
 });
 
@@ -347,16 +370,17 @@ test('secure-link signing fixture is stable and router signer follows the Nginx 
 test('mirror router only serves healthy ready artifacts and never logs the signed URL', () => {
   const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
   const redirectUrl = extractPhpMethod(router, 'redirectUrl');
+  const redirectCode = codeView(redirectUrl);
 
   assert.match(
-    redirectUrl,
+    redirectCode,
     /if\s*\(\s*\$artifact->mirror_status\s*!==\s*AppArtifact::MIRROR_READY\s*\)\s*\{\s*return null;/
   );
   assert.match(redirectUrl, /Cache::remember/);
   assert.match(redirectUrl, /connectTimeout\(1\)/);
   assert.match(redirectUrl, /->head\(/i);
-  assert.ok(hasBoundHealthReturn(redirectUrl), 'health status and signed URL must be bound in the return path');
-  assertNoRouterLogging(redirectUrl);
+  assert.ok(hasBoundHealthReturn(redirectCode), 'health status and signed URL must be bound in the return path');
+  assertNoRouterLogging(redirectCode);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
