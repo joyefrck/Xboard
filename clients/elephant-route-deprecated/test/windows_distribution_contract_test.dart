@@ -79,14 +79,23 @@ void main() {
   test('connected Windows latency uses the in-process service core', () {
     final vpnService =
         File('lib/core/singbox/windows_vpn_service.dart').readAsStringSync();
-    final runner = File('lib/core/singbox/windows_service_latency_runner.dart')
+    final runner = File('lib/core/singbox/windows_latency_job_runner.dart')
         .readAsStringSync();
+    final probe =
+        File('windows/service_go/latency_probe.go').readAsStringSync();
     final guide = File('docs/windows-release.md').readAsStringSync();
 
-    expect(vpnService, contains('WindowsServiceLatencyRunner'));
+    expect(vpnService, contains('WindowsLatencyJobRunner'));
+    expect(vpnService, isNot(contains('WindowsServiceLatencyRunner')));
     expect(vpnService, isNot(contains('WindowsLatencySession')));
     expect(vpnService, isNot(contains('sing-box-windows-amd64.exe')));
-    expect(runner, contains('ConnectionLatencySource.clashFallback'));
+    expect(runner, contains("'startLatencyTest'"));
+    expect(runner, contains("'getLatencyTest'"));
+    expect(runner, contains("'cancelLatencyTest'"));
+    expect(probe, contains('for attempt := 0; attempt < 2; attempt++'));
+    expect(probe, contains('DisableKeepAlives: false'));
+    expect(probe, contains('best := -1'));
+    expect(probe, isNot(contains('curl.exe')));
     expect(guide, contains('do not launch a second sing-box or `curl.exe`'));
   });
 

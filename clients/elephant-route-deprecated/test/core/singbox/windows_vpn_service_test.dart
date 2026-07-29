@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
@@ -30,6 +31,31 @@ void main() {
           'tun_ipv4_address': '172.31.255.1/30',
           'strict_route': false,
         };
+      }
+      if (call.method == 'startLatencyTest') {
+        return _latencySnapshot(
+          status: 'running',
+          completed: 0,
+          total: 2,
+        );
+      }
+      if (call.method == 'getLatencyTest') {
+        return _latencySnapshot(
+          status: 'completed',
+          completed: 2,
+          total: 2,
+          results: {
+            'Tokyo': _latencyResult(42, attempts: const [95, 42]),
+            'Osaka': _latencyResult(57, attempts: const [110, 57]),
+          },
+        );
+      }
+      if (call.method == 'cancelLatencyTest') {
+        return _latencySnapshot(
+          status: 'cancelled',
+          completed: 0,
+          total: 2,
+        );
       }
       return {'status': call.method == 'stop' ? 'disconnected' : 'connected'};
     });
@@ -186,9 +212,9 @@ void main() {
     service.dispose();
   });
 
-  test('tests concrete nodes through the connected service core', () async {
+  test('tests concrete nodes through one service-owned latency job', () async {
     final callbacks = <String, ConnectionLatencyResult>{};
-    final service = WindowsVpnService();
+    final service = WindowsVpnService(latencyPollDelay: (_) async {});
     await service.start(jsonEncode({
       'inbounds': <Object>[],
       'outbounds': [
@@ -205,14 +231,100 @@ void main() {
       onResult: (nodeTag, result) => callbacks[nodeTag] = result,
     );
 
-    final testedNodes = calls
-        .where((call) => call.method == 'urlTest')
-        .map((call) => (call.arguments as Map)['group_tag'])
-        .toSet();
-    expect(testedNodes, {'Tokyo', 'Osaka'});
+    final startCall =
+        calls.singleWhere((call) => call.method == 'startLatencyTest');
+    final arguments = Map<String, dynamic>.from(startCall.arguments as Map);
+    expect(
+      jsonDecode(arguments['node_tags_json'] as String),
+      ['Tokyo', 'Osaka'],
+    );
+    expect(arguments['test_url'], 'https://www.gstatic.com/generate_204');
+    expect(arguments['timeout_ms'], 5000);
+    expect(arguments['concurrency'], 2);
+    expect(calls.where((call) => call.method == 'urlTest'), isEmpty);
     expect(results['Tokyo']?.latencyMs, 42);
-    expect(results['Osaka']?.latencyMs, 42);
+    expect(results['Tokyo']?.attempts, [95, 42]);
+    expect(results['Osaka']?.latencyMs, 57);
     expect(callbacks.keys, containsAll(const ['Tokyo', 'Osaka']));
+    service.dispose();
+  });
+
+  test('cancels an active latency job without stale callbacks', () async {
+    final pollStarted = Completer<void>();
+    final releasePoll = Completer<void>();
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getNetworkProfile') {
+        return {
+          'status': 'ready',
+          'default_interface': 'Ethernet',
+          'tun_ipv4_address': '172.31.255.1/30',
+          'strict_route': false,
+        };
+      }
+      if (call.method == 'startLatencyTest') {
+        return _latencySnapshot(
+          status: 'running',
+          completed: 0,
+          total: 1,
+        );
+      }
+      if (call.method == 'getLatencyTest') {
+        pollStarted.complete();
+        await releasePoll.future;
+        return _latencySnapshot(
+          status: 'running',
+          completed: 0,
+          total: 1,
+        );
+      }
+      if (call.method == 'cancelLatencyTest') {
+        return _latencySnapshot(
+          status: 'cancelled',
+          completed: 1,
+          total: 1,
+          results: {
+            'Tokyo': _latencyResult(
+              -1,
+              attempts: const [-1],
+              failureKind: 'cancelled',
+            ),
+          },
+        );
+      }
+      return {'status': call.method == 'stop' ? 'disconnected' : 'connected'};
+    });
+    final callbacks = <String>[];
+    final service = WindowsVpnService(latencyPollDelay: (_) async {});
+    await service.start(jsonEncode({
+      'inbounds': <Object>[],
+      'outbounds': [
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+      'route': {'rules': <Object>[]},
+    }));
+
+    final run = service.testConnectionLatencies(
+      nodeTags: const ['Tokyo'],
+      testUrl: 'https://www.gstatic.com/generate_204',
+      timeoutMs: 5000,
+      concurrency: 1,
+      onResult: (nodeTag, _) => callbacks.add(nodeTag),
+    );
+    await pollStarted.future;
+    await service.stopConnectionLatencyTest();
+    releasePoll.complete();
+    final results = await run;
+
+    expect(
+      calls.where((call) => call.method == 'cancelLatencyTest'),
+      isNotEmpty,
+    );
+    expect(callbacks, isEmpty);
+    expect(
+      results['Tokyo']?.failureKind,
+      ConnectionLatencyFailureKind.cancelled,
+    );
     service.dispose();
   });
 
@@ -229,4 +341,34 @@ void main() {
     expect(service.currentState.status, VpnStatus.disconnected);
     service.dispose();
   });
+}
+
+Map<String, dynamic> _latencySnapshot({
+  required String status,
+  required int completed,
+  required int total,
+  Map<String, dynamic> results = const {},
+}) {
+  return {
+    'status': 'connected',
+    'run_id': 'run-1',
+    'latency_test_status': status,
+    'latency_completed': completed,
+    'latency_total': total,
+    'latency_results_json': jsonEncode(results),
+  };
+}
+
+Map<String, dynamic> _latencyResult(
+  int latency, {
+  List<int>? attempts,
+  String? failureKind,
+}) {
+  return {
+    'latency_ms': latency,
+    'elapsed_ms': latency > 0 ? latency + 20 : 0,
+    'attempts': attempts ?? [latency],
+    if (failureKind != null) 'failure_kind': failureKind,
+    'http_status_codes': latency > 0 ? [204, 204] : <int>[],
+  };
 }

@@ -8,17 +8,19 @@ import 'package:flutter/services.dart';
 import 'connection_latency_manager.dart';
 import 'vpn_manager.dart';
 import 'vpn_state.dart';
-import 'windows_service_latency_runner.dart';
+import 'windows_latency_job_runner.dart';
 import 'windows_service_protocol.dart';
 
 class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   WindowsVpnService({
     MethodChannel? methodChannel,
     EventChannel? eventChannel,
+    WindowsLatencyJobDelay? latencyPollDelay,
   })  : _methodChannel = methodChannel ??
             const MethodChannel(WindowsServiceProtocol.methodChannel),
         _eventChannel = eventChannel ??
-            const EventChannel(WindowsServiceProtocol.eventChannel) {
+            const EventChannel(WindowsServiceProtocol.eventChannel),
+        _latencyPollDelay = latencyPollDelay {
     _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
       _handleState,
       onError: (Object error, StackTrace stackTrace) {
@@ -29,6 +31,7 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
 
   final MethodChannel _methodChannel;
   final EventChannel _eventChannel;
+  final WindowsLatencyJobDelay? _latencyPollDelay;
   final StreamController<VpnState> _stateController =
       StreamController<VpnState>.broadcast();
 
@@ -39,6 +42,7 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   );
   bool _disposed = false;
   int _latencyRunGeneration = 0;
+  WindowsLatencyJobRunner? _latencyJobRunner;
 
   @override
   Future<bool> requestPermission() async {
@@ -165,21 +169,41 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     }
     await stopConnectionLatencyTest();
     final generation = _latencyRunGeneration;
-    final runner = WindowsServiceLatencyRunner(
-      probe: urlTest,
+    final runner = WindowsLatencyJobRunner(
+      invoke: (method, arguments) => _invokeMap(method, arguments),
+      delay: _latencyPollDelay,
     );
-    return runner.run(
-      nodeTags: nodeTags,
-      timeoutMs: timeoutMs,
-      concurrency: concurrency,
-      isCancelled: () => _disposed || generation != _latencyRunGeneration,
-      onResult: onResult,
-    );
+    _latencyJobRunner = runner;
+    try {
+      return await runner.run(
+        nodeTags: nodeTags,
+        testUrl: testUrl,
+        timeoutMs: timeoutMs,
+        concurrency: concurrency,
+        isCancelled: () => _disposed || generation != _latencyRunGeneration,
+        onResult: (nodeTag, result) {
+          if (!_disposed && generation == _latencyRunGeneration) {
+            onResult?.call(nodeTag, result);
+          }
+        },
+      );
+    } finally {
+      if (identical(_latencyJobRunner, runner)) {
+        _latencyJobRunner = null;
+      }
+    }
   }
 
   @override
   Future<void> stopConnectionLatencyTest() async {
     _latencyRunGeneration++;
+    final runner = _latencyJobRunner;
+    _latencyJobRunner = null;
+    try {
+      await runner?.cancel();
+    } catch (error) {
+      debugPrint('Windows latency cancellation failed: $error');
+    }
   }
 
   @override
