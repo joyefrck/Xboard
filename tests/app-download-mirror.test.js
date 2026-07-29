@@ -50,11 +50,12 @@ function extractBlockStartingAt(source, start, description) {
       }
       continue;
     }
-    if (state === 'single-quote' || state === 'double-quote') {
+    if (state === 'single-quote' || state === 'double-quote' || state === 'backtick') {
       if (character === '\\') {
         index += 1;
       } else if ((state === 'single-quote' && character === "'")
-        || (state === 'double-quote' && character === '"')) {
+        || (state === 'double-quote' && character === '"')
+        || (state === 'backtick' && character === '`')) {
         state = 'code';
       }
       continue;
@@ -82,6 +83,10 @@ function extractBlockStartingAt(source, start, description) {
       state = 'double-quote';
       continue;
     }
+    if (character === '`') {
+      state = 'backtick';
+      continue;
+    }
     if (character === '{') depth += 1;
     if (character === '}') depth -= 1;
     if (depth === 0) return source.slice(start, index + 1);
@@ -90,35 +95,40 @@ function extractBlockStartingAt(source, start, description) {
   assert.fail(`${description} body was not closed`);
 }
 
-function assertNoSensitiveMirrorLogFields(source) {
-  const logCall = /(?:Log::\w+|logger\s*\(\s*\)\s*->\w+|logger\s*\(|\$(?:logger|log)\s*->\w+|\$this->logger\s*->\w+)\(([\s\S]*?)\);/g;
-  const sensitiveField = /['"](?:url|uri|location|signature|md5|signer)['"]\s*=>|\$\w*(?:url|uri|location|signature|md5|signer)\w*/i;
+function extractLockCallback(source) {
+  const lockStart = source.indexOf('Cache::lock(');
+  assert.notEqual(lockStart, -1, 'Expected Cache::lock in the critical section');
+  const blockStart = source.indexOf('->block(', lockStart);
+  assert.notEqual(blockStart, -1, 'Expected Cache::lock to invoke block');
+  const callbackStart = source.indexOf('function', blockStart);
+  assert.notEqual(callbackStart, -1, 'Expected Cache lock block callback');
+  return extractBlockStartingAt(source, callbackStart, 'Cache lock callback');
+}
 
-  for (const match of source.matchAll(logCall)) {
-    assert.doesNotMatch(
-      match[1],
-      sensitiveField,
-      'mirror logs may include artifact_id and exceptions, but not signed URL material'
-    );
+function extractCatchBlock(source) {
+  const catchStart = source.indexOf('catch ');
+  assert.notEqual(catchStart, -1, 'Expected catch cleanup branch');
+  return { start: catchStart, body: extractBlockStartingAt(source, catchStart, 'catch branch') };
+}
+
+function assertNoSignedValueIsLogged(source) {
+  const signerVariables = new Set();
+  for (const match of source.matchAll(/(\$\w+)\s*=\s*[^;]*->(?:sign|redirectUrl)\(/g)) signerVariables.add(match[1]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const match of source.matchAll(/(\$\w+)\s*=\s*(\$\w+)\s*;/g)) {
+      if (signerVariables.has(match[2]) && !signerVariables.has(match[1])) {
+        signerVariables.add(match[1]);
+        changed = true;
+      }
+    }
   }
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function assertMirrorSyncRunsInsideCacheLock(handle) {
-  const callbackWithMirrorSync = String.raw`->block\([\s\S]*?(?:function\s*\([^)]*\)|fn\s*\([^)]*\)\s*=>)[\s\S]*?(?:\$this->mirror|\$mirror)->sync\(`;
-  const directLock = new RegExp(`Cache::lock\\([\\s\\S]*?${callbackWithMirrorSync}`);
-  if (directLock.test(handle)) return;
-
-  const assignedLock = handle.match(/(\$[A-Za-z_]\w*)\s*=\s*Cache::lock\(/);
-  assert.ok(assignedLock, 'handle should acquire a cache lock before mirror synchronization');
-  assert.match(
-    handle,
-    new RegExp(`${escapeRegExp(assignedLock[1])}\\s*${callbackWithMirrorSync}`),
-    'the acquired cache lock block callback must contain mirror synchronization'
-  );
+  const logCalls = source.matchAll(/(?:Log::\w+|logger\s*\([^)]*\)\s*->\w+|\$(?:logger|log)\s*->\w+|\$this->logger\s*->\w+)\(([\s\S]*?)\);/g);
+  for (const call of logCalls) {
+    assert.doesNotMatch(call[1], /->(?:sign|redirectUrl)\(/);
+    for (const variable of signerVariables) assert.ok(!call[1].includes(variable), 'logs must not contain signer results or aliases');
+  }
 }
 
 function extractPhpMethod(source, name) {
@@ -161,10 +171,26 @@ function extractIfBlocks(source, condition, description) {
 }
 
 test('PHP block extraction ignores braces in strings and comments', () => {
-  const source = "function fixture() { $single = '}'; $double = \"{\"; // }\n# {\n/* } */\nif (true) { return '}'; }\n} trailing";
+  const source = "function fixture() { $single = '}'; $double = \"{\"; $command = `{`; // }\n# {\n/* } */\nif (true) { return '}'; }\n} trailing";
   const block = extractBlockStartingAt(source, 0, 'fixture');
 
   assert.equal(block, source.slice(0, source.lastIndexOf('}') + 1));
+});
+
+test('lock callback extraction excludes sync outside an empty block', () => {
+  const source = 'Cache::lock("x")->block(5, function () { }); $mirror->sync();';
+
+  assert.doesNotMatch(extractLockCallback(source), /->sync\(/);
+});
+
+test('signed logging flow rejects an alias but permits artifact and exception context', () => {
+  assert.throws(() => assertNoSignedValueIsLogged('$signed = $signer->sign(); $target = $signed; Log::warning("x", ["target" => $target]);'));
+  assert.doesNotThrow(() => assertNoSignedValueIsLogged('Log::warning("x", ["artifact_id" => $artifact->id, "exception" => $e]);'));
+});
+
+test('catch branch fixture distinguishes cleanup from a forbidden mirror queue', () => {
+  const source = 'function x() { try { work(); } catch (Throwable $e) { cleanup(); } if ($storedFile) { $this->queueMirrorSync($artifact); } }';
+  assert.doesNotMatch(extractCatchBlock(source).body, /->queueMirrorSync\(/);
 });
 
 test('app artifact mirror migration persists mirror fields', () => {
@@ -212,15 +238,8 @@ test('mirror sync streams through a partial file and atomically moves only after
 
   assert.match(sync, /readStream/);
   assert.match(sync, /\.part-/);
-  assert.match(sync, /->size\(/);
-  assert.match(sync, /->move\(/);
-  assert.match(sync, /if\s*\([^)]*(?:size|Size)[^)]*(?:!==|!=)[^)]*\)\s*\{\s*(?:throw|return)/);
-  assertAppearsBefore(
-    sync,
-    '->size(',
-    '->move(',
-    'remote size must be verified before the partial file is moved into place'
-  );
+  assert.match(sync, /if\s*\(\s*\$remote->size\(\$temporary\)\s*!==\s*\$expectedSize\s*\)\s*\{\s*throw/);
+  assertAppearsBefore(sync, '->size($temporary)', '->move($temporary, $target)', 'size mismatch guard must precede atomic move');
 });
 
 test('mirror sync job protects against stale content and concurrent duplicate work', () => {
@@ -232,7 +251,7 @@ test('mirror sync job protects against stale content and concurrent duplicate wo
     handle,
     /if\s*\(\s*!\s*hash_equals\(\$this->expectedSha256,\s*\$artifact->sha256\)\s*\)\s*\{\s*return;/
   );
-  assertMirrorSyncRunsInsideCacheLock(handle);
+  assert.match(extractLockCallback(handle), /(?:\$this->mirror|\$mirror)->sync\(/);
   assert.match(job, /\$tries\s*=\s*3/);
   assert.match(job, /\$timeout\s*=\s*1800/);
 });
@@ -303,8 +322,8 @@ test('mirror router only serves healthy ready artifacts and never logs the signe
   assert.match(redirectUrl, /Cache::remember/);
   assert.match(redirectUrl, /connectTimeout\(1\)/);
   assert.match(redirectUrl, /->head\(/i);
-  assert.match(redirectUrl, /healthy\s*\?\s*\$url\s*:\s*null/);
-  assertNoSensitiveMirrorLogFields(redirectUrl);
+  assert.match(redirectUrl, /return\s+(?:\$\w+\s*\?\s*\$\w+\s*:\s*null|null\s*;|\$\w+\s*;)/);
+  assertNoSignedValueIsLogged(redirectUrl);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
@@ -313,6 +332,7 @@ test('artifact lifecycle queues mirrors only for new artifacts and removes mirro
   const deleteJob = readRepoFile('app/Jobs/DeleteAppArtifactMirror.php');
   const store = extractPhpMethod(storage, 'store');
   const updateVersion = extractPhpMethod(storage, 'updateVersion');
+  const catchBranch = extractCatchBlock(updateVersion);
   const transactionStart = updateVersion.indexOf('DB::transaction(');
   assert.notEqual(transactionStart, -1, 'updateVersion should use a database transaction');
   const cleanupFailedFileStart = updateVersion.indexOf('cleanupFailedFile', transactionStart);
@@ -334,11 +354,12 @@ test('artifact lifecycle queues mirrors only for new artifacts and removes mirro
   assert.ok(
     storedFileBranches.some(({ start, body }) => (
       start > transactionStart
-      && start > cleanupFailedFileStart
+      && start > cleanupFailedFileStart && start > catchBranch.start + catchBranch.body.length
       && /queueMirrorSync/.test(body)
     )),
     'updateVersion should queue a mirror only in a post-transaction, post-cleanup new-artifact branch'
   );
+  assert.doesNotMatch(catchBranch.body, /->queueMirrorSync\(/);
   assert.equal(
     (updateVersion.match(/->queueMirrorSync\(/g) || []).length,
     1,
