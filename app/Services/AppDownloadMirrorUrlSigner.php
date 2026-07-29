@@ -24,18 +24,19 @@ class AppDownloadMirrorUrlSigner
 
         $segments = explode('/', $path);
         foreach ($segments as $segment) {
-            if ($segment === '.' || $segment === '..') {
+            if ($segment === '' || $segment === '.' || $segment === '..' || preg_match('//u', $segment) !== 1) {
                 throw new RuntimeException('App download mirror path is invalid.');
             }
         }
 
-        $uri = '/files/' . implode('/', array_map('rawurlencode', $segments));
+        $signingUri = '/files/' . implode('/', $segments);
+        $encodedUri = '/files/' . implode('/', array_map('rawurlencode', $segments));
         $expires = $expiresAt?->getTimestamp()
             ?? now()->addSeconds((int) config('app_downloads.mirror.url_ttl_seconds', 600))->getTimestamp();
-        $digest = base64_encode(md5($expires . $uri . ' ' . $key, true));
+        $digest = base64_encode(md5($expires . $signingUri . ' ' . $key, true));
         $signature = rtrim(strtr($digest, '+/', '-_'), '=');
 
-        return $baseUrl . $uri . '?' . http_build_query([
+        return $baseUrl . $encodedUri . '?' . http_build_query([
             'md5' => $signature,
             'expires' => $expires,
         ], '', '&', PHP_QUERY_RFC3986);

@@ -343,13 +343,13 @@ test('admin routes and page expose retryable mirror status without breaking arti
   assert.match(page, /name="artifact"/);
 });
 
-test('secure-link signing fixture is stable and router signer follows the Nginx md5 base64url contract', () => {
+test('secure-link signing fixture is stable and signer hashes the decoded URI but returns an encoded URL', () => {
   const expires = '1800000000';
-  const uri = '/files/artifacts/50/abc/ElephantNetwork-Setup-x64-v1.6.6.exe';
+  const signingUri = '/files/artifacts/50/abc/ElephantNetwork-Setup-x64-v1.6.6.exe';
   const key = 'fixture-signing-key';
   const signature = crypto
     .createHash('md5')
-    .update(`${expires}${uri} ${key}`)
+    .update(`${expires}${signingUri} ${key}`)
     .digest('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -358,9 +358,38 @@ test('secure-link signing fixture is stable and router signer follows the Nginx 
   assert.equal(signature, 'vu3Yo33ecUPO1ROEJu4anw');
   const signer = readRepoFile('app/Services/AppDownloadMirrorUrlSigner.php');
 
-  assert.match(signer, /md5\(\$expires\s*\.\s*\$uri\s*\.\s*' '\s*\.\s*\$key,\s*true\)/);
+  assert.match(signer, /\$signingUri\s*=\s*'\/files\/'\s*\.\s*implode\(\s*'\/'\s*,\s*\$segments\s*\)/);
+  assert.match(signer, /\$encodedUri\s*=\s*'\/files\/'\s*\.\s*implode\(\s*'\/'\s*,\s*array_map\(\s*'rawurlencode'\s*,\s*\$segments\s*\)\s*\)/);
+  assert.match(signer, /md5\(\$expires\s*\.\s*\$signingUri\s*\.\s*' '\s*\.\s*\$key,\s*true\)/);
+  assert.match(signer, /return\s+\$baseUrl\s*\.\s*\$encodedUri\s*\./);
   assert.match(signer, /base64_encode/);
   assert.match(signer, /rtrim\(\s*strtr\(\s*\$digest\s*,\s*'\+\/'\s*,\s*'-_'\s*\)\s*,\s*'='\s*\)/);
+});
+
+test('secure-link signing preserves non-ASCII and spaces for md5 while URL-encoding only the response URI', () => {
+  const expires = '1800000000';
+  const path = 'artifacts/中文/space file.apk';
+  const key = 'fixture-signing-key';
+  const signingUri = `/files/${path}`;
+  const encodedUri = `/files/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const signature = crypto
+    .createHash('md5')
+    .update(`${expires}${signingUri} ${key}`)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  assert.equal(signature, '6XcsXovNYemRQaD8vL4z7g');
+  assert.equal(encodedUri, '/files/artifacts/%E4%B8%AD%E6%96%87/space%20file.apk');
+});
+
+test('mirror signer rejects empty path segments after trimming permitted leading slashes', () => {
+  const signer = readRepoFile('app/Services/AppDownloadMirrorUrlSigner.php');
+
+  assert.match(signer, /\$segment\s*===\s*''/);
+  assert.match(signer, /\$segment\s*===\s*'\.'/);
+  assert.match(signer, /\$segment\s*===\s*'\.\.'/);
 });
 
 test('mirror router only serves healthy ready artifacts and never logs the signed URL', () => {
