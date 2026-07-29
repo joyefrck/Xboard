@@ -175,24 +175,21 @@ test('secure-link signing fixture is stable and router signer follows the Nginx 
 
   assert.match(signer, /md5\(\$expires\s*\.\s*\$uri\s*\.\s*' '\s*\.\s*\$key,\s*true\)/);
   assert.match(signer, /base64_encode/);
-  assert.match(signer, /strtr\([^,]+,\s*'\+\/'\s*,\s*'-_'/);
-  assert.match(signer, /rtrim\([^,]+,\s*'='\s*\)/);
+  assert.match(signer, /rtrim\(\s*strtr\(\s*\$digest\s*,\s*'\+\/'\s*,\s*'-_'\s*\)\s*,\s*'='\s*\)/);
 });
 
 test('mirror router only serves healthy ready artifacts and never logs the signed URL', () => {
   const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
+  const redirectUrl = extractPhpMethod(router, 'redirectUrl');
 
-  assert.match(
-    router,
-    /if\s*\((?=[^)]*\$artifact->mirror_status)(?=[^)]*MIRROR_READY)[^)]*\)/
-  );
-  assert.match(router, /Cache::remember/);
-  assert.match(router, /connectTimeout\(1\)/);
-  assert.match(router, /->head\(/i);
-  assert.match(router, /healthy\s*\?\s*\$url\s*:\s*null/);
-  assert.doesNotMatch(router, /Log::\w+\([^;]*\$url/s);
-  assert.doesNotMatch(router, /logger\s*\(\s*\$url\s*\)|logger\s*\(\s*\)\s*->\w+\([^;]*\$url/s);
-  assert.doesNotMatch(router, /\$(?:logger|log)\s*->\w+\([^;]*\$url|->logger\s*->\w+\([^;]*\$url/s);
+  assert.match(redirectUrl, /\$artifact->mirror_status\s*!==\s*AppArtifact::MIRROR_READY/);
+  assert.match(redirectUrl, /Cache::remember/);
+  assert.match(redirectUrl, /connectTimeout\(1\)/);
+  assert.match(redirectUrl, /->head\(/i);
+  assert.match(redirectUrl, /healthy\s*\?\s*\$url\s*:\s*null/);
+  assert.doesNotMatch(redirectUrl, /Log::\w+\([^;]*\$url/s);
+  assert.doesNotMatch(redirectUrl, /logger\s*\(\s*\$url\s*\)|logger\s*\(\s*\)\s*->\w+\([^;]*\$url/s);
+  assert.doesNotMatch(redirectUrl, /\$(?:logger|log)\s*->\w+\([^;]*\$url|->logger\s*->\w+\([^;]*\$url/s);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
@@ -201,17 +198,25 @@ test('artifact lifecycle queues mirrors only for new artifacts and removes mirro
   const deleteJob = readRepoFile('app/Jobs/DeleteAppArtifactMirror.php');
   const store = extractPhpMethod(storage, 'store');
   const updateVersion = extractPhpMethod(storage, 'updateVersion');
-  const replaceArtifact = extractIfBlock(
+  const transactionStart = updateVersion.indexOf('DB::transaction(');
+  assert.notEqual(transactionStart, -1, 'updateVersion should use a database transaction');
+  const transactionClosure = extractBlockStartingAt(
     updateVersion,
+    transactionStart,
+    'updateVersion transaction'
+  );
+  const postTransaction = updateVersion.slice(transactionStart + transactionClosure.length);
+  const replaceArtifactAfterTransaction = extractIfBlock(
+    postTransaction,
     /if\s*\(\s*\$storedFile\s*\)/g,
-    'updateVersion new-artifact'
+    'updateVersion post-transaction new-artifact'
   );
   const queueMirrorSync = extractPhpMethod(storage, 'queueMirrorSync');
   const drop = extractPhpMethod(controller, 'drop');
   const retryMirror = extractPhpMethod(controller, 'retryMirror');
 
   assert.match(store, /queueMirrorSync/);
-  assert.match(replaceArtifact, /queueMirrorSync/);
+  assert.match(replaceArtifactAfterTransaction, /queueMirrorSync/);
   assert.match(
     queueMirrorSync,
     /SyncAppArtifactMirror::dispatch\(\$artifact->id,\s*\$artifact->sha256\)->afterCommit\(\)/
