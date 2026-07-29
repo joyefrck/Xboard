@@ -268,6 +268,21 @@ test('mirror feature flags default to disabled', () => {
   assert.match(environment, /^APP_DOWNLOAD_MIRROR_SYNC_ENABLED=false$/m);
 });
 
+test('mirror key defaults stay outside the project bind mount and web service', () => {
+  const environment = readRepoFile('.env.example');
+  const compose = readRepoFile('docker-compose.yaml');
+  const web = compose.match(/^  web:\n[\s\S]*?(?=^  [a-zA-Z0-9_-]+:\n|^networks:)/m)?.[0];
+
+  assert.match(environment, /^APP_DOWNLOAD_MIRROR_KEY_DIR=\.\.\/xboard-secrets\/app-download-mirror$/m);
+  assert.doesNotMatch(environment, /^APP_DOWNLOAD_MIRROR_KEY_DIR=\.\//m);
+  assert.match(
+    compose,
+    /\$\{APP_DOWNLOAD_MIRROR_KEY_DIR:-\.\.\/xboard-secrets\/app-download-mirror\}:\/run\/secrets\/app-download-mirror:ro/
+  );
+  assert.ok(web, 'expected web service block');
+  assert.doesNotMatch(web, /APP_DOWNLOAD_MIRROR_KEY_DIR|\/run\/secrets\/app-download-mirror/);
+});
+
 test('mirror sync streams through a partial file and atomically moves only after remote size verification', () => {
   const mirror = readRepoFile('app/Services/AppDownloadMirror.php');
   const sync = extractPhpMethod(mirror, 'sync');
