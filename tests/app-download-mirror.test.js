@@ -98,11 +98,44 @@ function extractBlockStartingAt(source, start, description) {
 function extractLockCallback(source) {
   const lockStart = source.indexOf('Cache::lock(');
   assert.notEqual(lockStart, -1, 'Expected Cache::lock in the critical section');
-  const blockStart = source.indexOf('->block(', lockStart);
+  const lockEnd = extractParenthesized(source, source.indexOf('(', lockStart), 'Cache::lock');
+  const blockStart = source.indexOf('->block(', lockEnd.end);
   assert.notEqual(blockStart, -1, 'Expected Cache::lock to invoke block');
-  const callbackStart = source.indexOf('function', blockStart);
+  const blockArguments = extractParenthesized(source, source.indexOf('(', blockStart), 'Cache lock block');
+  const callbackStart = blockArguments.body.indexOf('function');
   assert.notEqual(callbackStart, -1, 'Expected Cache lock block callback');
-  return extractBlockStartingAt(source, callbackStart, 'Cache lock callback');
+  return extractBlockStartingAt(source, blockArguments.start + 1 + callbackStart, 'Cache lock callback');
+}
+
+function extractParenthesized(source, open, description) {
+  assert.notEqual(open, -1, `${description} should have arguments`);
+  const view = codeView(source);
+  let depth = 0;
+  for (let index = open; index < view.length; index += 1) {
+    if (view[index] === '(') depth += 1;
+    if (view[index] === ')') depth -= 1;
+    if (depth === 0) return { start: open, end: index + 1, body: source.slice(open + 1, index) };
+  }
+  assert.fail(`${description} arguments were not closed`);
+}
+
+function codeView(source) {
+  let output = '';
+  let state = 'code';
+  for (let index = 0; index < source.length; index += 1) {
+    const c = source[index];
+    const n = source[index + 1];
+    const blank = () => { output += c === '\n' ? '\n' : ' '; };
+    if (state === 'line') { blank(); if (c === '\n') state = 'code'; continue; }
+    if (state === 'block') { blank(); if (c === '*' && n === '/') { output += ' '; index += 1; state = 'code'; } continue; }
+    if (typeof state === 'object') { blank(); if (c === '\\') { if (n) { output += n === '\n' ? '\n' : ' '; index += 1; } } else if (c === state.quote) state = 'code'; continue; }
+    if (c === '/' && n === '/') { output += '  '; index += 1; state = 'line'; continue; }
+    if (c === '/' && n === '*') { output += '  '; index += 1; state = 'block'; continue; }
+    if (c === '#') { blank(); state = 'line'; continue; }
+    if (c === "'" || c === '"' || c === '`') { blank(); state = { quote: c }; continue; }
+    output += c;
+  }
+  return output;
 }
 
 function extractCatchBlock(source) {
@@ -111,23 +144,12 @@ function extractCatchBlock(source) {
   return { start: catchStart, body: extractBlockStartingAt(source, catchStart, 'catch branch') };
 }
 
-function assertNoSignedValueIsLogged(source) {
-  const signerVariables = new Set();
-  for (const match of source.matchAll(/(\$\w+)\s*=\s*[^;]*->(?:sign|redirectUrl)\(/g)) signerVariables.add(match[1]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const match of source.matchAll(/(\$\w+)\s*=\s*(\$\w+)\s*;/g)) {
-      if (signerVariables.has(match[2]) && !signerVariables.has(match[1])) {
-        signerVariables.add(match[1]);
-        changed = true;
-      }
-    }
-  }
-  const logCalls = source.matchAll(/(?:Log::\w+|logger\s*\([^)]*\)\s*->\w+|\$(?:logger|log)\s*->\w+|\$this->logger\s*->\w+)\(([\s\S]*?)\);/g);
-  for (const call of logCalls) {
-    assert.doesNotMatch(call[1], /->(?:sign|redirectUrl)\(/);
-    for (const variable of signerVariables) assert.ok(!call[1].includes(variable), 'logs must not contain signer results or aliases');
+function assertMirrorLogsAreWhitelisted(source) {
+  assert.doesNotMatch(source, /Log::channel|logger\s*\(|\$(?:logger|log)\s*->|\$this->logger->/);
+  const calls = [...source.matchAll(/(Log::\w+|logger\s*\(|\$\w+->\w+|\$this->logger->\w+)\(([\s\S]*?)\);/g)];
+  for (const [, target, argumentsText] of calls) {
+    assert.equal(target, 'Log::warning', 'only Log::warning health-check errors are allowed');
+    assert.match(argumentsText, /^'App download mirror health check failed'\s*,\s*\[\s*'artifact_id'\s*=>\s*\$artifact->id\s*,\s*'exception'\s*=>\s*\$e::class\s*\]$/);
   }
 }
 
@@ -181,11 +203,12 @@ test('lock callback extraction excludes sync outside an empty block', () => {
   const source = 'Cache::lock("x")->block(5, function () { }); $mirror->sync();';
 
   assert.doesNotMatch(extractLockCallback(source), /->sync\(/);
+  assert.throws(() => extractLockCallback('Cache::lock("x")->block(5); run(function () { $mirror->sync(); });'));
 });
 
 test('signed logging flow rejects an alias but permits artifact and exception context', () => {
-  assert.throws(() => assertNoSignedValueIsLogged('$signed = $signer->sign(); $target = $signed; Log::warning("x", ["target" => $target]);'));
-  assert.doesNotThrow(() => assertNoSignedValueIsLogged('Log::warning("x", ["artifact_id" => $artifact->id, "exception" => $e]);'));
+  assert.throws(() => assertMirrorLogsAreWhitelisted("Log::channel('x')->warning('x')"));
+  assert.doesNotThrow(() => assertMirrorLogsAreWhitelisted("Log::warning('App download mirror health check failed', ['artifact_id' => $artifact->id, 'exception' => $e::class]);"));
 });
 
 test('catch branch fixture distinguishes cleanup from a forbidden mirror queue', () => {
@@ -238,8 +261,9 @@ test('mirror sync streams through a partial file and atomically moves only after
 
   assert.match(sync, /readStream/);
   assert.match(sync, /\.part-/);
-  assert.match(sync, /if\s*\(\s*\$remote->size\(\$temporary\)\s*!==\s*\$expectedSize\s*\)\s*\{\s*throw/);
-  assertAppearsBefore(sync, '->size($temporary)', '->move($temporary, $target)', 'size mismatch guard must precede atomic move');
+  const syncCode = codeView(sync);
+  assert.match(syncCode, /if\s*\(\s*\$remote->size\(\$temporary\)\s*!==\s*\$expectedSize\s*\)\s*\{\s*throw/);
+  assertAppearsBefore(syncCode, '->size($temporary)', '->move($temporary, $target)', 'size mismatch guard must precede atomic move');
 });
 
 test('mirror sync job protects against stale content and concurrent duplicate work', () => {
@@ -323,7 +347,7 @@ test('mirror router only serves healthy ready artifacts and never logs the signe
   assert.match(redirectUrl, /connectTimeout\(1\)/);
   assert.match(redirectUrl, /->head\(/i);
   assert.match(redirectUrl, /return\s+(?:\$\w+\s*\?\s*\$\w+\s*:\s*null|null\s*;|\$\w+\s*;)/);
-  assertNoSignedValueIsLogged(redirectUrl);
+  assertMirrorLogsAreWhitelisted(redirectUrl);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {
