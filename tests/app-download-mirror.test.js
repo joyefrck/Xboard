@@ -66,10 +66,20 @@ function extractPhpArrayBlock(source, arrayKey) {
   assert.fail(`Array block ${arrayKey} was not closed`);
 }
 
-function extractIfBlock(source, condition, description) {
-  const match = condition.exec(source);
-  assert.ok(match, `Expected ${description} conditional branch to exist`);
-  return extractBlockStartingAt(source, match.index, description);
+function extractIfBlocks(source, condition, description) {
+  const branches = [];
+  const flags = condition.flags.includes('g') ? condition.flags : `${condition.flags}g`;
+  const matcher = new RegExp(condition.source, flags);
+  let match;
+
+  while ((match = matcher.exec(source)) !== null) {
+    branches.push({
+      start: match.index,
+      body: extractBlockStartingAt(source, match.index, description),
+    });
+  }
+
+  return branches;
 }
 
 test('app artifact mirror schema, model, queue, Horizon, and environment contracts exist', () => {
@@ -200,23 +210,30 @@ test('artifact lifecycle queues mirrors only for new artifacts and removes mirro
   const updateVersion = extractPhpMethod(storage, 'updateVersion');
   const transactionStart = updateVersion.indexOf('DB::transaction(');
   assert.notEqual(transactionStart, -1, 'updateVersion should use a database transaction');
-  const transactionClosure = extractBlockStartingAt(
-    updateVersion,
-    transactionStart,
-    'updateVersion transaction'
+  const cleanupFailedFileStart = updateVersion.indexOf('cleanupFailedFile', transactionStart);
+  assert.notEqual(
+    cleanupFailedFileStart,
+    -1,
+    'updateVersion should retain its catch cleanup before mirror synchronization'
   );
-  const postTransaction = updateVersion.slice(transactionStart + transactionClosure.length);
-  const replaceArtifactAfterTransaction = extractIfBlock(
-    postTransaction,
+  const storedFileBranches = extractIfBlocks(
+    updateVersion,
     /if\s*\(\s*\$storedFile\s*\)/g,
-    'updateVersion post-transaction new-artifact'
+    'updateVersion new-artifact'
   );
   const queueMirrorSync = extractPhpMethod(storage, 'queueMirrorSync');
   const drop = extractPhpMethod(controller, 'drop');
   const retryMirror = extractPhpMethod(controller, 'retryMirror');
 
   assert.match(store, /queueMirrorSync/);
-  assert.match(replaceArtifactAfterTransaction, /queueMirrorSync/);
+  assert.ok(
+    storedFileBranches.some(({ start, body }) => (
+      start > transactionStart
+      && start > cleanupFailedFileStart
+      && /queueMirrorSync/.test(body)
+    )),
+    'updateVersion should queue a mirror only in a post-transaction, post-cleanup new-artifact branch'
+  );
   assert.match(
     queueMirrorSync,
     /SyncAppArtifactMirror::dispatch\(\$artifact->id,\s*\$artifact->sha256\)->afterCommit\(\)/
