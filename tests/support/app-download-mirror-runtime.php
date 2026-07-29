@@ -3,14 +3,17 @@
 declare(strict_types=1);
 
 use App\Models\AppArtifact;
+use App\Services\AppDownloadMirror;
 use App\Services\AppDownloadMirrorRouter;
 use App\Services\AppDownloadMirrorUrlSigner;
 use Carbon\Carbon;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -44,6 +47,43 @@ function configureMirror(string $baseUrl = 'https://mirror.test', string $key = 
         'app_downloads.mirror.health_cache_seconds' => 60,
         'app_downloads.mirror.health_timeout_seconds' => 1,
     ]);
+}
+
+class MirrorFailingPromotionFilesystem extends FilesystemAdapter
+{
+    public bool $failPromotion = true;
+
+    public function move($from, $to)
+    {
+        if ($this->failPromotion && str_contains($from, '.part-')) {
+            $this->failPromotion = false;
+
+            return false;
+        }
+
+        return parent::move($from, $to);
+    }
+}
+
+function mirrorSyncArtifact(string $contents): AppArtifact
+{
+    $artifact = new AppArtifact();
+    $artifact->id = 91;
+    $artifact->disk = 'mirror_runtime_source';
+    $artifact->path = 'source/package.bin';
+    $artifact->original_name = 'package.bin';
+    $artifact->extension = 'bin';
+    $artifact->file_size = strlen($contents);
+    $artifact->sha256 = hash('sha256', $contents);
+
+    return $artifact;
+}
+
+function configureMirrorStorage(): void
+{
+    Storage::fake('mirror_runtime_source');
+    Storage::fake('mirror_runtime_remote');
+    config(['app_downloads.mirror.disk' => 'mirror_runtime_remote']);
 }
 
 try {
@@ -157,6 +197,51 @@ try {
     }]);
     mirrorAssert($router->redirectUrl(mirrorArtifact(2003, 'artifacts/invalid-base.apk')) === null, 'Invalid base URL did not fail closed in router');
     mirrorAssert($invalidBaseRequestCount === 0, 'Invalid base URL issued a health request');
+
+    configureMirrorStorage();
+    $mirror = new AppDownloadMirror();
+    $artifact = mirrorSyncArtifact('new');
+    Storage::disk($artifact->disk)->put($artifact->path, 'new');
+    $target = $mirror->targetPath($artifact);
+    Storage::disk('mirror_runtime_remote')->put($target, 'old');
+    $mirror->sync($artifact);
+    mirrorAssert(
+        Storage::disk('mirror_runtime_remote')->get($target) === 'new',
+        'Same-size remote content with a different SHA256 was treated as ready'
+    );
+
+    configureMirrorStorage();
+    $artifact = mirrorSyncArtifact('new');
+    Storage::disk($artifact->disk)->put($artifact->path, 'new');
+    $target = $mirror->targetPath($artifact);
+    $baseRemote = Storage::disk('mirror_runtime_remote');
+    $baseRemote->put($target, 'old');
+    $failingRemote = new MirrorFailingPromotionFilesystem(
+        $baseRemote->getDriver(),
+        $baseRemote->getAdapter(),
+        $baseRemote->getConfig()
+    );
+    Storage::set('mirror_runtime_remote', $failingRemote);
+    $promotionFailed = false;
+    try {
+        $mirror->sync($artifact);
+    } catch (RuntimeException) {
+        $promotionFailed = true;
+    }
+    mirrorAssert($promotionFailed, 'Promotion failure was not surfaced');
+    mirrorAssert($failingRemote->get($target) === 'old', 'Promotion failure did not restore the old target');
+    mirrorAssert(
+        array_filter($failingRemote->allFiles('artifacts'), fn (string $path): bool => str_contains($path, '.part-')) === [],
+        'Promotion failure left a temporary mirror file behind'
+    );
+
+    $invalidDeletePath = false;
+    try {
+        $mirror->delete('artifacts/91/short/package.bin');
+    } catch (RuntimeException) {
+        $invalidDeletePath = true;
+    }
+    mirrorAssert($invalidDeletePath, 'Mirror delete accepted a non-SHA256 path');
 
     Cache::flush();
     echo json_encode(['ok' => true], JSON_THROW_ON_ERROR) . PHP_EOL;

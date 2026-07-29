@@ -292,7 +292,36 @@ test('mirror sync streams through a partial file and atomically moves only after
   assert.match(sync, /\.part-/);
   const syncCode = codeView(sync);
   assert.match(syncCode, /if\s*\(\s*\$remote->size\(\$temporary\)\s*!==\s*\$expectedSize\s*\)\s*\{\s*throw/);
-  assertAppearsBefore(syncCode, '->size($temporary)', '->move($temporary, $target)', 'size mismatch guard must precede atomic move');
+  assertAppearsBefore(mirror, '->size($temporary)', '->move($temporary, $target)', 'size mismatch guard must precede atomic move');
+});
+
+test('mirror promotion verifies remote SHA256, restores a backup, and deletes only canonical targets', () => {
+  const mirror = readRepoFile('app/Services/AppDownloadMirror.php');
+  const sync = extractPhpMethod(mirror, 'sync');
+  const deleteMethod = extractPhpMethod(mirror, 'delete');
+  const sanitize = extractPhpMethod(mirror, 'sanitizeError');
+
+  assert.match(mirror, /function remoteSha256\(FilesystemAdapter \$remote, string \$path\): string/);
+  assert.match(mirror, /hash_update_stream/);
+  assert.match(sync, /remoteSha256\(\$remote, \$target\)/);
+  assert.match(sync, /remoteSha256\(\$remote, \$temporary\)/);
+  assert.match(mirror, /function promoteSafely\(/);
+  assert.match(mirror, /\.backup-/);
+  assert.match(deleteMethod, /isSafeMirrorPath/);
+  assert.match(mirror, /preg_match/);
+  assert.match(mirror, /\\Aartifacts/);
+  assert.match(sanitize, /Str::limit\([^,]+,\s*497,\s*'\.\.\.'/);
+});
+
+test('mirror sync runtime checks content integrity and restores target after a failed promotion', () => {
+  const runtimeOutput = childProcess.execFileSync(
+    'php',
+    [path.join('tests', 'support', 'app-download-mirror-runtime.php')],
+    { cwd: repoRoot, encoding: 'utf8' }
+  );
+  const result = JSON.parse(runtimeOutput.trim().split('\n').at(-1));
+
+  assert.equal(result.ok, true, result.error || 'mirror sync runtime contract failed');
 });
 
 test('mirror sync job protects against stale content and concurrent duplicate work', () => {
@@ -307,6 +336,15 @@ test('mirror sync job protects against stale content and concurrent duplicate wo
   assert.match(extractLockCallback(handle), /(?:\$this->mirror|\$mirror)->sync\(/);
   assert.match(job, /\$tries\s*=\s*3/);
   assert.match(job, /\$timeout\s*=\s*1800/);
+});
+
+test('mirror sync command validates ids with bounded integers and reports queue totals', () => {
+  const command = readRepoFile('app/Console/Commands/SyncAppDownloadMirrors.php');
+
+  assert.match(command, /filter_var\(\$value,\s*FILTER_VALIDATE_INT/);
+  assert.match(command, /'min_range'\s*=>\s*1/);
+  assert.match(command, /'max_range'\s*=>\s*PHP_INT_MAX/);
+  assert.match(command, /Queued:\s*%d; skipped:\s*%d\./);
 });
 
 test('guest download logs before returning a mirror redirect or local download response', () => {

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AppArtifact;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -42,6 +43,7 @@ class AppDownloadMirror
         $target = $this->targetPath($artifact);
         $temporary = $target . '.part-' . Str::uuid();
         $expectedSize = (int) $artifact->file_size;
+        $expectedSha256 = strtolower((string) $artifact->sha256);
         $remote = Storage::disk((string) config('app_downloads.mirror.disk'));
         $stream = Storage::disk($artifact->disk)->readStream($artifact->path);
 
@@ -49,10 +51,12 @@ class AppDownloadMirror
             throw new RuntimeException('Unable to read app artifact stream.');
         }
 
-        $completed = false;
-
         try {
-            if ($remote->exists($target) && $remote->size($target) === $expectedSize) {
+            if (
+                $remote->exists($target)
+                && $remote->size($target) === $expectedSize
+                && hash_equals($expectedSha256, $this->remoteSha256($remote, $target))
+            ) {
                 return $target;
             }
 
@@ -64,15 +68,11 @@ class AppDownloadMirror
                 throw new RuntimeException('App artifact mirror size verification failed.');
             }
 
-            if ($remote->exists($target) && !$remote->delete($target)) {
-                throw new RuntimeException('Unable to replace app artifact mirror.');
+            if (!hash_equals($expectedSha256, $this->remoteSha256($remote, $temporary))) {
+                throw new RuntimeException('App artifact mirror SHA256 verification failed.');
             }
 
-            if (!$remote->move($temporary, $target)) {
-                throw new RuntimeException('Unable to finalize app artifact mirror.');
-            }
-
-            $completed = true;
+            $this->promoteSafely($remote, $temporary, $target);
 
             return $target;
         } finally {
@@ -80,14 +80,12 @@ class AppDownloadMirror
                 fclose($stream);
             }
 
-            if (!$completed) {
-                try {
-                    if ($remote->exists($temporary)) {
-                        $remote->delete($temporary);
-                    }
-                } catch (Throwable) {
-                    // A cleanup failure must not hide the upload failure.
+            try {
+                if ($remote->exists($temporary)) {
+                    $remote->delete($temporary);
                 }
+            } catch (Throwable) {
+                // A cleanup failure must not hide the upload failure.
             }
         }
     }
@@ -123,20 +121,87 @@ class AppDownloadMirror
             $message
         ) ?? 'App artifact mirror failed.';
 
-        return Str::limit(trim($message), 500, '...');
+        return Str::limit(trim($message), 497, '...');
+    }
+
+    private function remoteSha256(FilesystemAdapter $remote, string $path): string
+    {
+        try {
+            $stream = $remote->readStream($path);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Unable to verify app artifact mirror.', 0, $error);
+        }
+
+        if (!is_resource($stream)) {
+            throw new RuntimeException('Unable to verify app artifact mirror.');
+        }
+
+        try {
+            $context = hash_init('sha256');
+            if (hash_update_stream($context, $stream) === false) {
+                throw new RuntimeException('Unable to verify app artifact mirror.');
+            }
+
+            return hash_final($context);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Unable to verify app artifact mirror.', 0, $error);
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    private function promoteSafely(FilesystemAdapter $remote, string $temporary, string $target): void
+    {
+        if (!$remote->exists($target)) {
+            if (!$remote->move($temporary, $target)) {
+                throw new RuntimeException('Unable to finalize app artifact mirror.');
+            }
+
+            return;
+        }
+
+        $backup = $target . '.backup-' . Str::uuid();
+        try {
+            if (!$remote->move($target, $backup)) {
+                throw new RuntimeException('Unable to stage existing app artifact mirror.');
+            }
+        } catch (Throwable $error) {
+            throw new RuntimeException('Unable to stage existing app artifact mirror.', 0, $error);
+        }
+
+        try {
+            if (!$remote->move($temporary, $target)) {
+                throw new RuntimeException('Unable to finalize app artifact mirror.');
+            }
+        } catch (Throwable $error) {
+            try {
+                if ($remote->exists($target)) {
+                    $remote->delete($target);
+                }
+                if ($remote->exists($backup)) {
+                    $remote->move($backup, $target);
+                }
+            } catch (Throwable) {
+                // Preserve the promotion failure if rollback itself also fails.
+            }
+
+            throw new RuntimeException('Unable to finalize app artifact mirror.', 0, $error);
+        }
+
+        try {
+            if ($remote->exists($backup)) {
+                $remote->delete($backup);
+            }
+        } catch (Throwable) {
+            // A backup cleanup failure must not change a successful promotion.
+        }
     }
 
     private function isSafeMirrorPath(string $path): bool
     {
-        if (!str_starts_with($path, 'artifacts/') || str_contains($path, '\\')) {
-            return false;
-        }
-
-        $segments = explode('/', $path);
-
-        return count($segments) >= 4
-            && !in_array('', $segments, true)
-            && !in_array('.', $segments, true)
-            && !in_array('..', $segments, true);
+        return (bool) preg_match(
+            '/\Aartifacts\/[1-9][0-9]*\/[a-f0-9]{64}\/[A-Za-z0-9][A-Za-z0-9._-]*\z/',
+            $path
+        );
     }
 }

@@ -29,19 +29,23 @@ class SyncAppDownloadMirrors extends Command
         }
 
         $force = (bool) $this->option('force');
+        $queuedCount = 0;
+        $skippedCount = 0;
         $query = AppArtifact::query()->whereHas('version')->orderBy('id');
         if ($ids !== []) {
             $query->whereIn('id', $ids);
         }
 
-        $query->each(function (AppArtifact $artifact) use ($storage, $force): void {
+        $query->each(function (AppArtifact $artifact) use ($storage, $force, &$queuedCount, &$skippedCount): void {
             if (!$storage->exists($artifact)) {
+                $skippedCount++;
                 $this->warn('Skipped artifact #' . $artifact->id . ': local file is missing.');
 
                 return;
             }
 
             if (!$force && $artifact->mirror_status === AppArtifact::MIRROR_READY) {
+                $skippedCount++;
                 $this->line('Skipped artifact #' . $artifact->id . ': mirror is already ready.');
 
                 return;
@@ -58,14 +62,18 @@ class SyncAppDownloadMirrors extends Command
                 ]);
 
             if ($queued !== 1) {
+                $skippedCount++;
                 $this->warn('Skipped artifact #' . $artifact->id . ': artifact changed while queuing.');
 
                 return;
             }
 
             SyncAppArtifactMirror::dispatch($artifact->id, $sha256)->afterCommit();
+            $queuedCount++;
             $this->info('Queued artifact #' . $artifact->id . '.');
         });
+
+        $this->line(sprintf('Queued: %d; skipped: %d.', $queuedCount, $skippedCount));
 
         return self::SUCCESS;
     }
@@ -74,14 +82,21 @@ class SyncAppDownloadMirrors extends Command
     {
         $ids = [];
         foreach ((array) $this->option('artifact') as $value) {
-            $value = trim((string) $value);
-            if (!preg_match('/^[1-9][0-9]*$/', $value)) {
+            $value = (string) $value;
+            $id = filter_var($value, FILTER_VALIDATE_INT, [
+                'options' => [
+                    'min_range' => 1,
+                    'max_range' => PHP_INT_MAX,
+                ],
+            ]);
+
+            if ($value !== trim($value) || $id === false || (string) $id !== $value) {
                 $this->error('Artifact ids must be positive integers.');
 
                 return null;
             }
 
-            $ids[] = (int) $value;
+            $ids[] = $id;
         }
 
         return array_values(array_unique($ids));
