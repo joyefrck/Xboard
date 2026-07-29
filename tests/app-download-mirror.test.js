@@ -30,65 +30,14 @@ function assertAppearsBefore(source, first, second, message) {
 }
 
 function extractBlockStartingAt(source, start, description) {
-  const bodyStart = source.indexOf('{', start);
+  const masked = codeView(source);
+  const bodyStart = masked.indexOf('{', start);
   assert.notEqual(bodyStart, -1, `${description} should have a body`);
 
   let depth = 0;
-  let state = 'code';
-  for (let index = bodyStart; index < source.length; index += 1) {
-    const character = source[index];
-    const nextCharacter = source[index + 1];
-
-    if (state === 'line-comment') {
-      if (character === '\n') state = 'code';
-      continue;
-    }
-    if (state === 'block-comment') {
-      if (character === '*' && nextCharacter === '/') {
-        state = 'code';
-        index += 1;
-      }
-      continue;
-    }
-    if (state === 'single-quote' || state === 'double-quote' || state === 'backtick') {
-      if (character === '\\') {
-        index += 1;
-      } else if ((state === 'single-quote' && character === "'")
-        || (state === 'double-quote' && character === '"')
-        || (state === 'backtick' && character === '`')) {
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (character === '/' && nextCharacter === '/') {
-      state = 'line-comment';
-      index += 1;
-      continue;
-    }
-    if (character === '/' && nextCharacter === '*') {
-      state = 'block-comment';
-      index += 1;
-      continue;
-    }
-    if (character === '#') {
-      state = 'line-comment';
-      continue;
-    }
-    if (character === "'") {
-      state = 'single-quote';
-      continue;
-    }
-    if (character === '"') {
-      state = 'double-quote';
-      continue;
-    }
-    if (character === '`') {
-      state = 'backtick';
-      continue;
-    }
-    if (character === '{') depth += 1;
-    if (character === '}') depth -= 1;
+  for (let index = bodyStart; index < masked.length; index += 1) {
+    if (masked[index] === '{') depth += 1;
+    if (masked[index] === '}') depth -= 1;
     if (depth === 0) return source.slice(start, index + 1);
   }
 
@@ -130,7 +79,13 @@ function codeView(source) {
     if (typeof state === 'object' && state.heredoc) {
       const lineEnd = source.indexOf('\n', index);
       const line = source.slice(index, lineEnd === -1 ? source.length : lineEnd);
-      if (new RegExp(`^${state.heredoc};?$`).test(line.trim())) state = 'code';
+      if (new RegExp(`^${state.heredoc};?$`).test(line.trim())) {
+        const end = lineEnd === -1 ? source.length : lineEnd + 1;
+        output += source.slice(index, end).replace(/[^\n]/g, ' ');
+        index = end - 1;
+        state = 'code';
+        continue;
+      }
       blank();
       continue;
     }
@@ -227,6 +182,13 @@ test('code view ignores heredoc and nowdoc non-code braces', () => {
   assert.match(view, /run\(\)/);
 });
 
+test('method extraction reaches final brace after heredoc and nowdoc content', () => {
+  const source = "function heredocFixture() { $a = <<<TXT\n}\nTXT;\nwork(); } function nowdocFixture() { $b = <<<'RAW'\n}\nRAW;\nwork(); }";
+
+  assert.match(extractPhpMethod(source, 'heredocFixture'), /work\(\);\s*}$/);
+  assert.match(extractPhpMethod(source, 'nowdocFixture'), /work\(\);\s*}$/);
+});
+
 test('lock callback extraction excludes sync outside an empty block', () => {
   const source = 'Cache::lock("x")->block(5, function () { }); $mirror->sync();';
 
@@ -239,7 +201,7 @@ test('router log and health helpers reject unbound security paths without false 
   assert.throws(() => assertNoRouterLogging('$target = $signed; info($target);'));
   assert.doesNotThrow(() => assertNoRouterLogging('$response->successful();'));
   assert.equal(hasBoundHealthReturn('if ($artifact->mirror_status !== AppArtifact::MIRROR_READY) { return null; } return $url;'), false);
-  assert.equal(hasBoundHealthReturn('// return $healthy ? $url : null;\nreturn $url;'), false);
+  assert.equal(hasBoundHealthReturn(codeView('$healthy = Cache::remember("x", fn () => true); $url = $signer->sign(); // return $healthy ? $url : null;\nreturn $url;')), false);
   assert.equal(hasBoundHealthReturn('$healthy = Cache::remember("x", fn () => true); $url = $signer->sign(); return $healthy ? $url : null;'), true);
 });
 
