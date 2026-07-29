@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -120,7 +121,7 @@ function assertNoRouterLogging(source) {
 
 function hasBoundHealthReturn(source) {
   const health = source.match(/(\$\w+)\s*=\s*Cache::remember\(/)?.[1];
-  const signed = source.match(/(\$\w+)\s*=\s*[^;]*->(?:sign|redirectUrl)\(/)?.[1];
+  const signed = source.match(/(\$\w+)\s*=\s*[^;]*->(?:sign|redirectUrl|urlFor)\(/)?.[1];
   if (!health || !signed) return false;
   const escapedHealth = health.replace('$', '\\$');
   const escapedSigned = signed.replace('$', '\\$');
@@ -392,6 +393,17 @@ test('mirror signer rejects empty path segments after trimming permitted leading
   assert.match(signer, /\$segment\s*===\s*'\.\.'/);
 });
 
+test('mirror signer and router execute their security contract without network or database access', () => {
+  const runtimeOutput = childProcess.execFileSync(
+    'php',
+    [path.join('tests', 'support', 'app-download-mirror-runtime.php')],
+    { cwd: repoRoot, encoding: 'utf8' }
+  );
+  const result = JSON.parse(runtimeOutput.trim().split('\n').at(-1));
+
+  assert.equal(result.ok, true, result.error || 'runtime contract failed');
+});
+
 test('mirror router only serves healthy ready artifacts and never logs the signed URL', () => {
   const router = readRepoFile('app/Services/AppDownloadMirrorRouter.php');
   const redirectUrl = extractPhpMethod(router, 'redirectUrl');
@@ -403,9 +415,13 @@ test('mirror router only serves healthy ready artifacts and never logs the signe
   );
   assert.match(redirectUrl, /Cache::remember/);
   assert.match(redirectUrl, /connectTimeout\(1\)/);
+  assert.match(redirectUrl, /withoutRedirecting\(\)/);
   assert.match(redirectUrl, /->head\(/i);
+  assert.match(redirectUrl, /app_downloads\.mirror\.signing_key/);
+  assert.match(redirectUrl, /hash\(\s*'sha256'/);
   assert.ok(hasBoundHealthReturn(redirectCode), 'health status and signed URL must be bound in the return path');
   assertNoRouterLogging(redirectCode);
+  assert.doesNotMatch(router, /private function sign\(/);
 });
 
 test('artifact lifecycle queues mirrors only for new artifacts and removes mirrors on admin deletion', () => {

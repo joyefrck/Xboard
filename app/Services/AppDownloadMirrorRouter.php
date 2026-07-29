@@ -28,13 +28,23 @@ class AppDownloadMirrorRouter
         }
 
         try {
-            $url = $this->sign($artifact);
-            $cacheKey = 'app_download_mirror:health:' . $artifact->id . ':' . hash('sha256', $artifact->mirror_path);
+            $url = $this->signer->urlFor($artifact);
+            $configurationIdentity = hash(
+                'sha256',
+                rtrim((string) config('app_downloads.mirror.base_url', ''), '/')
+                . "\0"
+                . hash('sha256', (string) config('app_downloads.mirror.signing_key', ''))
+            );
+            $cacheKey = 'app_download_mirror:health:'
+                . $artifact->id
+                . ':' . hash('sha256', $artifact->mirror_path)
+                . ':' . $configurationIdentity;
             $healthy = Cache::remember(
                 $cacheKey,
                 (int) config('app_downloads.mirror.health_cache_seconds', 45),
                 function () use ($url): bool {
                     return Http::connectTimeout(1)
+                        ->withoutRedirecting()
                         ->timeout((int) config('app_downloads.mirror.health_timeout_seconds', 2))
                         ->head($url)
                         ->successful();
@@ -45,10 +55,5 @@ class AppDownloadMirrorRouter
         } catch (Throwable $e) {
             return null;
         }
-    }
-
-    private function sign(AppArtifact $artifact): string
-    {
-        return $this->signer->urlFor($artifact);
     }
 }

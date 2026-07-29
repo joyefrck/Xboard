@@ -10,10 +10,10 @@ class AppDownloadMirrorUrlSigner
 {
     public function url(string $mirrorPath, ?CarbonInterface $expiresAt = null): string
     {
-        $baseUrl = rtrim((string) config('app_downloads.mirror.base_url', ''), '/');
+        $baseUrl = $this->baseUrl();
         $key = (string) config('app_downloads.mirror.signing_key', '');
 
-        if ($baseUrl === '' || $key === '') {
+        if ($key === '') {
             throw new RuntimeException('App download mirror signing is not configured.');
         }
 
@@ -49,5 +49,25 @@ class AppDownloadMirrorUrlSigner
         }
 
         return $this->url($artifact->mirror_path);
+    }
+
+    private function baseUrl(): string
+    {
+        $baseUrl = rtrim((string) config('app_downloads.mirror.base_url', ''), '/');
+        $parts = parse_url($baseUrl);
+
+        if ($parts === false
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || !isset($parts['host'])
+            || $parts['host'] === ''
+            || isset($parts['user'])
+            || isset($parts['pass'])
+            || isset($parts['query'])
+            || isset($parts['fragment'])
+            || (($parts['path'] ?? '') !== '' && ($parts['path'] ?? '') !== '/')) {
+            throw new RuntimeException('App download mirror base URL is invalid.');
+        }
+
+        return $baseUrl;
     }
 }
