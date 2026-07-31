@@ -299,7 +299,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                             
                             val apiRule = org.json.JSONObject()
                             val apiDomains = org.json.JSONArray()
-                            apiDomains.put("www.elephant111.com")
+                            apiDomains.put("www.elephant111.org")
                             apiRule.put("domain", apiDomains)
                             apiRule.put("server", localDnsTag)
                             
@@ -403,7 +403,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                             val domainDirectRule = org.json.JSONObject()
                             domainDirectRule.put("outbound", "direct")
                             val domains = org.json.JSONArray()
-                            domains.put("www.elephant111.com")
+                            domains.put("www.elephant111.org")
                             domainDirectRule.put("domain", domains)
                             
                             // 2. IP-based direct rule
