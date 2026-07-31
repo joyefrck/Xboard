@@ -74,7 +74,7 @@ function inspectV2rayNAnyTLS() {
     ], JSON_THROW_ON_ERROR);
   `;
 
-  const result = spawnSync('php', ['-r', phpScript], {
+  const result = spawnSync('php', ['-d', 'display_errors=0', '-r', phpScript], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
