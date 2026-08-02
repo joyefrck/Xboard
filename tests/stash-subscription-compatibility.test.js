@@ -33,7 +33,13 @@ function buildStashVless(protocolSettings) {
 
   const result = spawnSync(
     'php',
-    ['-r', phpScript, Buffer.from(JSON.stringify(protocolSettings)).toString('base64')],
+    [
+      '-d',
+      'display_errors=0',
+      '-r',
+      phpScript,
+      Buffer.from(JSON.stringify(protocolSettings)).toString('base64'),
+    ],
     {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -43,6 +49,103 @@ function buildStashVless(protocolSettings) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return JSON.parse(result.stdout);
 }
+
+function inspectStash() {
+  const phpScript = `
+    require "vendor/autoload.php";
+
+    $reflection = new ReflectionClass(App\\Protocols\\Stash::class);
+    $instance = $reflection->newInstanceWithoutConstructor();
+    $allowed = new ReflectionProperty(App\\Protocols\\Stash::class, "allowedProtocols");
+
+    echo json_encode([
+        "allowed" => $allowed->getValue($instance),
+        "hasBuildAnyTLS" => method_exists(App\\Protocols\\Stash::class, "buildAnyTLS"),
+    ], JSON_THROW_ON_ERROR);
+  `;
+
+  const result = spawnSync('php', ['-r', phpScript], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return JSON.parse(result.stdout);
+}
+
+function renderStashAnyTLS(protocolSettings) {
+  const phpScript = `
+    require "vendor/autoload.php";
+    $app = require "bootstrap/app.php";
+    $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
+    $app->instance(
+        "request",
+        Illuminate\\Http\\Request::create("https://subscription.example/api/v1/client/subscribe")
+    );
+
+    $protocolSettings = json_decode(base64_decode($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+    $server = [
+        "name" => "AnyTLS 测试节点",
+        "type" => "anytls",
+        "host" => "2001:db8::1",
+        "port" => 443,
+        "password" => "anytls-password",
+        "protocol_settings" => $protocolSettings,
+    ];
+    $user = [
+        "u" => 0,
+        "d" => 0,
+        "transfer_enable" => 1024,
+        "effective_transfer_enable" => 1024,
+        "expired_at" => 0,
+    ];
+
+    $response = (new App\\Protocols\\Stash($user, [$server], "stash", "3.4.0"))->handle();
+    $config = Symfony\\Component\\Yaml\\Yaml::parse($response->getContent());
+    echo json_encode($config["proxies"][0] ?? null, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+  `;
+
+  const result = spawnSync(
+    'php',
+    [
+      '-d',
+      'display_errors=0',
+      '-r',
+      phpScript,
+      Buffer.from(JSON.stringify(protocolSettings)).toString('base64'),
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return JSON.parse(result.stdout);
+}
+
+test('Stash renderer allows AnyTLS and maps canonical TLS settings', () => {
+  const info = inspectStash();
+  const proxy = renderStashAnyTLS({
+    tls: {
+      server_name: 'sni.example.com',
+      allow_insecure: true,
+    },
+  });
+
+  assert.ok(info.allowed.includes('anytls'));
+  assert.equal(info.hasBuildAnyTLS, true);
+  assert.deepEqual(proxy, {
+    name: 'AnyTLS 测试节点',
+    type: 'anytls',
+    server: '2001:db8::1',
+    port: 443,
+    password: 'anytls-password',
+    sni: 'sni.example.com',
+    'skip-cert-verify': true,
+    udp: true,
+  });
+});
 
 test('Stash VLESS tcp http header renders network as a string', () => {
   const proxy = buildStashVless({

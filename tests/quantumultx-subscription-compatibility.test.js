@@ -34,7 +34,7 @@ function matchProtocolFile(flag) {
 }
 
 function runPhp(script, args = []) {
-  const result = spawnSync('php', ['-r', script, ...args], {
+  const result = spawnSync('php', ['-d', 'display_errors=0', '-r', script, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
@@ -54,10 +54,48 @@ function inspectQuantumultX() {
     echo json_encode([
         "allowed" => $allowed->getValue($instance),
         "hasBuildVless" => method_exists("App\\\\Protocols\\\\QuantumultX", "buildVless"),
+        "hasBuildAnyTLS" => method_exists("App\\\\Protocols\\\\QuantumultX", "buildAnyTLS"),
     ], JSON_THROW_ON_ERROR);
   `;
 
   return JSON.parse(runPhp(phpScript));
+}
+
+function renderQuantumultXAnyTLS(protocolSettings) {
+  const phpScript = `
+    require "vendor/autoload.php";
+    $app = require "bootstrap/app.php";
+    $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
+
+    $protocolSettings = json_decode(base64_decode($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+    $server = [
+        "name" => "AnyTLS 测试节点",
+        "type" => "anytls",
+        "host" => "2001:db8::1",
+        "port" => 443,
+        "password" => "anytls-password",
+        "protocol_settings" => $protocolSettings,
+    ];
+    $user = [
+        "u" => 0,
+        "d" => 0,
+        "transfer_enable" => 1024,
+        "effective_transfer_enable" => 1024,
+        "expired_at" => 0,
+    ];
+
+    $response = (new App\\Protocols\\QuantumultX(
+        $user,
+        [$server],
+        "quantumultx",
+        "1.5.5"
+    ))->handle();
+    echo base64_decode($response->getContent());
+  `;
+
+  return runPhp(phpScript, [
+    Buffer.from(JSON.stringify(protocolSettings)).toString('base64'),
+  ]);
 }
 
 function buildQuantumultXVless(protocolSettings) {
@@ -95,6 +133,29 @@ test('QuantumultX renderer allows VLESS and exposes a VLESS builder', () => {
 
   assert.ok(info.allowed.includes('vless'));
   assert.equal(info.hasBuildVless, true);
+});
+
+test('QuantumultX renderer allows AnyTLS and emits native standard TLS fields', () => {
+  const info = inspectQuantumultX();
+
+  assert.ok(info.allowed.includes('anytls'));
+  assert.equal(info.hasBuildAnyTLS, true);
+
+  const line = renderQuantumultXAnyTLS({
+    tls: {
+      server_name: 'sni.example.com',
+      allow_insecure: true,
+    },
+  });
+
+  assert.match(line, /^anytls=\[2001:db8::1\]:443,/);
+  assert.match(line, /password=anytls-password/);
+  assert.match(line, /over-tls=true/);
+  assert.match(line, /tls-host=sni\.example\.com/);
+  assert.match(line, /tls-verification=false/);
+  assert.match(line, /udp-relay=true/);
+  assert.match(line, /tag=AnyTLS 测试节点/);
+  assert.match(line, /\r\n$/);
 });
 
 test('QuantumultX VLESS tcp http header renders native obfs fields', () => {

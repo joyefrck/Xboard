@@ -18,14 +18,14 @@ class Stash extends AbstractProtocol
         Server::TYPE_HYSTERIA,
         Server::TYPE_TROJAN,
         Server::TYPE_TUIC,
-        // Server::TYPE_ANYTLS,
+        Server::TYPE_ANYTLS,
         Server::TYPE_SOCKS,
         Server::TYPE_HTTP,
     ];
     protected $protocolRequirements = [
         'stash' => [
             'anytls' => [
-                'base_version' => '9.9.9'
+                'base_version' => '3.3.0'
             ],
             'vless' => [
                 'protocol_settings.tls' => [
@@ -117,10 +117,10 @@ class Stash extends AbstractProtocol
                 array_push($proxy, self::buildTuic($item['password'], $item));
                 array_push($proxies, $item['name']);
             }
-            // if ($item['type'] === 'anytls') {
-            //     array_push($proxy, self::buildAnyTLS($item['password'], $item));
-            //     array_push($proxies, $item['name']);
-            // }
+            if ($item['type'] === Server::TYPE_ANYTLS) {
+                array_push($proxy, self::buildAnyTLS($item['password'], $item));
+                array_push($proxies, $item['name']);
+            }
             if ($item['type'] === Server::TYPE_SOCKS) {
                 array_push($proxy, self::buildSocks5($item['password'], $item));
                 array_push($proxies, $item['name']);
@@ -441,10 +441,13 @@ class Stash extends AbstractProtocol
             'server' => $server['host'],
             'port' => $server['port'],
             'password' => $password,
-            'sni' => data_get($protocol_settings, 'tls_settings.server_name'),
-            'skip-cert-verify' => (bool) data_get($protocol_settings, 'tls_settings.allow_insecure', false),
+            'skip-cert-verify' => (bool) data_get($protocol_settings, 'tls.allow_insecure', false),
             'udp' => true,
         ];
+
+        if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
+            $array['sni'] = $serverName;
+        }
 
         return $array;
     }

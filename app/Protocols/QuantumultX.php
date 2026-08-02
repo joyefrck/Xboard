@@ -4,6 +4,7 @@ namespace App\Protocols;
 
 use App\Support\AbstractProtocol;
 use App\Models\Server;
+use App\Utils\Helper;
 
 class QuantumultX extends AbstractProtocol
 {
@@ -13,6 +14,7 @@ class QuantumultX extends AbstractProtocol
         Server::TYPE_VMESS,
         Server::TYPE_VLESS,
         Server::TYPE_TROJAN,
+        Server::TYPE_ANYTLS,
     ];
 
     public function handle()
@@ -33,6 +35,9 @@ class QuantumultX extends AbstractProtocol
             }
             if ($item['type'] === Server::TYPE_TROJAN) {
                 $uri .= self::buildTrojan($item['password'], $item);
+            }
+            if ($item['type'] === Server::TYPE_ANYTLS) {
+                $uri .= self::buildAnyTLS($item['password'], $item);
             }
         }
         return response(base64_encode($uri))
@@ -221,6 +226,28 @@ class QuantumultX extends AbstractProtocol
         $uri = implode(',', $config);
         $uri .= "\r\n";
         return $uri;
+    }
+
+    public static function buildAnyTLS($password, $server)
+    {
+        $protocol_settings = data_get($server, 'protocol_settings', []);
+        $addr = Helper::wrapIPv6($server['host']);
+        $config = [
+            "anytls={$addr}:{$server['port']}",
+            "password={$password}",
+            'over-tls=true',
+        ];
+
+        if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
+            $config[] = "tls-host={$serverName}";
+        }
+
+        $allowInsecure = (bool) data_get($protocol_settings, 'tls.allow_insecure', false);
+        $config[] = 'tls-verification=' . ($allowInsecure ? 'false' : 'true');
+        $config[] = 'udp-relay=true';
+        $config[] = "tag={$server['name']}";
+
+        return implode(',', $config) . "\r\n";
     }
 
     private static function firstValue($value)
