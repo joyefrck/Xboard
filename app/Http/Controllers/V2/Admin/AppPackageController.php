@@ -95,8 +95,12 @@ class AppPackageController extends Controller
         unset($data['platform']);
 
         $officialAppKey = DistributionApp::officialAppKeyForPlatform($platform);
-        if ($data['distribution_scope'] === DistributionApp::SCOPE_OFFICIAL_UPDATE && $officialAppKey) {
+        $officialAppName = DistributionApp::officialAppNameForPlatform($platform);
+        if ($data['distribution_scope'] === DistributionApp::SCOPE_OFFICIAL_UPDATE
+            && $officialAppKey
+            && $officialAppName) {
             $data['app_key'] = $officialAppKey;
+            $data['name'] = $officialAppName;
             // Package publishing resolves identity from the platform. Ignore a
             // stale or forged app id and reuse only the canonical app below.
             unset($data['id']);

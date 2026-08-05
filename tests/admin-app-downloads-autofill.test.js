@@ -42,6 +42,7 @@ function loadAdminAppDownloadHelpers() {
     extractFunction(page, 'inferVersion'),
     extractFunction(page, 'slugifyAppKey'),
     extractFunction(page, 'officialAppKeyForPlatform'),
+    extractFunction(page, 'officialAppNameForPlatform'),
     extractFunction(page, 'inferAppKey'),
     extractFunction(page, 'titleCase'),
     extractFunction(page, 'inferAppName'),
@@ -50,6 +51,7 @@ function loadAdminAppDownloadHelpers() {
     'this.detectPlatform = detectPlatform;'
       + 'this.inferVersion = inferVersion;'
       + 'this.officialAppKeyForPlatform = officialAppKeyForPlatform;'
+      + 'this.officialAppNameForPlatform = officialAppNameForPlatform;'
       + 'this.inferAppKey = inferAppKey;'
       + 'this.inferAppName = inferAppName;'
       + 'this.hasLegacyDecimalSpacing = hasLegacyDecimalSpacing;'
@@ -103,6 +105,15 @@ test('admin app identity separates third-party and official package keys', () =>
   assert.equal(officialAppKeyForPlatform('macos'), 'elephant-route-desktop');
 });
 
+test('admin app identity keeps official application names stable by platform', () => {
+  const { officialAppNameForPlatform } = loadAdminAppDownloadHelpers();
+
+  assert.equal(officialAppNameForPlatform('android'), '大象网络官方App安卓版');
+  assert.equal(officialAppNameForPlatform('windows'), '大象网络官方App桌面版');
+  assert.equal(officialAppNameForPlatform('macos'), '大象网络官方App桌面版');
+  assert.equal(officialAppNameForPlatform('ios'), '');
+});
+
 test('admin publish form defaults to third-party and submits distribution scope', () => {
   const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
 
@@ -111,6 +122,8 @@ test('admin publish form defaults to third-party and submits distribution scope'
   assert.match(page, /<option value="official_update">/);
   assert.match(page, /distribution_scope:\s*distributionScope/);
   assert.match(page, /appKeyInput\.readOnly\s*=\s*isOfficial/);
+  assert.match(page, /appNameInput\.readOnly\s*=\s*isOfficial/);
+  assert.match(page, /appNameInput\.value\s*=\s*officialAppNameForPlatform\(platformInput\.value\)/);
 });
 
 test('admin publish form resynchronizes identity on scope, platform, upload and reset', () => {
@@ -166,6 +179,8 @@ test('admin app package save uses app key as primary software identity', () => {
 
   assert.match(controller, /if \(\$existingByKey\) \{[\s\S]*\$data\['id'\]\s*=\s*\$existingByKey->id;[\s\S]*\}/);
   assert.match(controller, /DistributionApp::officialAppKeyForPlatform\(\$platform\)/);
+  assert.match(controller, /DistributionApp::officialAppNameForPlatform\(\$platform\)/);
+  assert.match(controller, /\$data\['name'\]\s*=\s*\$officialAppName/);
   assert.match(controller, /\$data\['distribution_scope'\]\s*===\s*DistributionApp::SCOPE_OFFICIAL_UPDATE/);
   assert.match(controller, /unset\(\$data\['id'\]\)/);
   assert.match(controller, /if \(empty\(\$data\['id'\]\) && empty\(\$data\['app_key'\]\)\)/);

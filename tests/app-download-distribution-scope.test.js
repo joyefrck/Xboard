@@ -34,6 +34,10 @@ test('distribution app model owns scope and reserved identity policy', () => {
   assert.match(model, /LEGACY_OFFICIAL_APP_KEYS/);
   assert.match(model, /'elephant-route-mac'/);
   assert.match(model, /public static function officialAppKeyForPlatform/);
+  assert.match(model, /public static function officialAppNameForPlatform/);
+  assert.match(model, /'android'\s*=>\s*'大象网络官方App安卓版'/);
+  assert.match(model, /'windows'\s*=>\s*'大象网络官方App桌面版'/);
+  assert.match(model, /'macos'\s*=>\s*'大象网络官方App桌面版'/);
   assert.match(model, /public static function isReservedAppKey/);
   assert.match(model, /'distribution_scope'/);
 });
@@ -73,6 +77,18 @@ test('official versions require the platform reserved app key', () => {
 
   assert.match(controller, /officialAppKeyForPlatform\(\$data\['platform'\]\)/);
   assert.match(controller, /官方应用标识与发布平台不匹配/);
+});
+
+test('official application names are normalized for existing records', () => {
+  const migration = readRepoFile(
+    'database/migrations/2026_08_05_000001_normalize_official_distribution_app_names.php'
+  );
+
+  assert.match(migration, /where\('app_key',\s*'elephant-route-android'\)/);
+  assert.match(migration, /'name'\s*=>\s*'大象网络官方App安卓版'/);
+  assert.match(migration, /where\('app_key',\s*'elephant-route-desktop'\)/);
+  assert.match(migration, /'name'\s*=>\s*'大象网络官方App桌面版'/);
+  assert.match(migration, /where\('distribution_scope',\s*'official_update'\)/);
 });
 
 test('public downloads retain both distribution scopes', () => {

@@ -17,6 +17,12 @@ class DistributionApp extends Model
         'macos' => 'elephant-route-desktop',
     ];
 
+    private const OFFICIAL_APP_NAMES_BY_PLATFORM = [
+        'android' => '大象网络官方App安卓版',
+        'windows' => '大象网络官方App桌面版',
+        'macos' => '大象网络官方App桌面版',
+    ];
+
     private const LEGACY_OFFICIAL_APP_KEYS = [
         'elephant-route-mac',
     ];
@@ -43,6 +49,11 @@ class DistributionApp extends Model
     public static function officialAppKeyForPlatform(string $platform): ?string
     {
         return self::OFFICIAL_APP_KEYS_BY_PLATFORM[strtolower($platform)] ?? null;
+    }
+
+    public static function officialAppNameForPlatform(string $platform): ?string
+    {
+        return self::OFFICIAL_APP_NAMES_BY_PLATFORM[strtolower($platform)] ?? null;
     }
 
     public static function isReservedAppKey(string $appKey): bool
