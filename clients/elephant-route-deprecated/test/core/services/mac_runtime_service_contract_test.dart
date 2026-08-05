@@ -136,6 +136,22 @@ void main() {
     expect(helperSource, contains('process.isRunning'));
   });
 
+  test('privileged helper releases core output resources and bounds logs', () {
+    final source =
+        File('macos/ElephantTunHelper/main.swift').readAsStringSync();
+
+    expect(source, contains('private var coreOutputPipe: Pipe?'));
+    expect(source, contains('private let coreOutputPipeLock = NSLock()'));
+    expect(source, contains('cleanupCoreOutputPipe'));
+    expect(source, contains('handle.readabilityHandler = nil'));
+    expect(source, contains('process.terminationHandler'));
+    expect(source, contains('maxLogFileSize'));
+    expect(source, contains('retainedLogArchiveCount'));
+    expect(source, contains('rotateLogIfNeeded'));
+    expect(source, contains('moveCappedLogFile'));
+    expect(source, contains('handle.seek(toOffset: size - maxLogFileSize)'));
+  });
+
   test('TUN start delegates stale-core cleanup to the privileged helper once',
       () {
     final appSource = File('macos/Runner/AppDelegate.swift').readAsStringSync();

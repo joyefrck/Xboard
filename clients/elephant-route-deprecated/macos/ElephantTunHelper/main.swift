@@ -18,12 +18,17 @@ private let singBoxCompatibilityEnvironment = [
 
 final class TunHelper: NSObject, ElephantTunHelperProtocol {
   private var coreProcess: Process?
+  private var coreOutputPipe: Pipe?
+  private let coreOutputPipeLock = NSLock()
   private let fileManager = FileManager.default
   private let clientUID: uid_t
   private let clientHomeDirectory: URL
   private let runtimeDirectory: URL
   private let logDirectory = URL(fileURLWithPath: "/Library/Logs/ElephantRoute", isDirectory: true)
   private lazy var logURL = logDirectory.appendingPathComponent("tun-helper.log")
+  private let logLock = NSLock()
+  private let maxLogFileSize: UInt64 = 10 * 1024 * 1024
+  private let retainedLogArchiveCount = 2
   private let coreOutputLock = NSLock()
   private var latestCoreOutput = ""
 
@@ -102,18 +107,32 @@ final class TunHelper: NSObject, ElephantTunHelperProtocol {
     let output = Pipe()
     process.standardOutput = output
     process.standardError = output
-    output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+    output.fileHandleForReading.readabilityHandler = { [weak self, weak output] handle in
       let data = handle.availableData
-      guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+      guard !data.isEmpty else {
+        handle.readabilityHandler = nil
+        if let output {
+          self?.cleanupCoreOutputPipe(output)
+        }
+        return
+      }
+      guard let text = String(data: data, encoding: .utf8) else { return }
       let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
       self?.appendLatestCoreOutput(trimmed)
       self?.log("[sing-box] \(trimmed)")
     }
+    process.terminationHandler = { [weak self, weak output] _ in
+      if let output {
+        self?.cleanupCoreOutputPipe(output)
+      }
+    }
+    storeCoreOutputPipe(output)
 
     do {
       try process.run()
       coreProcess = process
     } catch {
+      cleanupCoreOutputPipe(output)
       log("Failed to launch sing-box: \(error)")
       return ["ok": false, "code": "CORE_START_FAILED", "error": "Failed to launch TUN core: \(error.localizedDescription)"]
     }
@@ -145,8 +164,47 @@ final class TunHelper: NSObject, ElephantTunHelperProtocol {
       _ = runCommand("/usr/bin/pkill", args: ["-f", pattern])
     }
     waitForCoreExit(timeout: 2.0)
+    cleanupCoreOutputPipe()
 
     return ["ok": true, "stopped": true, "coreRunning": isCoreRunning()]
+  }
+
+  private func storeCoreOutputPipe(_ pipe: Pipe) {
+    coreOutputPipeLock.lock()
+    let previousPipe = coreOutputPipe
+    coreOutputPipe = pipe
+    coreOutputPipeLock.unlock()
+
+    if let previousPipe, previousPipe !== pipe {
+      closeCoreOutputPipe(previousPipe)
+    }
+  }
+
+  private func cleanupCoreOutputPipe(_ expectedPipe: Pipe? = nil) {
+    coreOutputPipeLock.lock()
+    let pipeToClose: Pipe?
+    if let expectedPipe {
+      if coreOutputPipe === expectedPipe {
+        coreOutputPipe = nil
+        pipeToClose = expectedPipe
+      } else {
+        pipeToClose = nil
+      }
+    } else {
+      pipeToClose = coreOutputPipe
+      coreOutputPipe = nil
+    }
+    coreOutputPipeLock.unlock()
+
+    if let pipeToClose {
+      closeCoreOutputPipe(pipeToClose)
+    }
+  }
+
+  private func closeCoreOutputPipe(_ pipe: Pipe) {
+    pipe.fileHandleForReading.readabilityHandler = nil
+    try? pipe.fileHandleForReading.close()
+    try? pipe.fileHandleForWriting.close()
   }
 
   private func validatedRuntimePaths(configPath: String) -> (configPath: String, binaryPath: String, workDirectory: String)? {
@@ -334,8 +392,52 @@ final class TunHelper: NSObject, ElephantTunHelperProtocol {
     }
   }
 
+  private func rotateLogIfNeeded() {
+    guard let attributes = try? fileManager.attributesOfItem(atPath: logURL.path),
+          let size = attributes[.size] as? NSNumber,
+          size.uint64Value >= maxLogFileSize
+    else { return }
+
+    do {
+      for index in stride(from: retainedLogArchiveCount, through: 1, by: -1) {
+        let destination = logDirectory.appendingPathComponent("tun-helper.log.\(index)")
+        let source = index == 1
+          ? logURL
+          : logDirectory.appendingPathComponent("tun-helper.log.\(index - 1)")
+        if fileManager.fileExists(atPath: destination.path) {
+          try fileManager.removeItem(at: destination)
+        }
+        if fileManager.fileExists(atPath: source.path) {
+          try moveCappedLogFile(from: source, to: destination)
+        }
+      }
+      fileManager.createFile(atPath: logURL.path, contents: nil)
+    } catch {
+      NSLog("Failed to rotate TUN helper log: %@", error.localizedDescription)
+    }
+  }
+
+  private func moveCappedLogFile(from source: URL, to destination: URL) throws {
+    let attributes = try fileManager.attributesOfItem(atPath: source.path)
+    let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+    guard size > maxLogFileSize else {
+      try fileManager.moveItem(at: source, to: destination)
+      return
+    }
+
+    let handle = try FileHandle(forReadingFrom: source)
+    defer { try? handle.close() }
+    try handle.seek(toOffset: size - maxLogFileSize)
+    let tail = try handle.readToEnd() ?? Data()
+    try tail.write(to: destination, options: .atomic)
+    try fileManager.removeItem(at: source)
+  }
+
   private func log(_ message: String) {
+    logLock.lock()
+    defer { logLock.unlock() }
     ensureLogDirectory()
+    rotateLogIfNeeded()
     let line = "[\(ISO8601DateFormatter().string(from: Date()))] \(message)\n"
     if let data = line.data(using: .utf8), let handle = try? FileHandle(forWritingTo: logURL) {
       handle.seekToEndOfFile()
