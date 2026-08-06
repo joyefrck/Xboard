@@ -8,11 +8,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../api/subscription_config_cache.dart';
 import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
 import 'macos_latency_fallback.dart';
 import 'macos_latency_session.dart';
+import 'macos_latency_source_selector.dart';
 import 'macos_tun_permission.dart';
 import 'macos_singbox_runtime.dart';
 import 'vpn_manager.dart';
@@ -20,8 +22,12 @@ import 'vpn_state.dart';
 import 'vpn_stop_coordinator.dart';
 
 class MacosVpnService implements VpnManager, ConnectionLatencyManager {
-  MacosVpnService({MacosLatencyFallbackRunner? latencyFallbackRunner})
-      : _clashDio = Dio(
+  MacosVpnService({
+    MacosLatencyFallbackRunner? latencyFallbackRunner,
+    SubscriptionConfigCache? subscriptionConfigCache,
+  })  : _subscriptionConfigCache =
+            subscriptionConfigCache ?? SubscriptionConfigCache(),
+        _clashDio = Dio(
           BaseOptions(
             baseUrl: _clashApiBase,
             connectTimeout: const Duration(seconds: 3),
@@ -54,6 +60,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   static const String _clashApiBase = 'http://127.0.0.1:9090';
 
   final Dio _clashDio;
+  final SubscriptionConfigCache _subscriptionConfigCache;
   late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
   final _stateController = StreamController<VpnState>.broadcast();
@@ -233,19 +240,76 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     required int concurrency,
     ConnectionLatencyResultCallback? onResult,
   }) async {
-    final config = _lastSanitizedConfig;
+    final activeConfig = _lastSanitizedConfig;
     final binaryPath = _singboxBinPath;
-    if (config == null || binaryPath == null) {
+    if (activeConfig == null || binaryPath == null) {
       throw const MacosLatencyException('测速服务未就绪，请先连接大象网络');
     }
 
     await stopConnectionLatencyTest();
     final generation = _latencyRunGeneration;
     bool isCancelled() => _disposed || generation != _latencyRunGeneration;
+    String? refreshedConfig;
+    try {
+      final cachedConfig = await _subscriptionConfigCache.read();
+      final singboxDirPath = _singboxDirPath;
+      if (cachedConfig != null && singboxDirPath != null) {
+        refreshedConfig = _sanitizeConfig(
+          cachedConfig,
+          singboxDirPath,
+          _isTunMode,
+        );
+      }
+    } catch (_) {
+      // The active config remains a valid latency source if cache access fails.
+    }
+    final sourceSelection = MacosLatencySourceSelector.select(
+      activeConfig: activeConfig,
+      refreshedConfig: refreshedConfig,
+      requestedNodeTags: nodeTags,
+    );
+    await AppLogger.instance.info(
+      'macOS latency config source=${sourceSelection.source.name} '
+      'eligible=${sourceSelection.eligibleNodeTags.length} '
+      'missing=${sourceSelection.missingNodeTags.length}',
+    );
+    const unavailableResult = ConnectionLatencyResult(
+      latencyMs: -1,
+      elapsedMs: 0,
+      failureKind: ConnectionLatencyFailureKind.serviceError,
+      source: ConnectionLatencySource.connectionProbe,
+    );
+    final unavailableResults = <String, ConnectionLatencyResult>{
+      for (final nodeTag in sourceSelection.missingNodeTags)
+        nodeTag: unavailableResult,
+    };
+    for (final nodeTag in sourceSelection.missingNodeTags) {
+      if (!isCancelled()) {
+        onResult?.call(nodeTag, unavailableResult);
+      }
+    }
+    if (sourceSelection.eligibleNodeTags.isEmpty) {
+      return Map<String, ConnectionLatencyResult>.unmodifiable(
+        unavailableResults,
+      );
+    }
+
+    Map<String, ConnectionLatencyResult> mergeResults(
+      Map<String, ConnectionLatencyResult> availableResults,
+    ) {
+      return Map<String, ConnectionLatencyResult>.unmodifiable({
+        for (final nodeTag in nodeTags)
+          if (availableResults.containsKey(nodeTag))
+            nodeTag: availableResults[nodeTag]!
+          else if (unavailableResults.containsKey(nodeTag))
+            nodeTag: unavailableResults[nodeTag]!,
+      });
+    }
+
     final session = MacosLatencySession(
       binaryPath: binaryPath,
-      sourceConfig: config,
-      nodeTags: nodeTags,
+      sourceConfig: sourceSelection.sourceConfig,
+      nodeTags: sourceSelection.eligibleNodeTags,
       testUrl: testUrl,
       timeoutMs: timeoutMs,
       workerCount: concurrency,
@@ -265,7 +329,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         'macOS primary latency session failed type=${error.runtimeType}',
       );
       primaryResults = {
-        for (final nodeTag in nodeTags)
+        for (final nodeTag in sourceSelection.eligibleNodeTags)
           nodeTag: const ConnectionLatencyResult(
             latencyMs: -1,
             elapsedMs: 0,
@@ -281,11 +345,11 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     }
 
     if (isCancelled()) {
-      return Map<String, ConnectionLatencyResult>.unmodifiable(primaryResults);
+      return mergeResults(primaryResults);
     }
 
-    return _latencyFallbackRunner.resolve(
-      nodeTags: nodeTags,
+    final resolvedResults = await _latencyFallbackRunner.resolve(
+      nodeTags: sourceSelection.eligibleNodeTags,
       primaryResults: primaryResults,
       testUrl: testUrl,
       timeoutMs: timeoutMs,
@@ -296,6 +360,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         }
       },
     );
+    return mergeResults(resolvedResults);
   }
 
   @override

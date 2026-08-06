@@ -83,11 +83,33 @@ void main() {
       );
     });
 
-    test('macOS V2BOX profile preserves an explicit custom probe URL', () {
+    test('macOS connection profile uses HTTPS Anycast for defaults', () {
+      for (final configured in <String>[
+        '',
+        'http://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ]) {
+        expect(
+          LatencyTestPolicy.probeUrls(
+            configuredTestUrl: configured,
+            profile: LatencyTestProfile.macosConnection,
+          ),
+          ['https://cp.cloudflare.com/generate_204'],
+        );
+      }
+      expect(
+        LatencyTestPolicy.timeoutMsFor(
+          LatencyTestProfile.macosConnection,
+        ),
+        5000,
+      );
+    });
+
+    test('macOS connection profile preserves an explicit custom probe URL', () {
       expect(
         LatencyTestPolicy.probeUrls(
           configuredTestUrl: ' https://example.com/custom_204 ',
-          profile: LatencyTestProfile.v2boxConnection,
+          profile: LatencyTestProfile.macosConnection,
         ),
         ['https://example.com/custom_204'],
       );
@@ -235,7 +257,7 @@ void main() {
           isWindows: false,
           isMacOS: true,
         ),
-        LatencyTestProfile.v2boxConnection,
+        LatencyTestProfile.macosConnection,
       );
       expect(
         LatencyTestPolicy.usesConnectionSession(

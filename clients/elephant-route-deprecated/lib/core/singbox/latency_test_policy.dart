@@ -1,6 +1,11 @@
 typedef LatencyProbe = Future<int> Function(String probeUrl, int timeoutMs);
 
-enum LatencyTestProfile { standard, androidConnection, v2boxConnection }
+enum LatencyTestProfile {
+  standard,
+  androidConnection,
+  macosConnection,
+  v2boxConnection,
+}
 
 class LatencyTestPolicy {
   static const int concurrency = 4;
@@ -18,7 +23,8 @@ class LatencyTestPolicy {
     LatencyTestProfile profile = LatencyTestProfile.standard,
   }) {
     final configured = configuredTestUrl.trim();
-    if (profile == LatencyTestProfile.androidConnection) {
+    if (profile == LatencyTestProfile.androidConnection ||
+        profile == LatencyTestProfile.macosConnection) {
       if (configured.isEmpty || builtInProbeUrls.contains(configured)) {
         return const [androidDefaultProbeUrl];
       }
@@ -83,7 +89,8 @@ class LatencyTestPolicy {
     required bool isMacOS,
   }) {
     if (!isWeb && isAndroid) return LatencyTestProfile.androidConnection;
-    if (!isWeb && (isWindows || isMacOS)) {
+    if (!isWeb && isMacOS) return LatencyTestProfile.macosConnection;
+    if (!isWeb && isWindows) {
       return LatencyTestProfile.v2boxConnection;
     }
     return LatencyTestProfile.standard;

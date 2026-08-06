@@ -6,6 +6,34 @@ class MacosLatencyConfigBuilder {
   static const String inboundPrefix = '__elephant_latency_in_';
   static const String workerPrefix = '__elephant_latency_worker_';
 
+  static const Set<String> _nonProxyTypes = <String>{
+    'selector',
+    'urltest',
+    'direct',
+    'block',
+    'dns',
+  };
+
+  static Set<String> concreteProxyTags(String sourceConfig) {
+    final decoded = jsonDecode(sourceConfig);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('sing-box config must be a JSON object');
+    }
+    final rawOutbounds = decoded['outbounds'];
+    if (rawOutbounds is! List<dynamic>) {
+      throw const FormatException('sing-box config must contain outbounds');
+    }
+    return rawOutbounds
+        .whereType<Map<String, dynamic>>()
+        .where((outbound) {
+          final tag = outbound['tag']?.toString() ?? '';
+          final type = outbound['type']?.toString().toLowerCase() ?? '';
+          return tag.isNotEmpty && !_nonProxyTypes.contains(type);
+        })
+        .map((outbound) => outbound['tag'].toString())
+        .toSet();
+  }
+
   static Map<String, dynamic> build({
     required String sourceConfig,
     required List<String> nodeTags,
@@ -54,10 +82,10 @@ class MacosLatencyConfigBuilder {
       for (final outbound in outbounds)
         if (outbound['tag'] is String) outbound['tag'] as String: outbound,
     };
+    final concreteTags = concreteProxyTags(sourceConfig);
     for (final nodeTag in nodeTags) {
       final outbound = byTag[nodeTag];
-      final type = outbound?['type']?.toString();
-      if (outbound == null || type == 'selector' || type == 'urltest') {
+      if (outbound == null || !concreteTags.contains(nodeTag)) {
         throw ArgumentError.value(
           nodeTag,
           'nodeTags',
@@ -106,11 +134,20 @@ class MacosLatencyConfigBuilder {
         ? Map<String, dynamic>.from(sourceRoute)
         : <String, dynamic>{};
     route['rules'] = <Map<String, dynamic>>[
-      for (var index = 0; index < workerPorts.length; index++)
+      for (var index = 0;
+          index < workerPorts.length;
+          index++) ...<Map<String, dynamic>>[
         <String, dynamic>{
           'inbound': <String>['$inboundPrefix$index'],
+          'action': 'resolve',
+          'strategy': 'ipv4_only',
+        },
+        <String, dynamic>{
+          'inbound': <String>['$inboundPrefix$index'],
+          'action': 'route',
           'outbound': '$workerPrefix$index',
         },
+      ],
     ];
     if (byTag['direct']?['type'] == 'direct') {
       route['final'] = 'direct';

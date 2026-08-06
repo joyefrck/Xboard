@@ -92,10 +92,22 @@ void main() {
     expect(output['route']['rules'], [
       {
         'inbound': ['__elephant_latency_in_0'],
+        'action': 'resolve',
+        'strategy': 'ipv4_only',
+      },
+      {
+        'inbound': ['__elephant_latency_in_0'],
+        'action': 'route',
         'outbound': '__elephant_latency_worker_0',
       },
       {
         'inbound': ['__elephant_latency_in_1'],
+        'action': 'resolve',
+        'strategy': 'ipv4_only',
+      },
+      {
+        'inbound': ['__elephant_latency_in_1'],
+        'action': 'route',
         'outbound': '__elephant_latency_worker_1',
       },
     ]);
@@ -152,6 +164,13 @@ void main() {
         clashApiPort: 31002,
       ),
       throwsArgumentError,
+    );
+  });
+
+  test('discovers only concrete proxy tags', () {
+    expect(
+      MacosLatencyConfigBuilder.concreteProxyTags(jsonEncode(source)),
+      {'node-a', 'node-b'},
     );
   });
 }
