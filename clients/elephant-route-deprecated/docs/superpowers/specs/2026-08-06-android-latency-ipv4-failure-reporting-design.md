@@ -58,9 +58,9 @@ information. It will classify a fully failed probe as follows:
 
 - `cancelled` when its owning session was cancelled;
 - `timeout` for deadline exhaustion or socket/call timeout exceptions;
-- `http_error` when the transport completed but neither attempt returned 200
+- `httpError` when the transport completed but neither attempt returned 200
   or 204;
-- `transport_error` for other I/O failures;
+- `transportError` for other I/O failures;
 - no failure when either attempt succeeds.
 
 The result map will expose `failureKind` and `httpStatusCodes`. Dart will parse
