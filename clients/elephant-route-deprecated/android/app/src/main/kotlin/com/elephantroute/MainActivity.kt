@@ -26,6 +26,7 @@ class MainActivity : FlutterActivity() {
     private val VPN_REQUEST_CODE = 100
     private var pendingResult: MethodChannel.Result? = null
     private var eventSink: EventChannel.EventSink? = null
+    private val vpnBroadcastState = VpnBroadcastState()
     private val latencyProbeManager = AndroidConnectionProbeManager()
     private val latencyProbeExecutor = Executors.newCachedThreadPool()
 
@@ -33,7 +34,8 @@ class MainActivity : FlutterActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.let {
                 val stateMap = HashMap<String, Any>()
-                stateMap["status"] = it.getStringExtra("status") ?: "disconnected"
+                stateMap["status"] =
+                    vpnBroadcastState.resolve(it.getStringExtra("status"))
                 stateMap["up_speed"] = it.getLongExtra("up_speed", 0L)
                 stateMap["down_speed"] = it.getLongExtra("down_speed", 0L)
                 stateMap["total_up"] = it.getLongExtra("total_up", 0L)

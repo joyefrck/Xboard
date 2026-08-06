@@ -26,7 +26,9 @@ class NodeProvider with ChangeNotifier {
   final UserService _userService;
   final VpnManager _vpnManager;
   final ConfigProvider _configProvider;
+  final Duration _connectionLatencyDelay;
   StreamSubscription? _vpnStateSubscription;
+  Timer? _connectionLatencyTimer;
   VpnStatus _lastVpnStatus = VpnStatus.disconnected;
 
   final _storage = const LocalStorage();
@@ -43,8 +45,13 @@ class NodeProvider with ChangeNotifier {
   bool _isAutoMode = true;
   ProxyNode? _autoSelectedRealNode; // 自动模式下实际选中的真实节点
 
-  NodeProvider(DioClient dioClient, this._vpnManager, this._configProvider)
-      : _userService = UserService(dioClient) {
+  NodeProvider(
+    DioClient dioClient,
+    this._vpnManager,
+    this._configProvider, {
+    Duration connectionLatencyDelay = const Duration(seconds: 2),
+  })  : _connectionLatencyDelay = connectionLatencyDelay,
+        _userService = UserService(dioClient) {
     // 监听 VPN 状态变化获取延迟更新
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
       if (state.latencyMap != null && state.latencyMap!.isNotEmpty) {
@@ -56,13 +63,19 @@ class NodeProvider with ChangeNotifier {
           state.status == VpnStatus.connected) {
         debugPrint(
             'DEBUG NodeProvider: VPN 连接成功，延迟 2 秒后触发测速，nodes count: ${_nodes.length}');
-        Future.delayed(const Duration(seconds: 2), () {
+        _connectionLatencyTimer?.cancel();
+        _connectionLatencyTimer = Timer(_connectionLatencyDelay, () {
+          _connectionLatencyTimer = null;
           debugPrint(
               'DEBUG NodeProvider: 开始执行 testAllLatencies (当前状态=${_vpnManager.currentState.status})');
           if (_vpnManager.currentState.status == VpnStatus.connected) {
             testAllLatencies();
           }
         });
+      }
+      if (state.status != VpnStatus.connected) {
+        _connectionLatencyTimer?.cancel();
+        _connectionLatencyTimer = null;
       }
       if (_lastVpnStatus == VpnStatus.connected &&
           state.status != VpnStatus.connected) {
@@ -151,6 +164,8 @@ class NodeProvider with ChangeNotifier {
   @override
   void dispose() {
     _vpnStateSubscription?.cancel();
+    _connectionLatencyTimer?.cancel();
+    _connectionLatencyTimer = null;
     final manager = _vpnManager;
     if (manager is ConnectionLatencyManager) {
       unawaited(

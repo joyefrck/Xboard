@@ -69,7 +69,12 @@ void main() {
       },
     ));
     vpnManager = _LatencyVpnManager();
-    provider = NodeProvider(dioClient, vpnManager, ConfigProvider());
+    provider = NodeProvider(
+      dioClient,
+      vpnManager,
+      ConfigProvider(),
+      connectionLatencyDelay: const Duration(milliseconds: 20),
+    );
     await provider.fetchNodes();
   });
 
@@ -115,6 +120,18 @@ void main() {
       isNull,
     );
   });
+
+  test('only the latest connected transition starts a latency test', () async {
+    vpnManager.emit(VpnStatus.disconnected);
+    vpnManager.emit(VpnStatus.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    vpnManager.emit(VpnStatus.disconnected);
+    vpnManager.emit(VpnStatus.connected);
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(vpnManager.latencyTestCalls, 1);
+  });
 }
 
 class _FixedDomainResolver extends DomainResolver {
@@ -126,9 +143,11 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   final StreamController<VpnState> _stateController =
       StreamController<VpnState>.broadcast();
   final List<String> selectedNodes = [];
+  VpnState _currentState = const VpnState(status: VpnStatus.connected);
+  int latencyTestCalls = 0;
 
   @override
-  VpnState get currentState => const VpnState(status: VpnStatus.connected);
+  VpnState get currentState => _currentState;
 
   @override
   Stream<VpnState> get stateStream => _stateController.stream;
@@ -141,6 +160,7 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
     int concurrency = 4,
     ConnectionLatencyResultCallback? onResult,
   }) async {
+    latencyTestCalls++;
     const results = <String, ConnectionLatencyResult>{
       'node-good': ConnectionLatencyResult(
         latencyMs: 80,
@@ -193,6 +213,11 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
 
   @override
   Future<int> urlTest(String groupTag) async => -1;
+
+  void emit(VpnStatus status) {
+    _currentState = _currentState.copyWith(status: status);
+    _stateController.add(_currentState);
+  }
 
   @override
   void dispose() {

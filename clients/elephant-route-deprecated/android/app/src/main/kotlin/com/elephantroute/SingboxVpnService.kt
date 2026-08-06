@@ -38,6 +38,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     private val CHANNEL_ID = "vpn_service_channel_v2"
     private val NOTIFICATION_ID = 1
     private val runtimePolicy = VpnRuntimePolicy()
+    private val commandClientLifecycle = VpnCommandClientLifecycle()
     private val isDebuggable: Boolean
         get() = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
@@ -175,6 +176,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                     .onFailure { error -> Log.w(TAG, "Failed to delete $fileName", error) }
             }
 
+            commandClientLifecycle.invalidate()
             disconnectCommandClients()
             SingBoxEngine.stop()
             Thread.sleep(300)
@@ -527,6 +529,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         if (currentStatus == "connected") return
 
         try {
+            commandClientLifecycle.invalidate()
             disconnectCommandClients()
         } catch (e: Exception) {
             Log.w(TAG, "Error disconnecting speed-test command client: ${e.message}")
@@ -695,28 +698,56 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     }
 
     private fun connectCommandClient() {
-        Thread {
+        val token = commandClientLifecycle.beginConnect()
+        Thread({
+            var standaloneClient: CommandClient? = null
+            val subscriptions = mutableListOf<CommandClient>()
+            var published = false
             try {
-                Thread.sleep(1500) 
+                Thread.sleep(1500)
+                if (!commandClientLifecycle.isCurrent(
+                        token,
+                        isConnected = currentStatus == "connected",
+                    )
+                ) {
+                    Log.d(TAG, "Skip stale CommandClient connection attempt")
+                    return@Thread
+                }
+
                 Log.d(TAG, "Connecting CommandClients...")
-                disconnectCommandClients()
-                commandClient = Libbox.newStandaloneCommandClient()
-                val subscriptions = runtimePolicy.commands(isDebuggable).map { command ->
+                standaloneClient = Libbox.newStandaloneCommandClient()
+                runtimePolicy.commands(isDebuggable).forEach { command ->
                     val options = CommandClientOptions().apply {
                         this.command = command
                         statusInterval = 1_000_000_000L
                     }
-                    Libbox.newCommandClient(this, options).also { it.connect() }
+                    subscriptions +=
+                        Libbox.newCommandClient(this, options).also { it.connect() }
                 }
-                synchronized(commandSubscriptions) {
-                    commandSubscriptions.addAll(subscriptions)
+
+                published = commandClientLifecycle.publishIfCurrent(
+                    token,
+                    isConnected = currentStatus == "connected",
+                ) {
+                    disconnectCommandClients()
+                    commandClient = standaloneClient
+                    synchronized(commandSubscriptions) {
+                        commandSubscriptions.addAll(subscriptions)
+                    }
+                }
+                if (!published) {
+                    disconnectClients(standaloneClient, subscriptions)
+                    Log.d(TAG, "Discarded stale CommandClients after connection")
+                    return@Thread
                 }
                 Log.d(TAG, "CommandClients connected")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect CommandClient", e)
-                disconnectCommandClients()
+                if (!published) {
+                    disconnectClients(standaloneClient, subscriptions)
+                }
             }
-        }.start()
+        }, "vpn-command-client-connect").start()
     }
 
     private fun disconnectCommandClients() {
@@ -725,6 +756,13 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         val subscriptions = synchronized(commandSubscriptions) {
             commandSubscriptions.toList().also { commandSubscriptions.clear() }
         }
+        disconnectClients(standaloneClient, subscriptions)
+    }
+
+    private fun disconnectClients(
+        standaloneClient: CommandClient?,
+        subscriptions: List<CommandClient>,
+    ) {
         subscriptions.forEach { client ->
             runCatching { client.disconnect() }
         }
@@ -732,6 +770,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     }
 
     private fun stopVpn() {
+        commandClientLifecycle.invalidate()
         Thread {
             try {
                 updateStatus("disconnecting")
@@ -973,6 +1012,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     }
     
     override fun onDestroy() {
+        commandClientLifecycle.destroy()
         super.onDestroy()
         stopVpn()
     }
