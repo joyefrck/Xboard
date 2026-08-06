@@ -22,9 +22,9 @@ void main() {
     expect(installer, contains('RemoveUserData := True'));
     expect(installer, contains('RestoreOwnedLegacyProxy'));
     expect(installer, contains('/IM sing-box-windows-amd64.exe'));
-    expect(installer, contains('#define AppVersion "1.6.7"'));
-    expect(installer, contains('#define AppBuild "10607"'));
-    expect(pubspec, contains('version: 1.6.7+10607'));
+    expect(installer, contains('#define AppVersion "1.6.8"'));
+    expect(installer, contains('#define AppBuild "10608"'));
+    expect(pubspec, contains('version: 1.6.8+10608'));
   });
 
   test(

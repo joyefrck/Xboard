@@ -6,11 +6,11 @@ on:
       version:
         description: Release version
         required: false
-        default: 1.6.7
+        default: 1.6.8
       build_number:
         description: Numeric build number
         required: false
-        default: '10607'
+        default: '10608'
   push:
     paths:
       - 'clients/elephant-route-deprecated/lib/**'
@@ -35,8 +35,8 @@ jobs:
       run:
         working-directory: clients/elephant-route-deprecated
     env:
-      RELEASE_VERSION: ${{ inputs.version || '1.6.7' }}
-      RELEASE_BUILD: ${{ inputs.build_number || '10607' }}
+      RELEASE_VERSION: ${{ inputs.version || '1.6.8' }}
+      RELEASE_BUILD: ${{ inputs.build_number || '10608' }}
 
     steps:
       - uses: actions/checkout@v4

@@ -22,8 +22,8 @@ communicating through the stable `ElephantNetworkService.v1` IPC protocol.
 Connected node latency tests call the in-process core through the named-pipe
 service and do not launch a second sing-box or `curl.exe`. This keeps latency
 testing compatible with the Windows 11 strict-route WFP rules. Version 1.6.7
-starts one asynchronous service-owned job for the complete node list, with up
-to four concurrent nodes. Each concrete outbound performs two sequential HTTP
+and later start one asynchronous service-owned job for the complete node list,
+with up to four concurrent nodes. Each concrete outbound performs two sequential HTTP
 requests through one reusable transport and reports the lower successful
 latency, matching the macOS two-sample policy. The Flutter process only polls
 short job snapshots, so slow Windows machines cannot serialize long named-pipe
@@ -47,7 +47,7 @@ data is retained.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\build_windows_release.ps1 -Version 1.6.7 -BuildNumber 10607
+.\scripts\build_windows_release.ps1 -Version 1.6.8 -BuildNumber 10608
 ```
 
 The application binaries, Windows service, and installer are intentionally
@@ -76,7 +76,7 @@ hash does not match the release metadata.
 ## Manual verification
 
 ```powershell
-Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.7.exe -Algorithm SHA256
+Get-FileHash .\windows\installer\output\ElephantNetwork-Setup-x64-v1.6.8.exe -Algorithm SHA256
 sc.exe query ElephantNetworkService
 ```
 
