@@ -7,6 +7,7 @@ AAR="$LIBS_DIR/libbox.aar"
 EXPECTED_VERSION="1.12.25"
 EXPECTED_COMMIT="73bfb99ebce7923c485435e4faf8571b412065a9"
 APK="${1:-}"
+EXPECTED_RELEASE_VERSION="${2:-}"
 SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/elephant-android-contract.XXXXXX")"
 
@@ -41,6 +42,10 @@ grep -aFqm1 'with_clash_api' "$LIBBOX_SO" || fail "Clash API build tag is missin
 
 if [[ -n "$APK" ]]; then
   [[ -f "$APK" ]] || fail "APK does not exist: $APK"
+  [[ "$EXPECTED_RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
+    fail "expected release version must be provided with an APK"
+  EXPECTED_RELEASE_CODE="$(awk -F. '{ printf "%d%02d%02d", $1, $2, $3 }' \
+    <<< "$EXPECTED_RELEASE_VERSION")"
   APK_ENTRIES="$(unzip -Z1 "$APK")"
   grep -Fq 'lib/arm64-v8a/libbox.so' <<< "$APK_ENTRIES" || fail "APK lacks ARM64 libbox"
   if grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/' <<< "$APK_ENTRIES"; then
@@ -66,8 +71,10 @@ if [[ -n "$APK" ]]; then
   [[ -x "$BUILD_TOOLS/aapt" ]] || fail "aapt is unavailable"
   [[ -x "$BUILD_TOOLS/apksigner" ]] || fail "apksigner is unavailable"
   BADGING="$($BUILD_TOOLS/aapt dump badging "$APK")"
-  grep -Fq "versionCode='10601'" <<< "$BADGING" || fail "APK versionCode is not 10601"
-  grep -Fq "versionName='1.6.1'" <<< "$BADGING" || fail "APK versionName is not 1.6.1"
+  grep -Fq "versionCode='$EXPECTED_RELEASE_CODE'" <<< "$BADGING" || \
+    fail "APK versionCode is not $EXPECTED_RELEASE_CODE"
+  grep -Fq "versionName='$EXPECTED_RELEASE_VERSION'" <<< "$BADGING" || \
+    fail "APK versionName is not $EXPECTED_RELEASE_VERSION"
   "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
   shasum -a 256 "$APK"
 fi

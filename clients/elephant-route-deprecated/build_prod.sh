@@ -70,7 +70,9 @@ ELEPHANT_ANDROID_ABIS="arm64-v8a" flutter build apk --release \
 if [ -f "$SOURCE_APK" ]; then
     echo "📝 Renaming artifact..."
     mv "$SOURCE_APK" "$TARGET_APK"
-    "$PWD/scripts/verify_android_release_contract.sh" "$TARGET_APK"
+    "$PWD/scripts/verify_android_release_contract.sh" \
+        "$TARGET_APK" \
+        "$RELEASE_VERSION"
     echo "$RELEASE_VERSION" > "$VERSION_FILE"
     echo "✅ Build Successful!"
     echo "📂 Output: $(pwd)/$TARGET_APK"
