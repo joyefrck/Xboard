@@ -80,11 +80,20 @@ class AndroidLatencyConfigBuilder {
       return true;
     }).toList(growable: false);
     route['rules'] = <Map<String, dynamic>>[
-      for (var index = 0; index < workerPorts.length; index++)
+      for (var index = 0;
+          index < workerPorts.length;
+          index++) ...<Map<String, dynamic>>[
         <String, dynamic>{
           'inbound': <String>['$androidLatencyInboundPrefix$index'],
+          'action': 'resolve',
+          'strategy': 'ipv4_only',
+        },
+        <String, dynamic>{
+          'inbound': <String>['$androidLatencyInboundPrefix$index'],
+          'action': 'route',
           'outbound': '$androidLatencySelectorPrefix$index',
         },
+      ],
       ...originalRules,
     ];
 

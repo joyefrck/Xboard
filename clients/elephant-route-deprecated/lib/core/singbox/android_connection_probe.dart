@@ -9,6 +9,7 @@ typedef AndroidProbeMethodInvoker = Future<Object?> Function(
 
 abstract interface class AndroidNodeProbe {
   Future<ConnectionLatencyResult> run({
+    required String nodeTag,
     required int proxyPort,
     required String testUrl,
     required Duration timeout,
@@ -32,6 +33,7 @@ class AndroidConnectionProbe implements AndroidNodeProbe {
 
   @override
   Future<ConnectionLatencyResult> run({
+    required String nodeTag,
     required int proxyPort,
     required String testUrl,
     required Duration timeout,
@@ -57,6 +59,7 @@ class AndroidConnectionProbe implements AndroidNodeProbe {
       'probeConnectionLatency',
       <String, Object?>{
         'sessionId': _sessionId,
+        'nodeTag': nodeTag,
         'proxyPort': proxyPort,
         'testUrl': testUrl,
         'timeoutMs': timeout.inMilliseconds,
@@ -68,20 +71,48 @@ class AndroidConnectionProbe implements AndroidNodeProbe {
     final latencyMs = raw['latencyMs'];
     final elapsedMs = raw['elapsedMs'];
     final attempts = raw['attempts'];
-    if (latencyMs is! int || elapsedMs is! int || attempts is! List) {
+    final httpStatusCodes = raw['httpStatusCodes'];
+    if (latencyMs is! int ||
+        elapsedMs is! int ||
+        attempts is! List ||
+        httpStatusCodes is! List) {
       throw StateError('Android latency probe returned incomplete data');
     }
     final parsedAttempts = attempts.whereType<int>().toList(growable: false);
-    if (parsedAttempts.length != 2) {
-      throw StateError('Android latency probe must return two attempts');
+    final parsedStatusCodes =
+        httpStatusCodes.whereType<int>().toList(growable: false);
+    if (parsedAttempts.length != 2 || parsedStatusCodes.length != 2) {
+      throw StateError('Android latency probe must return two attempt results');
+    }
+    final failureKind = _failureKind(raw['failureKind']);
+    if (latencyMs > 0 && failureKind != null) {
+      throw StateError(
+        'Successful Android latency probe cannot include a failure',
+      );
+    }
+    if (latencyMs <= 0 && failureKind == null) {
+      throw StateError('Failed Android latency probe must include a failure');
     }
     return ConnectionLatencyResult(
       latencyMs: latencyMs,
       elapsedMs: elapsedMs,
       attempts: parsedAttempts,
-      failureKind: latencyMs > 0 ? null : ConnectionLatencyFailureKind.timeout,
+      failureKind: failureKind,
       source: ConnectionLatencySource.connectionProbe,
+      httpStatusCodes: parsedStatusCodes,
     );
+  }
+
+  static ConnectionLatencyFailureKind? _failureKind(Object? value) {
+    return switch (value?.toString()) {
+      null || '' => null,
+      'timeout' => ConnectionLatencyFailureKind.timeout,
+      'httpError' => ConnectionLatencyFailureKind.httpError,
+      'transportError' => ConnectionLatencyFailureKind.transportError,
+      'serviceError' => ConnectionLatencyFailureKind.serviceError,
+      'cancelled' => ConnectionLatencyFailureKind.cancelled,
+      _ => throw StateError('Android latency probe returned unknown failure'),
+    };
   }
 
   @override

@@ -54,10 +54,25 @@ void main() {
     expect(latencyInbounds.first['listen_port'], 31001);
 
     final rules = (config['route']['rules'] as List).cast<Map>();
-    expect(rules.first, {
-      'inbound': ['__elephant_latency_in_0'],
-      'outbound': '__elephant_latency_worker_0',
-    });
+    expect(
+      rules.take(2),
+      [
+        {
+          'inbound': ['__elephant_latency_in_0'],
+          'action': 'resolve',
+          'strategy': 'ipv4_only',
+        },
+        {
+          'inbound': ['__elephant_latency_in_0'],
+          'action': 'route',
+          'outbound': '__elephant_latency_worker_0',
+        },
+      ],
+    );
+    expect(
+      rules.where((rule) => rule['action'] == 'resolve'),
+      hasLength(4),
+    );
     expect(rules.last, {'protocol': 'dns', 'outbound': 'direct'});
     expect(result.nodeTags, ['Tokyo AnyTLS', 'Los Angeles']);
   });

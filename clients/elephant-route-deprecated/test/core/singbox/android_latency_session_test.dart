@@ -31,11 +31,12 @@ void main() {
 
     expect(results, hasLength(8));
     expect(probe.maxActive, 4);
+    expect(probe.nodeTags, List.generate(8, (index) => 'node-$index'));
     expect(selected, hasLength(8));
     expect(selected.first, '__elephant_latency_worker_0:node-0');
   });
 
-  test('marks the node as timeout when selector update fails', () async {
+  test('marks the node as service error when selector update fails', () async {
     final session = AndroidLatencySession(
       workerPorts: const [31001],
       selectorUpdater: ({
@@ -56,6 +57,10 @@ void main() {
     );
 
     expect(results['node-a']?.latencyMs, -1);
+    expect(
+      results['node-a']?.failureKind,
+      ConnectionLatencyFailureKind.serviceError,
+    );
   });
 
   test('selector switching and probing share one total timeout', () async {
@@ -84,7 +89,7 @@ void main() {
     expect(stopwatch.elapsedMilliseconds, lessThan(300));
   });
 
-  test('stop cancels owned probes and marks unfinished nodes as timeout',
+  test('stop cancels owned probes and marks unfinished nodes as cancelled',
       () async {
     final probe = _CancelableProbe();
     final session = AndroidLatencySession(
@@ -110,6 +115,13 @@ void main() {
     expect(probe.stopped, isTrue);
     expect(results, hasLength(5));
     expect(results.values.every((result) => result.latencyMs == -1), isTrue);
+    expect(
+      results.values.every(
+        (result) =>
+            result.failureKind == ConnectionLatencyFailureKind.cancelled,
+      ),
+      isTrue,
+    );
   });
 }
 
@@ -120,13 +132,16 @@ class _TrackingProbe implements AndroidNodeProbe {
   var active = 0;
   var maxActive = 0;
   var stopped = false;
+  final nodeTags = <String>[];
 
   @override
   Future<ConnectionLatencyResult> run({
+    required String nodeTag,
     required int proxyPort,
     required String testUrl,
     required Duration timeout,
   }) async {
+    nodeTags.add(nodeTag);
     active++;
     if (active > maxActive) maxActive = active;
     await Future<void>.delayed(delay);
@@ -135,6 +150,7 @@ class _TrackingProbe implements AndroidNodeProbe {
       latencyMs: stopped ? -1 : 100,
       elapsedMs: 15,
       attempts: stopped ? const [-1] : const [150, 100],
+      failureKind: stopped ? ConnectionLatencyFailureKind.cancelled : null,
     );
   }
 
@@ -151,6 +167,7 @@ class _CancelableProbe implements AndroidNodeProbe {
 
   @override
   Future<ConnectionLatencyResult> run({
+    required String nodeTag,
     required int proxyPort,
     required String testUrl,
     required Duration timeout,
@@ -161,6 +178,7 @@ class _CancelableProbe implements AndroidNodeProbe {
       latencyMs: -1,
       elapsedMs: 0,
       attempts: <int>[-1, -1],
+      failureKind: ConnectionLatencyFailureKind.cancelled,
     );
   }
 

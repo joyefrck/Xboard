@@ -65,6 +65,7 @@ class AndroidLatencySession {
           }
           result = await _probe
               .run(
+                nodeTag: nodeTag,
                 proxyPort: _workerPorts[workerIndex],
                 testUrl: testUrl,
                 timeout: remaining,
@@ -75,7 +76,9 @@ class AndroidLatencySession {
             latencyMs: -1,
             elapsedMs: stopwatch.elapsedMilliseconds,
             attempts: const <int>[-1, -1],
-            failureKind: ConnectionLatencyFailureKind.timeout,
+            failureKind: _stopped
+                ? ConnectionLatencyFailureKind.cancelled
+                : ConnectionLatencyFailureKind.timeout,
             source: ConnectionLatencySource.connectionProbe,
           );
         } catch (_) {
@@ -83,7 +86,9 @@ class AndroidLatencySession {
             latencyMs: -1,
             elapsedMs: stopwatch.elapsedMilliseconds,
             attempts: const <int>[-1, -1],
-            failureKind: ConnectionLatencyFailureKind.serviceError,
+            failureKind: _stopped
+                ? ConnectionLatencyFailureKind.cancelled
+                : ConnectionLatencyFailureKind.serviceError,
             source: ConnectionLatencySource.connectionProbe,
           );
         } finally {
@@ -99,11 +104,13 @@ class AndroidLatencySession {
     }
     for (final nodeTag in nodeTags) {
       if (!results.containsKey(nodeTag)) {
-        const result = ConnectionLatencyResult(
+        final result = ConnectionLatencyResult(
           latencyMs: -1,
           elapsedMs: 0,
-          attempts: <int>[-1, -1],
-          failureKind: ConnectionLatencyFailureKind.serviceError,
+          attempts: const <int>[-1, -1],
+          failureKind: _stopped
+              ? ConnectionLatencyFailureKind.cancelled
+              : ConnectionLatencyFailureKind.serviceError,
           source: ConnectionLatencySource.connectionProbe,
         );
         results[nodeTag] = result;

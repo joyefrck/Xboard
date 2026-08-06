@@ -134,10 +134,12 @@ class MainActivity : FlutterActivity() {
                 }
                 "probeConnectionLatency" -> {
                     val sessionId = call.argument<String>("sessionId")
+                    val nodeTag = call.argument<String>("nodeTag")
                     val proxyPort = call.argument<Int>("proxyPort")
                     val testUrl = call.argument<String>("testUrl")
                     val timeoutMs = call.argument<Int>("timeoutMs")
-                    if (sessionId.isNullOrBlank() || proxyPort == null ||
+                    if (sessionId.isNullOrBlank() || nodeTag.isNullOrBlank() ||
+                        proxyPort == null ||
                         testUrl.isNullOrBlank() || timeoutMs == null
                     ) {
                         result.error("INVALID_ARGUMENT", "Latency probe arguments are required", null)
@@ -153,8 +155,12 @@ class MainActivity : FlutterActivity() {
                             )
                             Log.d(
                                 "AndroidConnectionProbe",
-                                "[SPEED_TEST_NATIVE] proxyPort=$proxyPort " +
+                                "[SPEED_TEST_NATIVE] " +
+                                    "nodeKey=${AndroidConnectionProbeManager.nodeKey(nodeTag)} " +
+                                    "proxyPort=$proxyPort " +
                                     "attempts=${probeResult.attempts} " +
+                                    "statuses=${probeResult.httpStatusCodes} " +
+                                    "failure=${probeResult.failureKind ?: "none"} " +
                                     "connections=${probeResult.connectionCount} " +
                                     "reused=${probeResult.connectionCount == 1}",
                             )
