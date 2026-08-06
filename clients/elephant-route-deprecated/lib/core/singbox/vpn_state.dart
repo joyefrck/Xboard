@@ -87,6 +87,7 @@ class VpnState {
     int? totalUp,
     int? totalDown,
     Map<String, int>? latencyMap,
+    bool resetLatencyMap = false,
     Map<String, dynamic>? runtimeDetails,
   }) {
     return VpnState(
@@ -100,7 +101,7 @@ class VpnState {
       downSpeed: downSpeed ?? this.downSpeed,
       totalUp: totalUp ?? this.totalUp,
       totalDown: totalDown ?? this.totalDown,
-      latencyMap: latencyMap ?? this.latencyMap,
+      latencyMap: resetLatencyMap ? null : (latencyMap ?? this.latencyMap),
       runtimeDetails: runtimeDetails ?? this.runtimeDetails,
     );
   }

@@ -61,5 +61,20 @@ void main() {
       expect(recovered.failureReason, isNull);
       expect(recovered.connectionMode, VpnConnectionMode.proxy);
     });
+
+    test('copyWith can clear a one-shot latency update explicitly', () {
+      final withLatency = const VpnState(
+        status: VpnStatus.connected,
+        latencyMap: <String, int>{'Tokyo': 42},
+      );
+
+      final statusOnly = withLatency.copyWith(
+        upSpeed: 1024,
+        resetLatencyMap: true,
+      );
+
+      expect(statusOnly.upSpeed, 1024);
+      expect(statusOnly.latencyMap, isNull);
+    });
   });
 }

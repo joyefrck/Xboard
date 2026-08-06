@@ -31,8 +31,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late AnimationController _pulseController;
+    with WidgetsBindingObserver {
   bool _isPowerButtonPressed = false;
   bool _isPowerActionPending = false;
   Timer? _syncTimer;
@@ -61,13 +60,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         _syncWithBackend();
       }
     });
-
-    // 脉动动画控制器
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _pulseController.repeat(reverse: true);
   }
 
   /// 同步后端数据并处理未上报流量
@@ -108,7 +100,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _syncTimer?.cancel();
-    _pulseController.dispose();
     super.dispose();
   }
 

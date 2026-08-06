@@ -243,15 +243,16 @@ class RealVpnService implements VpnManager, ConnectionLatencyManager {
       Map<String, int>? latencyMap;
       if (map.containsKey('latency_update')) {
         final latencyJsonStr = map['latency_update'] as String;
-        debugPrint(
-            '[SPEED_TEST_DART] Received latency update: $latencyJsonStr'); // Log received string
         try {
           final latencyJson =
               jsonDecode(latencyJsonStr) as Map<String, dynamic>;
           latencyMap =
               latencyJson.map((key, value) => MapEntry(key, value as int));
-          debugPrint(
-              '[SPEED_TEST_DART] Parsed latency map size: ${latencyMap.length}');
+          if (kDebugMode) {
+            debugPrint(
+              '[SPEED_TEST_DART] Parsed latency map size: ${latencyMap.length}',
+            );
+          }
         } catch (e) {
           debugPrint("[SPEED_TEST_DART] Error parsing latency update: $e");
         }
@@ -265,6 +266,7 @@ class RealVpnService implements VpnManager, ConnectionLatencyManager {
         totalDown: map['total_down'] ?? _currentState.totalDown,
         errorMessage: map['error_message'],
         latencyMap: latencyMap, // Update latency map
+        resetLatencyMap: !map.containsKey('latency_update'),
       );
 
       _stateController.add(_currentState);

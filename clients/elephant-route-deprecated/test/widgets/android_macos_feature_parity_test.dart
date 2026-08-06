@@ -13,6 +13,14 @@ void main() {
     expect(profile, isNot(contains('user.emailInitial')));
   });
 
+  test('dashboard does not schedule an unused always-on animation', () {
+    final dashboard =
+        File('lib/screens/home/dashboard_screen.dart').readAsStringSync();
+
+    expect(dashboard, isNot(contains('_pulseController')));
+    expect(dashboard, isNot(contains('repeat(reverse: true)')));
+  });
+
   test('profile keeps direct update but removes about and diagnostics', () {
     final profile =
         File('lib/screens/profile/profile_screen.dart').readAsStringSync();

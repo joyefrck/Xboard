@@ -6,9 +6,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.nekohasekai.libbox.CommandClient
@@ -33,8 +35,11 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     
     private val TAG = "SingboxVpnService"
     private val ACTION_VPN_STATE = "com.elephant.network.VPN_STATE"
-    private val CHANNEL_ID = "vpn_service_channel"
+    private val CHANNEL_ID = "vpn_service_channel_v2"
     private val NOTIFICATION_ID = 1
+    private val runtimePolicy = VpnRuntimePolicy()
+    private val isDebuggable: Boolean
+        get() = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     private var currentStatus = "disconnected"
     private var upSpeed = 0L
@@ -44,6 +49,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
 
     private var activeProxyTag = "proxy"
     private var lastSanitizedConfig: String? = null
+    @Volatile
     private var isRestarting = false
     private var isSpeedTestRunning = false
 
@@ -68,75 +74,21 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
             return START_NOT_STICKY
         }
         if (action == "SELECT_OUTBOUND") {
-            var groupTag = intent?.getStringExtra("groupTag")
-            if (groupTag.isNullOrEmpty() || groupTag == "proxy") {
-                groupTag = activeProxyTag
+            val requestedGroupTag = intent?.getStringExtra("groupTag")
+            val groupTag = if (requestedGroupTag.isNullOrEmpty() || requestedGroupTag == "proxy") {
+                activeProxyTag
+            } else {
+                requestedGroupTag
             }
             val outboundTag = intent?.getStringExtra("outboundTag") ?: ""
-            Log.d(TAG, "Select outbound $groupTag -> $outboundTag via RESTART")
-            
-            try {
-                 // Fast-path for UI responsiveness if we have the last config
-                 val currentConfig = lastSanitizedConfig
-                 if (currentStatus == "connected" && currentConfig != null) {
-                     // 1. Modify the config to set the new outbound as the selector's default
-                     val configObj = org.json.JSONObject(currentConfig)
-                     if (configObj.has("outbounds")) {
-                         val outbounds = configObj.getJSONArray("outbounds")
-                         for (i in 0 until outbounds.length()) {
-                             val out = outbounds.getJSONObject(i)
-                             if (out.optString("type") == "selector" && out.optString("tag") == groupTag) {
-                                 out.put("default", outboundTag)
-                                 Log.i(TAG, "Set selector '$groupTag' default to '$outboundTag'")
-                                 break
-                             }
-                         }
-                     }
-                     
-                     val updatedConfigStr = configObj.toString()
-                     
-                     // 2. Clear cache to prevent sing-box from restoring old selection
-                     try {
-                         val baseDir = filesDir.absolutePath
-                         val workingDir = File(baseDir, "sing-box")
-                         val filesToDelete = listOf("cache.db", "cache.db-wal", "cache.db-shm")
-                         for (fileName in filesToDelete) {
-                             val cacheFile = File(workingDir, fileName)
-                             if (cacheFile.exists()) {
-                                 cacheFile.delete()
-                                 Log.d(TAG, "Deleted cache file: $fileName")
-                             }
-                         }
-                     } catch (e: Exception) {
-                         Log.e(TAG, "Failed to delete cache files", e)
-                     }
-                     
-                     // 3. Restart VPN engine with updated config
-                     isRestarting = true
-                     
-                     disconnectCommandClients()
-                     
-                     SingBoxEngine.stop()
-                     
-                     // Start again in background thread
-                     Thread {
-                         try {
-                             Thread.sleep(300) // Brief wait for engine to fully stop
-                             Log.i(TAG, "Restarting VPN engine with new outbound...")
-                             startVpn(updatedConfigStr)
-                         } catch (e: Exception) {
-                             Log.e(TAG, "Failed to restart VPN", e)
-                         } finally {
-                             isRestarting = false
-                         }
-                     }.start()
-                 } else {
-                     Log.w(TAG, "No last config found, falling back to commandClient")
-                     commandClient?.selectOutbound(groupTag, outboundTag)
-                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error selecting outbound", e)
+            if (!beginRestart()) {
+                Log.w(TAG, "Ignore outbound selection while VPN restart is already running")
+                return START_NOT_STICKY
             }
+            Thread(
+                { restartWithOutbound(groupTag, outboundTag) },
+                "vpn-outbound-restart",
+            ).start()
             return START_NOT_STICKY
         }
 
@@ -187,7 +139,54 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
         return START_NOT_STICKY
     }
 
-    private fun startVpn(config: String) {
+    @Synchronized
+    private fun beginRestart(): Boolean {
+        if (isRestarting) return false
+        isRestarting = true
+        return true
+    }
+
+    private fun restartWithOutbound(groupTag: String, outboundTag: String) {
+        try {
+            val currentConfig = lastSanitizedConfig
+            if (currentStatus != "connected" || currentConfig == null) {
+                Log.w(TAG, "No active config found, falling back to commandClient")
+                commandClient?.selectOutbound(groupTag, outboundTag)
+                return
+            }
+
+            val configObject = org.json.JSONObject(currentConfig)
+            if (configObject.has("outbounds")) {
+                val outbounds = configObject.getJSONArray("outbounds")
+                for (index in 0 until outbounds.length()) {
+                    val outbound = outbounds.getJSONObject(index)
+                    if (outbound.optString("type") == "selector" &&
+                        outbound.optString("tag") == groupTag
+                    ) {
+                        outbound.put("default", outboundTag)
+                        break
+                    }
+                }
+            }
+
+            val workingDirectory = File(filesDir, "sing-box")
+            listOf("cache.db", "cache.db-wal", "cache.db-shm").forEach { fileName ->
+                runCatching { File(workingDirectory, fileName).delete() }
+                    .onFailure { error -> Log.w(TAG, "Failed to delete $fileName", error) }
+            }
+
+            disconnectCommandClients()
+            SingBoxEngine.stop()
+            Thread.sleep(300)
+            startVpn(configObject.toString(), restarting = true)
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to restart VPN with selected outbound", error)
+        } finally {
+            isRestarting = false
+        }
+    }
+
+    private fun startVpn(config: String, restarting: Boolean = false) {
         try {
             Log.i(TAG, "========================================")
             Log.i(TAG, "VPN START REQUESTED")
@@ -223,7 +222,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                     val workingDir = File(baseDir, "sing-box").apply { if (!exists()) mkdirs() }
                     
                     // Delete cache.db on completely fresh start (not restart) to avoid SQLite corruption
-                    if (!isRestarting) {
+                    if (!restarting) {
                         try {
                             val filesToDelete = listOf("cache.db", "cache.db-wal", "cache.db-shm")
                             for (fileName in filesToDelete) {
@@ -249,7 +248,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                     val experimental = jsonConfig.getJSONObject("experimental")
 
                     val logObj = org.json.JSONObject()
-                    logObj.put("level", "trace")
+                    logObj.put("level", runtimePolicy.singBoxLogLevel(isDebuggable))
                     logObj.put("timestamp", true)
                     jsonConfig.put("log", logObj)
                     
@@ -679,6 +678,8 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                 .setContentText("正在保护您的网络连接...")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
                 .build()
 
             // VPN服务使用specialUse类型（Android 14+要求）
@@ -700,11 +701,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                 Log.d(TAG, "Connecting CommandClients...")
                 disconnectCommandClients()
                 commandClient = Libbox.newStandaloneCommandClient()
-                val subscriptions = listOf(
-                    Libbox.CommandStatus,
-                    Libbox.CommandGroup,
-                    Libbox.CommandLog
-                ).map { command ->
+                val subscriptions = runtimePolicy.commands(isDebuggable).map { command ->
                     val options = CommandClientOptions().apply {
                         this.command = command
                         statusInterval = 1_000_000_000L
@@ -723,13 +720,15 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     }
 
     private fun disconnectCommandClients() {
+        val standaloneClient = commandClient
+        commandClient = null
         val subscriptions = synchronized(commandSubscriptions) {
             commandSubscriptions.toList().also { commandSubscriptions.clear() }
         }
         subscriptions.forEach { client ->
             runCatching { client.disconnect() }
         }
-        commandClient = null
+        runCatching { standaloneClient?.disconnect() }
     }
 
     private fun stopVpn() {
@@ -814,6 +813,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
 
     private fun sendStateBroadcast(errorMessage: String? = null) {
         val intent = Intent(ACTION_VPN_STATE).apply {
+            setPackage(packageName)
             putExtra("status", currentStatus)
             putExtra("up_speed", upSpeed)
             putExtra("down_speed", downSpeed)
@@ -829,7 +829,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 "VPN Service Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
@@ -837,6 +837,8 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     }
     
     private fun updateNotification() {
+        if (!runtimePolicy.shouldUpdateNotification(SystemClock.elapsedRealtime())) return
+
         val upFormatted = formatSpeed(upSpeed)
         val downFormatted = formatSpeed(downSpeed)
         
@@ -874,11 +876,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     override fun updateClashMode(mode: String?) {}
 
     override fun writeGroups(groups: OutboundGroupIterator?) {
-        Log.d(TAG, "CommandClientHandler: writeGroups called")
-        if (groups == null) {
-            Log.d(TAG, "writeGroups: groups is null")
-            return
-        }
+        if (groups == null) return
         val latencyMap = org.json.JSONObject()
 
         try {
@@ -886,7 +884,6 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                 val group = groups.next()
                 if (group == null) continue
                 
-                Log.d(TAG, "writeGroups: Process group tag=${group.tag}")
                 val items = group.items
                 if (items != null) {
                     while (items.hasNext()) {
@@ -896,7 +893,6 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                         val delay = item.urlTestDelay
                         val tag = item.tag
                         
-                        Log.d(TAG, "writeGroups: item tag=$tag, delay=$delay")
                         // delay == 0 means not yet tested, not timeout - filter it out
                         if (tag != null && delay > 0) {
                             latencyMap.put(tag, delay)
@@ -905,14 +901,12 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
                 }
             }
 
-            Log.d(TAG, "writeGroups: Completed parsing, latencyMap size=${latencyMap.length()}")
             if (latencyMap.length() > 0) {
-                val intent = Intent(ACTION_VPN_STATE)
+                val intent = Intent(ACTION_VPN_STATE).setPackage(packageName)
                 // Must include status to prevent BroadcastReceiver defaulting to "disconnected"
                 intent.putExtra("status", currentStatus)
                 intent.putExtra("latency_update", latencyMap.toString())
                 sendBroadcast(intent)
-                Log.d(TAG, "writeGroups: Broadcasted latency_update")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing groups", e)
@@ -922,10 +916,7 @@ class SingboxVpnService : VpnService(), CommandClientHandler {
     override fun writeLogs(messageList: StringIterator?) {
         if (messageList == null) return
         while (messageList.hasNext()) {
-            val message = messageList.next()
-            if (message != null) {
-                Log.d("SingBoxCore", message)
-            }
+            messageList.next()
         }
     }
     

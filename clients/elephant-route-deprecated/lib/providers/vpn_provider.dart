@@ -24,6 +24,7 @@ class VpnProvider with ChangeNotifier {
   final ConfigProvider _configProvider;
   final TrafficStreamClient _trafficStreamClient;
   final TrafficRetryDelay _trafficRetryDelay;
+  final bool _usesNativeTrafficOnly;
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
   StreamSubscription<TrafficSample>? _trafficSubscription;
   Timer? _trafficReconnectTimer;
@@ -40,6 +41,7 @@ class VpnProvider with ChangeNotifier {
     TrafficStreamClient? trafficStreamClient,
     TrafficRetryDelay? trafficRetryDelay,
     SubscriptionConfigCache? subscriptionConfigCache,
+    bool? usesNativeTrafficOnly,
   })  : _userService = UserService(
           dioClient,
           configCache: subscriptionConfigCache ?? SubscriptionConfigCache(),
@@ -48,7 +50,9 @@ class VpnProvider with ChangeNotifier {
             ClashTrafficStreamClient(
               endpoint: Uri.parse(ApiConstants.clashTraffic),
             ),
-        _trafficRetryDelay = trafficRetryDelay ?? _defaultTrafficRetryDelay {
+        _trafficRetryDelay = trafficRetryDelay ?? _defaultTrafficRetryDelay,
+        _usesNativeTrafficOnly =
+            usesNativeTrafficOnly ?? (!kIsWeb && Platform.isAndroid) {
     // 监听 VPN 状态变化
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
       if (_disposed) return;
@@ -86,10 +90,12 @@ class VpnProvider with ChangeNotifier {
             : state;
       }
 
-      if (!previousState.isConnected && _state.isConnected) {
-        unawaited(_startTrafficMonitoring());
-      } else if (previousState.isConnected && !_state.isConnected) {
-        unawaited(_stopTrafficMonitoring());
+      if (!_usesNativeTrafficOnly) {
+        if (!previousState.isConnected && _state.isConnected) {
+          unawaited(_startTrafficMonitoring());
+        } else if (previousState.isConnected && !_state.isConnected) {
+          unawaited(_stopTrafficMonitoring());
+        }
       }
       notifyListeners();
     });
@@ -249,6 +255,7 @@ class VpnProvider with ChangeNotifier {
   }
 
   Future<void> _startTrafficMonitoring() async {
+    if (_usesNativeTrafficOnly) return;
     final generation = await _clearTrafficMonitoring();
     if (_disposed || generation != _trafficGeneration || !_state.isConnected) {
       return;
@@ -259,7 +266,10 @@ class VpnProvider with ChangeNotifier {
   }
 
   void _openTrafficStream(int generation) {
-    if (_disposed || generation != _trafficGeneration || !_state.isConnected) {
+    if (_usesNativeTrafficOnly ||
+        _disposed ||
+        generation != _trafficGeneration ||
+        !_state.isConnected) {
       return;
     }
 

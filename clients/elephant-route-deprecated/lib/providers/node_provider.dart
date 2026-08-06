@@ -51,8 +51,6 @@ class NodeProvider with ChangeNotifier {
         _handleLatencyUpdate(state.latencyMap!);
       }
 
-      debugPrint(
-          'DEBUG NodeProvider state: new=${state.status}, old=$_lastVpnStatus, nodes=${_nodes.length}');
       // VPN 连接成功后自动触发一次完整的测速
       if (_lastVpnStatus != VpnStatus.connected &&
           state.status == VpnStatus.connected) {
@@ -121,8 +119,11 @@ class NodeProvider with ChangeNotifier {
       ignoreUntil: ignoreUntil,
       now: DateTime.now(),
     )) {
-      debugPrint(
-          '[SPEED_TEST_DART] Ignore native latency update while HTTP delay test is authoritative');
+      if (kDebugMode) {
+        debugPrint(
+          '[SPEED_TEST_DART] Ignore native latency update while HTTP delay test is authoritative',
+        );
+      }
       return;
     }
 

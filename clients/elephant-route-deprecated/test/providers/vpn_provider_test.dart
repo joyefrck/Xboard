@@ -72,6 +72,7 @@ void main() {
         trafficStreamClient: trafficClient,
         trafficRetryDelay: (_) => const Duration(milliseconds: 10),
         subscriptionConfigCache: subscriptionConfigCache,
+        usesNativeTrafficOnly: false,
       );
     });
 
@@ -263,6 +264,39 @@ void main() {
       expect(vpnProvider.state.downSpeed, 200);
       expect(vpnProvider.state.totalUp, 1000);
       expect(vpnProvider.state.totalDown, 2000);
+    });
+
+    test('Android 原生流量模式不会打开 Clash 流量流', () async {
+      final nativeManager = _ImmediateVpnManager();
+      final nativeTrafficClient = _FakeTrafficStreamClient();
+      final nativeSubscriptionConfigCache = _FakeSubscriptionConfigCache()
+        ..value = '{"outbounds":[{"type":"direct","tag":"direct"}]}';
+      final nativeProvider = VpnProvider(
+        DioClient(),
+        nativeManager,
+        ConfigProvider(),
+        trafficStreamClient: nativeTrafficClient,
+        subscriptionConfigCache: nativeSubscriptionConfigCache,
+        usesNativeTrafficOnly: true,
+      );
+
+      try {
+        expect(await nativeProvider.connect(), isTrue);
+        await _settleTrafficLifecycle();
+        nativeManager.emitTraffic(totalUp: 1234, totalDown: 5678);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(nativeTrafficClient.openCalls, 0);
+        expect(nativeTrafficClient.activeSubscriptions, 0);
+        expect(nativeProvider.state.upSpeed, 7);
+        expect(nativeProvider.state.downSpeed, 8);
+        expect(nativeProvider.state.totalUp, 1234);
+        expect(nativeProvider.state.totalDown, 5678);
+      } finally {
+        nativeProvider.dispose();
+        nativeManager.dispose();
+        nativeTrafficClient.dispose();
+      }
     });
 
     test('dispose 不应该释放注入的 VpnManager', () {
