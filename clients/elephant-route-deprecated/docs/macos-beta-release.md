@@ -14,6 +14,8 @@
 ## 构建
 
 ```bash
+MACOS_BUILD_NAME=1.6.4 \
+MACOS_BUILD_NUMBER=10604 \
 ./build_macos_beta.sh
 ```
 
@@ -27,7 +29,14 @@ ALLOW_INSECURE_CERTS=false
 
 最终只输出一个发布文件：
 
-- `build/macos-beta/ElephantRoute-macos-arm64.dmg`
+- `build/macos-beta/ElephantRoute-macos-arm64-v<macOS版本>.dmg`
+
+macOS 使用独立版本顺序，必须显式传入 `MACOS_BUILD_NAME` 和
+`MACOS_BUILD_NUMBER`，不能直接继承 `pubspec.yaml` 中其他平台的版本。比如
+`1.6.4+10604` 对应：
+
+- `build/macos-beta/ElephantRoute-macos-arm64-v1.6.4.dmg`
+- DMG 内应用名：`大象网络.app`
 
 脚本会删除 Intel 和 Windows 核心、将通用 Mach-O 裁剪为 arm64、重新进行
 ad-hoc 签名、执行 `codesign --verify --deep --strict`，并打印 DMG 的 SHA-256。

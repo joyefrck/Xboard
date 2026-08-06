@@ -6,13 +6,15 @@ EXPORT_DIR="build/macos-beta"
 BASE_URL="${BASE_URL:-https://www.elephant223.com}"
 APP_DISTRIBUTION_URL="${APP_DISTRIBUTION_URL:-}"
 ALLOW_INSECURE_CERTS="${ALLOW_INSECURE_CERTS:-false}"
+MACOS_BUILD_NAME="${MACOS_BUILD_NAME:?MACOS_BUILD_NAME is required}"
+MACOS_BUILD_NUMBER="${MACOS_BUILD_NUMBER:?MACOS_BUILD_NUMBER is required}"
 MACOS_ARCH="arm64"
 THIN_ARCH="arm64"
 KEEP_SING_BOX="sing-box-darwin-arm64"
 DROP_SING_BOX="sing-box-darwin-amd64"
 
 APP_BUNDLE="${EXPORT_DIR}/${APP_NAME}-macos-${MACOS_ARCH}.app"
-DMG_PATH="${EXPORT_DIR}/${APP_NAME}-macos-${MACOS_ARCH}.dmg"
+DMG_PATH="${EXPORT_DIR}/${APP_NAME}-macos-${MACOS_ARCH}-v${MACOS_BUILD_NAME}.dmg"
 STAGING_DIR=""
 SMOKE_PID=""
 SMOKE_LOG=""
@@ -119,12 +121,24 @@ echo "==> BASE_URL=${BASE_URL}"
 echo "==> APP_DISTRIBUTION_URL=${APP_DISTRIBUTION_URL:-runtime resolved domain}"
 echo "==> ALLOW_INSECURE_CERTS=${ALLOW_INSECURE_CERTS}"
 echo "==> MACOS_ARCH=${MACOS_ARCH} (${THIN_ARCH})"
+echo "==> macOS version=${MACOS_BUILD_NAME}+${MACOS_BUILD_NUMBER}"
+
+if [[ ! "${MACOS_BUILD_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "MACOS_BUILD_NAME must be a semantic version" >&2
+  exit 1
+fi
+if [[ ! "${MACOS_BUILD_NUMBER}" =~ ^[0-9]+$ ]]; then
+  echo "MACOS_BUILD_NUMBER must contain digits only" >&2
+  exit 1
+fi
 
 export MACOS_ARCH
 flutter clean
 flutter pub get
 BUILD_ARGS=(
   --release
+  --build-name="${MACOS_BUILD_NAME}"
+  --build-number="${MACOS_BUILD_NUMBER}"
   --dart-define=BASE_URL="${BASE_URL}"
   --dart-define=ALLOW_INSECURE_CERTS="${ALLOW_INSECURE_CERTS}"
 )

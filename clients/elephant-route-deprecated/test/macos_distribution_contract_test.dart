@@ -7,6 +7,27 @@ void main() {
     final script = File('build_macos_beta.sh').readAsStringSync();
 
     expect(script, contains('MACOS_ARCH="arm64"'));
+    expect(
+      script,
+      contains(
+        r'MACOS_BUILD_NAME="${MACOS_BUILD_NAME:?MACOS_BUILD_NAME is required}"',
+      ),
+    );
+    expect(
+      script,
+      contains(
+        r'MACOS_BUILD_NUMBER="${MACOS_BUILD_NUMBER:?MACOS_BUILD_NUMBER is required}"',
+      ),
+    );
+    expect(script, contains(r'--build-name="${MACOS_BUILD_NAME}"'));
+    expect(script, contains(r'--build-number="${MACOS_BUILD_NUMBER}"'));
+    expect(
+      script,
+      contains(
+        r'${APP_NAME}-macos-${MACOS_ARCH}-v${MACOS_BUILD_NAME}.dmg',
+      ),
+    );
+    expect(script, contains(r'${STAGING_DIR}/大象网络.app'));
     expect(script, isNot(contains('MACOS_ARCH must be arm64 or x64')));
     expect(script, contains('--sign -'));
     expect(script, isNot(contains('--options runtime')));
