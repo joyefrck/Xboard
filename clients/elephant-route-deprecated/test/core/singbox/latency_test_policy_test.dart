@@ -34,14 +34,20 @@ void main() {
       ]);
     });
 
-    test('desktop V2BOX profile uses one complete HTTP probe', () {
-      expect(
-        LatencyTestPolicy.probeUrls(
-          configuredTestUrl: 'http://cp.cloudflare.com/generate_204',
-          profile: LatencyTestProfile.v2boxConnection,
-        ),
-        ['https://www.gstatic.com/generate_204'],
-      );
+    test('Windows connection profile uses HTTPS Anycast for defaults', () {
+      for (final configured in <String>[
+        '',
+        'http://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ]) {
+        expect(
+          LatencyTestPolicy.probeUrls(
+            configuredTestUrl: configured,
+            profile: LatencyTestProfile.v2boxConnection,
+          ),
+          ['https://cp.cloudflare.com/generate_204'],
+        );
+      }
       expect(
         LatencyTestPolicy.timeoutMsFor(
           LatencyTestProfile.v2boxConnection,
@@ -49,6 +55,17 @@ void main() {
         5000,
       );
       expect(LatencyTestPolicy.concurrency, 4);
+    });
+
+    test('Windows connection profile preserves an explicit custom probe URL',
+        () {
+      expect(
+        LatencyTestPolicy.probeUrls(
+          configuredTestUrl: ' https://example.com/custom_204 ',
+          profile: LatencyTestProfile.v2boxConnection,
+        ),
+        ['https://example.com/custom_204'],
+      );
     });
 
     test('Android connection profile uses HTTPS Anycast for defaults', () {

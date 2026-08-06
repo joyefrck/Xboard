@@ -11,7 +11,7 @@ class LatencyTestPolicy {
   static const int concurrency = 4;
   static const int timeoutMs = 3500;
   static const int v2boxConnectionTimeoutMs = 5000;
-  static const String androidDefaultProbeUrl =
+  static const String connectionDefaultProbeUrl =
       'https://cp.cloudflare.com/generate_204';
   static const List<String> builtInProbeUrls = [
     'https://www.gstatic.com/generate_204',
@@ -26,14 +26,13 @@ class LatencyTestPolicy {
     if (profile == LatencyTestProfile.androidConnection ||
         profile == LatencyTestProfile.macosConnection) {
       if (configured.isEmpty || builtInProbeUrls.contains(configured)) {
-        return const [androidDefaultProbeUrl];
+        return const [connectionDefaultProbeUrl];
       }
       return [configured];
     }
     if (profile == LatencyTestProfile.v2boxConnection) {
-      if (configured.isEmpty ||
-          configured == 'http://cp.cloudflare.com/generate_204') {
-        return const ['https://www.gstatic.com/generate_204'];
+      if (configured.isEmpty || builtInProbeUrls.contains(configured)) {
+        return const [connectionDefaultProbeUrl];
       }
       return [configured];
     }

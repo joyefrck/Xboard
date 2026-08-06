@@ -15,19 +15,33 @@ final class WindowsLatencyJobRunner {
     required WindowsLatencyJobInvoke invoke,
     WindowsLatencyJobDelay? delay,
     this.pollInterval = const Duration(milliseconds: 250),
+    this.serviceCallTimeout = const Duration(seconds: 3),
+    this.jobTimeout = const Duration(seconds: 60),
   })  : _invoke = invoke,
-        _delay = delay ?? Future<void>.delayed;
+        _delay = delay ?? Future<void>.delayed {
+    if (pollInterval <= Duration.zero) {
+      throw ArgumentError.value(pollInterval, 'pollInterval');
+    }
+    if (serviceCallTimeout <= Duration.zero) {
+      throw ArgumentError.value(serviceCallTimeout, 'serviceCallTimeout');
+    }
+    if (jobTimeout <= Duration.zero) {
+      throw ArgumentError.value(jobTimeout, 'jobTimeout');
+    }
+  }
 
   final WindowsLatencyJobInvoke _invoke;
   final WindowsLatencyJobDelay _delay;
   final Duration pollInterval;
+  final Duration serviceCallTimeout;
+  final Duration jobTimeout;
 
   String? _activeRunId;
 
   Future<void> cancel() async {
     final runId = _activeRunId;
     if (runId == null) return;
-    await _invoke('cancelLatencyTest', {'run_id': runId});
+    await _cancelBestEffort(runId);
   }
 
   Future<Map<String, ConnectionLatencyResult>> run({
@@ -38,50 +52,67 @@ final class WindowsLatencyJobRunner {
     required bool Function() isCancelled,
     ConnectionLatencyResultCallback? onResult,
   }) async {
-    final start = WindowsServiceProtocol.parseLatencySnapshot(
-      await _invoke('startLatencyTest', {
-        'node_tags_json': jsonEncode(nodeTags),
-        'test_url': testUrl,
-        'timeout_ms': timeoutMs,
-        'concurrency': concurrency,
-      }),
-    );
-    final runId = start.runId;
-    if (runId.isEmpty) {
-      throw ConnectionLatencyUnavailableException(
-        start.errorMessage ?? 'Windows 测速服务未返回任务编号',
-      );
-    }
-
-    _activeRunId = runId;
+    final deadline = DateTime.now().add(jobTimeout);
+    WindowsLatencySnapshot? snapshot;
+    var runId = '';
     final published = <String>{};
-    var snapshot = start;
     try {
+      var current = WindowsServiceProtocol.parseLatencySnapshot(
+        await _invokeBeforeDeadline(
+          'startLatencyTest',
+          {
+            'node_tags_json': jsonEncode(nodeTags),
+            'test_url': testUrl,
+            'timeout_ms': timeoutMs,
+            'concurrency': concurrency,
+          },
+          deadline,
+        ),
+      );
+      snapshot = current;
+      runId = current.runId;
+      if (runId.isEmpty) {
+        throw ConnectionLatencyUnavailableException(
+          current.errorMessage ?? 'Windows 测速服务未返回任务编号',
+        );
+      }
+      _activeRunId = runId;
+
       while (true) {
         if (isCancelled()) {
-          snapshot = WindowsServiceProtocol.parseLatencySnapshot(
-            await _invoke('cancelLatencyTest', {'run_id': runId}),
+          current = WindowsServiceProtocol.parseLatencySnapshot(
+            await _invokeBeforeDeadline(
+              'cancelLatencyTest',
+              {'run_id': runId},
+              deadline,
+            ),
           );
+          snapshot = current;
           return _completeResults(
             nodeTags,
-            snapshot,
+            current,
             ConnectionLatencyFailureKind.cancelled,
           );
         }
 
-        for (final entry in snapshot.results.entries) {
+        for (final entry in current.results.entries) {
           if (published.add(entry.key)) {
             onResult?.call(entry.key, entry.value);
           }
         }
 
-        switch (snapshot.status) {
+        switch (current.status) {
           case WindowsLatencyJobStatus.running:
-            await _delay(pollInterval);
-            snapshot = WindowsServiceProtocol.parseLatencySnapshot(
-              await _invoke('getLatencyTest', {'run_id': runId}),
+            await _waitBeforeDeadline(pollInterval, deadline);
+            current = WindowsServiceProtocol.parseLatencySnapshot(
+              await _invokeBeforeDeadline(
+                'getLatencyTest',
+                {'run_id': runId},
+                deadline,
+              ),
             );
-            if (snapshot.runId != runId) {
+            snapshot = current;
+            if (current.runId != runId) {
               throw const ConnectionLatencyUnavailableException(
                 'Windows 测速任务已被替换',
               );
@@ -89,25 +120,85 @@ final class WindowsLatencyJobRunner {
           case WindowsLatencyJobStatus.completed:
             return _completeResults(
               nodeTags,
-              snapshot,
+              current,
               ConnectionLatencyFailureKind.serviceError,
             );
           case WindowsLatencyJobStatus.cancelled:
             return _completeResults(
               nodeTags,
-              snapshot,
+              current,
               ConnectionLatencyFailureKind.cancelled,
             );
           case WindowsLatencyJobStatus.error:
             throw ConnectionLatencyUnavailableException(
-              snapshot.errorMessage ?? 'Windows 测速服务不可用',
+              current.errorMessage ?? 'Windows 测速服务不可用',
             );
         }
       }
+    } on TimeoutException {
+      await _cancelBestEffort(runId);
+      final timedOutSnapshot = snapshot ??
+          WindowsLatencySnapshot(
+            runId: runId,
+            status: WindowsLatencyJobStatus.error,
+            completed: 0,
+            total: nodeTags.length,
+            results: const <String, ConnectionLatencyResult>{},
+            errorCode: 'latency_timeout',
+            errorMessage: 'Windows 测速服务响应超时',
+          );
+      final results = _completeResults(
+        nodeTags,
+        timedOutSnapshot,
+        ConnectionLatencyFailureKind.timeout,
+      );
+      for (final entry in results.entries) {
+        if (published.add(entry.key)) {
+          onResult?.call(entry.key, entry.value);
+        }
+      }
+      return results;
     } finally {
       if (_activeRunId == runId) {
         _activeRunId = null;
       }
+    }
+  }
+
+  Future<Map<String, dynamic>> _invokeBeforeDeadline(
+    String method,
+    Map<String, dynamic> arguments,
+    DateTime deadline,
+  ) {
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      throw TimeoutException('Windows latency job timed out');
+    }
+    final timeout =
+        remaining < serviceCallTimeout ? remaining : serviceCallTimeout;
+    return _invoke(method, arguments).timeout(timeout);
+  }
+
+  Future<void> _waitBeforeDeadline(
+    Duration duration,
+    DateTime deadline,
+  ) {
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      throw TimeoutException('Windows latency job timed out');
+    }
+    return _delay(duration).timeout(remaining);
+  }
+
+  Future<void> _cancelBestEffort(String runId) async {
+    try {
+      await _invoke(
+        'cancelLatencyTest',
+        {'run_id': runId},
+      ).timeout(serviceCallTimeout);
+    } on Object {
+      // Cancellation is best-effort; the provider generation still rejects
+      // any result arriving after this runner has returned.
     }
   }
 
