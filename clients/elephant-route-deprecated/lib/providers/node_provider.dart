@@ -27,9 +27,11 @@ class NodeProvider with ChangeNotifier {
   final VpnManager _vpnManager;
   final ConfigProvider _configProvider;
   final Duration _connectionLatencyDelay;
+  final Duration _connectionLatencySafetyTimeout;
   StreamSubscription? _vpnStateSubscription;
   Timer? _connectionLatencyTimer;
   VpnStatus _lastVpnStatus = VpnStatus.disconnected;
+  int _latencyRunGeneration = 0;
 
   final _storage = const LocalStorage();
   List<ProxyNode> _nodes = [];
@@ -50,7 +52,9 @@ class NodeProvider with ChangeNotifier {
     this._vpnManager,
     this._configProvider, {
     Duration connectionLatencyDelay = const Duration(seconds: 2),
+    Duration connectionLatencySafetyTimeout = const Duration(seconds: 65),
   })  : _connectionLatencyDelay = connectionLatencyDelay,
+        _connectionLatencySafetyTimeout = connectionLatencySafetyTimeout,
         _userService = UserService(dioClient) {
     // 监听 VPN 状态变化获取延迟更新
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
@@ -79,6 +83,7 @@ class NodeProvider with ChangeNotifier {
       }
       if (_lastVpnStatus == VpnStatus.connected &&
           state.status != VpnStatus.connected) {
+        _cancelActiveLatencyTest();
         _hasAuthoritativeConnectionLatencies = false;
         _ignoreNativeLatencyUpdatesUntil = null;
         _latencyResults.clear();
@@ -103,6 +108,8 @@ class NodeProvider with ChangeNotifier {
   List<ProxyNode> get nodes => _nodes;
   ProxyNode? get selectedNode => _selectedNode;
   bool get isLoading => _isLoading || _isTestingLatency;
+  bool get isLoadingNodes => _isLoading;
+  bool get isTestingLatency => _isTestingLatency;
   String? get errorMessage => _errorMessage;
   bool get isAutoMode => _isAutoMode;
   ProxyNode? get autoSelectedRealNode => _autoSelectedRealNode;
@@ -166,6 +173,8 @@ class NodeProvider with ChangeNotifier {
     _vpnStateSubscription?.cancel();
     _connectionLatencyTimer?.cancel();
     _connectionLatencyTimer = null;
+    _latencyRunGeneration++;
+    _isTestingLatency = false;
     final manager = _vpnManager;
     if (manager is ConnectionLatencyManager) {
       unawaited(
@@ -190,6 +199,8 @@ class NodeProvider with ChangeNotifier {
   /// 测试所有节点延迟
   Future<void> testAllLatencies([BuildContext? context]) async {
     if (_isTestingLatency) return;
+
+    final runGeneration = ++_latencyRunGeneration;
 
     final useConnectionSession = LatencyTestPolicy.usesConnectionSession(
       isWeb: kIsWeb,
@@ -270,6 +281,7 @@ class NodeProvider with ChangeNotifier {
           probeUrls.single,
           LatencyTestPolicy.timeoutMsFor(latencyProfile),
           LatencyTestPolicy.concurrency,
+          runGeneration,
         );
       } else {
         await _testNodesConcurrently(
@@ -291,10 +303,12 @@ class NodeProvider with ChangeNotifier {
         ToastUtils.show(context, message);
       }
     } finally {
-      _isTestingLatency = false;
-      _ignoreNativeLatencyUpdatesUntil =
-          DateTime.now().add(const Duration(seconds: 5));
-      notifyListeners();
+      if (runGeneration == _latencyRunGeneration) {
+        _isTestingLatency = false;
+        _ignoreNativeLatencyUpdatesUntil =
+            DateTime.now().add(const Duration(seconds: 5));
+        notifyListeners();
+      }
     }
   }
 
@@ -303,28 +317,78 @@ class NodeProvider with ChangeNotifier {
     String testUrl,
     int timeout,
     int concurrency,
+    int runGeneration,
   ) async {
     final manager = _vpnManager as ConnectionLatencyManager;
+    final completedNodeTags = <String>{};
+
+    void applyResult(String nodeTag, ConnectionLatencyResult result) {
+      if (runGeneration != _latencyRunGeneration ||
+          _vpnManager.currentState.status != VpnStatus.connected) {
+        return;
+      }
+      completedNodeTags.add(nodeTag);
+      _applyConnectionLatencyResult(nodeTag, result);
+    }
+
     try {
-      await manager.testConnectionLatencies(
+      await manager
+          .testConnectionLatencies(
         nodeTags: nodes.map((node) => node.name).toList(growable: false),
         testUrl: testUrl,
         timeoutMs: timeout,
         concurrency: concurrency,
-        onResult: _applyConnectionLatencyResult,
+        onResult: applyResult,
+      )
+          .timeout(
+        _connectionLatencySafetyTimeout,
+        onTimeout: () {
+          unawaited(manager.stopConnectionLatencyTest());
+          for (final node in nodes) {
+            if (!completedNodeTags.contains(node.name)) {
+              applyResult(
+                node.name,
+                ConnectionLatencyResult(
+                  latencyMs: -1,
+                  elapsedMs: _connectionLatencySafetyTimeout.inMilliseconds,
+                  failureKind: ConnectionLatencyFailureKind.timeout,
+                  source: ConnectionLatencySource.connectionProbe,
+                ),
+              );
+            }
+          }
+          return const <String, ConnectionLatencyResult>{};
+        },
       );
     } catch (_) {
       for (final node in nodes) {
-        _applyConnectionLatencyResult(
-          node.name,
-          const ConnectionLatencyResult(
-            latencyMs: -1,
-            elapsedMs: 0,
-            failureKind: ConnectionLatencyFailureKind.serviceError,
-          ),
-        );
+        if (!completedNodeTags.contains(node.name)) {
+          applyResult(
+            node.name,
+            const ConnectionLatencyResult(
+              latencyMs: -1,
+              elapsedMs: 0,
+              failureKind: ConnectionLatencyFailureKind.serviceError,
+            ),
+          );
+        }
       }
       rethrow;
+    }
+  }
+
+  void _cancelActiveLatencyTest() {
+    _latencyRunGeneration++;
+    final wasTesting = _isTestingLatency;
+    _isTestingLatency = false;
+    final manager = _vpnManager;
+    if (manager is ConnectionLatencyManager) {
+      unawaited(
+        (manager as ConnectionLatencyManager).stopConnectionLatencyTest(),
+      );
+    }
+    if (wasTesting) {
+      notifyListeners();
     }
   }
 

@@ -74,6 +74,7 @@ void main() {
       vpnManager,
       ConfigProvider(),
       connectionLatencyDelay: const Duration(milliseconds: 20),
+      connectionLatencySafetyTimeout: const Duration(milliseconds: 40),
     );
     await provider.fetchNodes();
   });
@@ -132,6 +133,50 @@ void main() {
 
     expect(vpnManager.latencyTestCalls, 1);
   });
+
+  test('safety timeout releases a hanging latency test', () async {
+    vpnManager.hangLatencyTest = true;
+
+    await provider.testAllLatencies();
+
+    expect(provider.isTestingLatency, isFalse);
+    expect(provider.isLoadingNodes, isFalse);
+    expect(vpnManager.stopLatencyTestCalls, 1);
+    for (final node in provider.realNodes) {
+      expect(
+        provider.latencyResultFor(node.name)?.failureKind,
+        ConnectionLatencyFailureKind.timeout,
+      );
+    }
+  });
+
+  test('disconnect releases latency state and ignores a late callback',
+      () async {
+    vpnManager.hangLatencyTest = true;
+    final running = provider.testAllLatencies();
+    await vpnManager.latencyTestStarted.future;
+
+    expect(provider.isTestingLatency, isTrue);
+    expect(provider.isLoadingNodes, isFalse);
+
+    vpnManager.emit(VpnStatus.disconnected);
+    await running;
+
+    expect(provider.isTestingLatency, isFalse);
+    expect(vpnManager.stopLatencyTestCalls, 1);
+
+    vpnManager.emitLateResult(
+      'node-good',
+      const ConnectionLatencyResult(
+        latencyMs: 12,
+        elapsedMs: 12,
+        source: ConnectionLatencySource.connectionProbe,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(provider.latencyResultFor('node-good'), isNull);
+  });
 }
 
 class _FixedDomainResolver extends DomainResolver {
@@ -145,6 +190,11 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   final List<String> selectedNodes = [];
   VpnState _currentState = const VpnState(status: VpnStatus.connected);
   int latencyTestCalls = 0;
+  int stopLatencyTestCalls = 0;
+  bool hangLatencyTest = false;
+  Completer<void> latencyTestStarted = Completer<void>();
+  Completer<Map<String, ConnectionLatencyResult>>? _hangingLatencyTest;
+  ConnectionLatencyResultCallback? _hangingResultCallback;
 
   @override
   VpnState get currentState => _currentState;
@@ -161,6 +211,14 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
     ConnectionLatencyResultCallback? onResult,
   }) async {
     latencyTestCalls++;
+    if (hangLatencyTest) {
+      if (!latencyTestStarted.isCompleted) {
+        latencyTestStarted.complete();
+      }
+      _hangingResultCallback = onResult;
+      _hangingLatencyTest = Completer<Map<String, ConnectionLatencyResult>>();
+      return _hangingLatencyTest!.future;
+    }
     const results = <String, ConnectionLatencyResult>{
       'node-good': ConnectionLatencyResult(
         latencyMs: 80,
@@ -187,7 +245,17 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   }
 
   @override
-  Future<void> stopConnectionLatencyTest() async {}
+  Future<void> stopConnectionLatencyTest() async {
+    stopLatencyTestCalls++;
+    final hanging = _hangingLatencyTest;
+    if (hanging != null && !hanging.isCompleted) {
+      hanging.complete(const <String, ConnectionLatencyResult>{});
+    }
+  }
+
+  void emitLateResult(String nodeTag, ConnectionLatencyResult result) {
+    _hangingResultCallback?.call(nodeTag, result);
+  }
 
   @override
   Future<void> selectOutbound(String groupTag, String outboundTag) async {

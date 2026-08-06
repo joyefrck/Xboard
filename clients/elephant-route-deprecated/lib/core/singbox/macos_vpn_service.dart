@@ -25,8 +25,12 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   MacosVpnService({
     MacosLatencyFallbackRunner? latencyFallbackRunner,
     SubscriptionConfigCache? subscriptionConfigCache,
+    Duration latencyCacheReadTimeout = const Duration(seconds: 1),
+    Duration latencyRunTimeout = const Duration(seconds: 60),
   })  : _subscriptionConfigCache =
             subscriptionConfigCache ?? SubscriptionConfigCache(),
+        _latencyCacheReadTimeout = latencyCacheReadTimeout,
+        _latencyRunTimeout = latencyRunTimeout,
         _clashDio = Dio(
           BaseOptions(
             baseUrl: _clashApiBase,
@@ -34,6 +38,20 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
             receiveTimeout: const Duration(seconds: 5),
           ),
         ) {
+    if (_latencyCacheReadTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        _latencyCacheReadTimeout,
+        'latencyCacheReadTimeout',
+        'must be positive',
+      );
+    }
+    if (_latencyRunTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        _latencyRunTimeout,
+        'latencyRunTimeout',
+        'must be positive',
+      );
+    }
     _clashDio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
@@ -61,6 +79,8 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
 
   final Dio _clashDio;
   final SubscriptionConfigCache _subscriptionConfigCache;
+  final Duration _latencyCacheReadTimeout;
+  final Duration _latencyRunTimeout;
   late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
   final _stateController = StreamController<VpnState>.broadcast();
@@ -240,6 +260,53 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     required int concurrency,
     ConnectionLatencyResultCallback? onResult,
   }) async {
+    final publishedResults = <String, ConnectionLatencyResult>{};
+
+    void publishResult(String nodeTag, ConnectionLatencyResult result) {
+      publishedResults[nodeTag] = result;
+      onResult?.call(nodeTag, result);
+    }
+
+    try {
+      return await _runConnectionLatencies(
+        nodeTags: nodeTags,
+        testUrl: testUrl,
+        timeoutMs: timeoutMs,
+        concurrency: concurrency,
+        onResult: publishResult,
+      ).timeout(_latencyRunTimeout);
+    } on TimeoutException {
+      await AppLogger.instance.warn(
+        'macOS latency run timed out after '
+        '${_latencyRunTimeout.inMilliseconds}ms',
+      );
+      unawaited(stopConnectionLatencyTest());
+      final timeoutResult = ConnectionLatencyResult(
+        latencyMs: -1,
+        elapsedMs: _latencyRunTimeout.inMilliseconds,
+        failureKind: ConnectionLatencyFailureKind.timeout,
+        source: ConnectionLatencySource.connectionProbe,
+      );
+      for (final nodeTag in nodeTags) {
+        if (!publishedResults.containsKey(nodeTag)) {
+          publishResult(nodeTag, timeoutResult);
+        }
+      }
+      return Map<String, ConnectionLatencyResult>.unmodifiable({
+        for (final nodeTag in nodeTags)
+          if (publishedResults.containsKey(nodeTag))
+            nodeTag: publishedResults[nodeTag]!,
+      });
+    }
+  }
+
+  Future<Map<String, ConnectionLatencyResult>> _runConnectionLatencies({
+    required List<String> nodeTags,
+    required String testUrl,
+    required int timeoutMs,
+    required int concurrency,
+    ConnectionLatencyResultCallback? onResult,
+  }) async {
     final activeConfig = _lastSanitizedConfig;
     final binaryPath = _singboxBinPath;
     if (activeConfig == null || binaryPath == null) {
@@ -251,7 +318,9 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     bool isCancelled() => _disposed || generation != _latencyRunGeneration;
     String? refreshedConfig;
     try {
-      final cachedConfig = await _subscriptionConfigCache.read();
+      final cachedConfig = await _subscriptionConfigCache
+          .read()
+          .timeout(_latencyCacheReadTimeout);
       final singboxDirPath = _singboxDirPath;
       if (cachedConfig != null && singboxDirPath != null) {
         refreshedConfig = _sanitizeConfig(
@@ -260,6 +329,11 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
           _isTunMode,
         );
       }
+    } on TimeoutException {
+      await AppLogger.instance.warn(
+        'macOS latency cache read timed out after '
+        '${_latencyCacheReadTimeout.inMilliseconds}ms; using active config',
+      );
     } catch (_) {
       // The active config remains a valid latency source if cache access fails.
     }

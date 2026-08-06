@@ -62,7 +62,7 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
             Expanded(
               child: Consumer<NodeProvider>(
                 builder: (context, provider, child) {
-                  if (provider.isLoading && provider.nodes.isEmpty) {
+                  if (provider.isLoadingNodes && provider.nodes.isEmpty) {
                     return Center(
                       child: CircularProgressIndicator(
                         color:
@@ -162,7 +162,7 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
               (Platform.isAndroid || Platform.isWindows || Platform.isMacOS);
           final canTestLatency =
               !requiresConnectedVpn || vpnProvider.isConnected;
-          final isTesting = provider.isLoading;
+          final isTesting = provider.isTestingLatency;
 
           return Container(
             margin: EdgeInsets.only(bottom: PlatformUtils.isDesktop ? 16 : 90),
