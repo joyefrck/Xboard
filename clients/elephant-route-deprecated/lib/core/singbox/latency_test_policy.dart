@@ -1,11 +1,13 @@
 typedef LatencyProbe = Future<int> Function(String probeUrl, int timeoutMs);
 
-enum LatencyTestProfile { standard, v2boxConnection }
+enum LatencyTestProfile { standard, androidConnection, v2boxConnection }
 
 class LatencyTestPolicy {
   static const int concurrency = 4;
   static const int timeoutMs = 3500;
   static const int v2boxConnectionTimeoutMs = 5000;
+  static const String androidDefaultProbeUrl =
+      'https://cp.cloudflare.com/generate_204';
   static const List<String> builtInProbeUrls = [
     'https://www.gstatic.com/generate_204',
     'http://cp.cloudflare.com/generate_204',
@@ -16,6 +18,12 @@ class LatencyTestPolicy {
     LatencyTestProfile profile = LatencyTestProfile.standard,
   }) {
     final configured = configuredTestUrl.trim();
+    if (profile == LatencyTestProfile.androidConnection) {
+      if (configured.isEmpty || builtInProbeUrls.contains(configured)) {
+        return const [androidDefaultProbeUrl];
+      }
+      return [configured];
+    }
     if (profile == LatencyTestProfile.v2boxConnection) {
       if (configured.isEmpty ||
           configured == 'http://cp.cloudflare.com/generate_204') {
@@ -32,9 +40,9 @@ class LatencyTestPolicy {
   }
 
   static int timeoutMsFor(LatencyTestProfile profile) {
-    return profile == LatencyTestProfile.v2boxConnection
-        ? v2boxConnectionTimeoutMs
-        : timeoutMs;
+    return profile == LatencyTestProfile.standard
+        ? timeoutMs
+        : v2boxConnectionTimeoutMs;
   }
 
   static bool requiresConnectedVpn({
@@ -74,9 +82,11 @@ class LatencyTestPolicy {
     required bool isWindows,
     required bool isMacOS,
   }) {
-    return !isWeb && (isAndroid || isWindows || isMacOS)
-        ? LatencyTestProfile.v2boxConnection
-        : LatencyTestProfile.standard;
+    if (!isWeb && isAndroid) return LatencyTestProfile.androidConnection;
+    if (!isWeb && (isWindows || isMacOS)) {
+      return LatencyTestProfile.v2boxConnection;
+    }
+    return LatencyTestProfile.standard;
   }
 }
 

@@ -51,6 +51,38 @@ void main() {
       expect(LatencyTestPolicy.concurrency, 4);
     });
 
+    test('Android connection profile uses HTTPS Anycast for defaults', () {
+      for (final configured in <String>[
+        '',
+        'http://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ]) {
+        expect(
+          LatencyTestPolicy.probeUrls(
+            configuredTestUrl: configured,
+            profile: LatencyTestProfile.androidConnection,
+          ),
+          ['https://cp.cloudflare.com/generate_204'],
+        );
+      }
+      expect(
+        LatencyTestPolicy.timeoutMsFor(
+          LatencyTestProfile.androidConnection,
+        ),
+        5000,
+      );
+    });
+
+    test('Android connection profile preserves a custom probe URL', () {
+      expect(
+        LatencyTestPolicy.probeUrls(
+          configuredTestUrl: ' https://example.com/custom_204 ',
+          profile: LatencyTestProfile.androidConnection,
+        ),
+        ['https://example.com/custom_204'],
+      );
+    });
+
     test('macOS V2BOX profile preserves an explicit custom probe URL', () {
       expect(
         LatencyTestPolicy.probeUrls(
@@ -184,6 +216,24 @@ void main() {
           isAndroid: true,
           isWindows: false,
           isMacOS: false,
+        ),
+        LatencyTestProfile.androidConnection,
+      );
+      expect(
+        LatencyTestPolicy.profileForPlatform(
+          isWeb: false,
+          isAndroid: false,
+          isWindows: true,
+          isMacOS: false,
+        ),
+        LatencyTestProfile.v2boxConnection,
+      );
+      expect(
+        LatencyTestPolicy.profileForPlatform(
+          isWeb: false,
+          isAndroid: false,
+          isWindows: false,
+          isMacOS: true,
         ),
         LatencyTestProfile.v2boxConnection,
       );
