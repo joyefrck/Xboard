@@ -13,6 +13,8 @@ class LatencyTestPolicy {
   static const int v2boxConnectionTimeoutMs = 5000;
   static const String connectionDefaultProbeUrl =
       'https://cp.cloudflare.com/generate_204';
+  static const String windowsConnectionFallbackProbeUrl =
+      'https://www.gstatic.com/generate_204';
   static const List<String> builtInProbeUrls = [
     'https://www.gstatic.com/generate_204',
     'http://cp.cloudflare.com/generate_204',

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'connection_latency_manager.dart';
+import 'latency_test_policy.dart';
 import 'vpn_manager.dart';
 import 'vpn_state.dart';
 import 'windows_latency_job_runner.dart';
@@ -169,6 +170,84 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
     }
     await stopConnectionLatencyTest();
     final generation = _latencyRunGeneration;
+    final usesDefaultProbe =
+        testUrl == LatencyTestPolicy.connectionDefaultProbeUrl;
+    final published = <String>{};
+
+    void publish(String nodeTag, ConnectionLatencyResult result) {
+      if (!_disposed &&
+          generation == _latencyRunGeneration &&
+          published.add(nodeTag)) {
+        onResult?.call(nodeTag, result);
+      }
+    }
+
+    final primaryResults = await _runLatencyJob(
+      nodeTags: nodeTags,
+      testUrl: testUrl,
+      timeoutMs: timeoutMs,
+      concurrency: concurrency,
+      generation: generation,
+      onResult: (nodeTag, result) {
+        if (!usesDefaultProbe || result.isSuccess) {
+          publish(nodeTag, result);
+        }
+      },
+    );
+    if (!usesDefaultProbe || _disposed || generation != _latencyRunGeneration) {
+      return primaryResults;
+    }
+
+    final retryNodeTags = nodeTags.where((nodeTag) {
+      final result = primaryResults[nodeTag];
+      return result != null && _isRetryableLatencyFailure(result);
+    }).toList(growable: false);
+    final retryNodeTagSet = retryNodeTags.toSet();
+    for (final entry in primaryResults.entries) {
+      if (!retryNodeTagSet.contains(entry.key)) {
+        publish(entry.key, entry.value);
+      }
+    }
+    if (retryNodeTags.isEmpty) {
+      return primaryResults;
+    }
+
+    final fallbackResults = await _runLatencyJob(
+      nodeTags: retryNodeTags,
+      testUrl: LatencyTestPolicy.windowsConnectionFallbackProbeUrl,
+      timeoutMs: timeoutMs,
+      concurrency: concurrency,
+      generation: generation,
+      onResult: (nodeTag, result) {
+        if (result.isSuccess) {
+          publish(nodeTag, result);
+        }
+      },
+    );
+    final mergedResults = <String, ConnectionLatencyResult>{
+      ...primaryResults,
+    };
+    for (final nodeTag in retryNodeTags) {
+      final fallbackResult = fallbackResults[nodeTag];
+      if (fallbackResult != null) {
+        mergedResults[nodeTag] = fallbackResult;
+      }
+      final finalResult = mergedResults[nodeTag];
+      if (finalResult != null) {
+        publish(nodeTag, finalResult);
+      }
+    }
+    return Map<String, ConnectionLatencyResult>.unmodifiable(mergedResults);
+  }
+
+  Future<Map<String, ConnectionLatencyResult>> _runLatencyJob({
+    required List<String> nodeTags,
+    required String testUrl,
+    required int timeoutMs,
+    required int concurrency,
+    required int generation,
+    ConnectionLatencyResultCallback? onResult,
+  }) async {
     final runner = WindowsLatencyJobRunner(
       invoke: (method, arguments) => _invokeMap(method, arguments),
       delay: _latencyPollDelay,
@@ -181,17 +260,23 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
         timeoutMs: timeoutMs,
         concurrency: concurrency,
         isCancelled: () => _disposed || generation != _latencyRunGeneration,
-        onResult: (nodeTag, result) {
-          if (!_disposed && generation == _latencyRunGeneration) {
-            onResult?.call(nodeTag, result);
-          }
-        },
+        onResult: onResult,
       );
     } finally {
       if (identical(_latencyJobRunner, runner)) {
         _latencyJobRunner = null;
       }
     }
+  }
+
+  static bool _isRetryableLatencyFailure(ConnectionLatencyResult result) {
+    return switch (result.failureKind) {
+      ConnectionLatencyFailureKind.timeout ||
+      ConnectionLatencyFailureKind.httpError ||
+      ConnectionLatencyFailureKind.transportError =>
+        true,
+      _ => false,
+    };
   }
 
   @override

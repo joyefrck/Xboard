@@ -7,6 +7,10 @@ void main() {
   group('LatencyTestPolicy', () {
     test('tests up to four nodes concurrently', () {
       expect(LatencyTestPolicy.concurrency, 4);
+      expect(
+        LatencyTestPolicy.windowsConnectionFallbackProbeUrl,
+        'https://www.gstatic.com/generate_204',
+      );
     });
 
     test('uses built-in 204 probe URLs before user configured URL', () {

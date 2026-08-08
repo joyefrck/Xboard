@@ -32,10 +32,8 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<NodeProvider>();
-      if (provider.nodes.isEmpty) {
-        provider.fetchNodes();
-      }
+      if (!mounted) return;
+      context.read<NodeProvider>().fetchNodes();
     });
   }
 

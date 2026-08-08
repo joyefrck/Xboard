@@ -249,6 +249,139 @@ void main() {
     service.dispose();
   });
 
+  test('retries default-probe failures through the Windows fallback target',
+      () async {
+    var activeRun = 0;
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getNetworkProfile') {
+        return {
+          'status': 'ready',
+          'default_interface': 'Ethernet',
+          'tun_ipv4_address': '172.31.255.1/30',
+          'strict_route': false,
+        };
+      }
+      if (call.method == 'startLatencyTest') {
+        activeRun++;
+        return _latencySnapshot(
+          runId: 'run-$activeRun',
+          status: 'running',
+          completed: 0,
+          total: activeRun == 1 ? 4 : 2,
+        );
+      }
+      if (call.method == 'getLatencyTest') {
+        if (activeRun == 1) {
+          return _latencySnapshot(
+            runId: 'run-1',
+            status: 'completed',
+            completed: 4,
+            total: 4,
+            results: {
+              'primary-good': _latencyResult(80),
+              'fallback-good': _latencyResult(
+                -1,
+                failureKind: 'transportError',
+              ),
+              'both-fail': _latencyResult(
+                -1,
+                failureKind: 'timeout',
+              ),
+              'service-fail': _latencyResult(
+                -1,
+                failureKind: 'serviceError',
+              ),
+            },
+          );
+        }
+        return _latencySnapshot(
+          runId: 'run-2',
+          status: 'completed',
+          completed: 2,
+          total: 2,
+          results: {
+            'fallback-good': _latencyResult(120),
+            'both-fail': _latencyResult(
+              -1,
+              failureKind: 'timeout',
+            ),
+          },
+        );
+      }
+      return {'status': call.method == 'stop' ? 'disconnected' : 'connected'};
+    });
+    final callbacks = <String, List<ConnectionLatencyResult>>{};
+    final service = WindowsVpnService(latencyPollDelay: (_) async {});
+    await service.start(jsonEncode({
+      'inbounds': <Object>[],
+      'outbounds': [
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+      'route': {'rules': <Object>[]},
+    }));
+
+    final results = await service.testConnectionLatencies(
+      nodeTags: const [
+        'primary-good',
+        'fallback-good',
+        'both-fail',
+        'service-fail',
+      ],
+      testUrl: 'https://cp.cloudflare.com/generate_204',
+      timeoutMs: 5000,
+      concurrency: 4,
+      onResult: (nodeTag, result) =>
+          callbacks.putIfAbsent(nodeTag, () => []).add(result),
+    );
+
+    final startCalls =
+        calls.where((call) => call.method == 'startLatencyTest').toList();
+    expect(startCalls, hasLength(2));
+    final primaryArguments =
+        Map<String, dynamic>.from(startCalls.first.arguments as Map);
+    final fallbackArguments =
+        Map<String, dynamic>.from(startCalls.last.arguments as Map);
+    expect(
+      jsonDecode(primaryArguments['node_tags_json'] as String),
+      ['primary-good', 'fallback-good', 'both-fail', 'service-fail'],
+    );
+    expect(
+      primaryArguments['test_url'],
+      'https://cp.cloudflare.com/generate_204',
+    );
+    expect(
+      jsonDecode(fallbackArguments['node_tags_json'] as String),
+      ['fallback-good', 'both-fail'],
+    );
+    expect(
+      fallbackArguments['test_url'],
+      'https://www.gstatic.com/generate_204',
+    );
+    expect(results['primary-good']?.latencyMs, 80);
+    expect(results['fallback-good']?.latencyMs, 120);
+    expect(
+      results['both-fail']?.failureKind,
+      ConnectionLatencyFailureKind.timeout,
+    );
+    expect(
+      results['service-fail']?.failureKind,
+      ConnectionLatencyFailureKind.serviceError,
+    );
+    expect(callbacks['primary-good'], hasLength(1));
+    expect(callbacks['primary-good']?.single.isSuccess, isTrue);
+    expect(callbacks['fallback-good'], hasLength(1));
+    expect(callbacks['fallback-good']?.single.isSuccess, isTrue);
+    expect(callbacks['both-fail'], hasLength(1));
+    expect(callbacks['both-fail']?.single.isSuccess, isFalse);
+    expect(callbacks['service-fail'], hasLength(1));
+    expect(
+      callbacks['service-fail']?.single.failureKind,
+      ConnectionLatencyFailureKind.serviceError,
+    );
+    service.dispose();
+  });
+
   test('cancels an active latency job without stale callbacks', () async {
     final pollStarted = Completer<void>();
     final releasePoll = Completer<void>();
@@ -344,6 +477,7 @@ void main() {
 }
 
 Map<String, dynamic> _latencySnapshot({
+  String runId = 'run-1',
   required String status,
   required int completed,
   required int total,
@@ -351,7 +485,7 @@ Map<String, dynamic> _latencySnapshot({
 }) {
   return {
     'status': 'connected',
-    'run_id': 'run-1',
+    'run_id': runId,
     'latency_test_status': status,
     'latency_completed': completed,
     'latency_total': total,
