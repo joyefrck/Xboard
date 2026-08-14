@@ -15,6 +15,12 @@ void main() {
     );
     expect(installer, contains('PrivilegesRequired=admin'));
     expect(installer, contains('ElephantNetworkService'));
+    expect(
+      installer,
+      contains('config ElephantNetworkService binPath='),
+    );
+    expect(installer, contains('start= auto'));
+    expect(installer, isNot(contains('start= delayed-auto')));
     expect(installer, contains('MicrosoftEdgeWebview2Setup.exe'));
     expect(installer, contains('vc_redist.x64.exe'));
     expect(installer, contains('function PrepareToInstall'));

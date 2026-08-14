@@ -66,6 +66,73 @@ void main() {
     messenger.setMockMethodCallHandler(methodChannel, null);
   });
 
+  test('retries while the Windows service is still starting', () async {
+    var statusCalls = 0;
+    final retryDelays = <Duration>[];
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getStatus') {
+        statusCalls++;
+        if (statusCalls <= 2) {
+          return {
+            'status': 'error',
+            'error_code': 'service_unavailable',
+            'error_message': 'Windows service is unavailable',
+          };
+        }
+        return {'status': 'disconnected'};
+      }
+      return {'status': 'connected'};
+    });
+
+    final service = WindowsVpnService(
+      serviceAvailabilityDelay: (delay) async => retryDelays.add(delay),
+    );
+
+    expect(await service.requestPermission(), isTrue);
+    expect(statusCalls, 3);
+    expect(
+      retryDelays,
+      const [Duration(milliseconds: 250), Duration(milliseconds: 500)],
+    );
+    expect(service.currentState.status, VpnStatus.disconnected);
+    service.dispose();
+  });
+
+  test('reports unavailable after the Windows service retry window expires',
+      () async {
+    var statusCalls = 0;
+    messenger.setMockMethodCallHandler(methodChannel, (call) async {
+      calls.add(call);
+      if (call.method == 'getStatus') {
+        statusCalls++;
+        return {
+          'status': 'error',
+          'error_code': 'service_unavailable',
+          'error_message': 'Windows service is unavailable',
+        };
+      }
+      return {'status': 'connected'};
+    });
+
+    final service = WindowsVpnService(
+      serviceAvailabilityDelay: (_) async {},
+      serviceAvailabilityRetryDelays: const [
+        Duration(milliseconds: 1),
+        Duration(milliseconds: 1),
+      ],
+    );
+
+    expect(await service.requestPermission(), isFalse);
+    expect(statusCalls, 3);
+    expect(service.currentState.status, VpnStatus.error);
+    expect(
+      service.currentState.runtimeDetails?['error_code'],
+      'service_unavailable',
+    );
+    service.dispose();
+  });
+
   test('starts through the service with a forced TUN config', () async {
     final service = WindowsVpnService();
     await service.start(jsonEncode({

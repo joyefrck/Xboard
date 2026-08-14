@@ -12,16 +12,24 @@ import 'vpn_state.dart';
 import 'windows_latency_job_runner.dart';
 import 'windows_service_protocol.dart';
 
+typedef WindowsServiceAvailabilityDelay = Future<void> Function(Duration delay);
+
 class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   WindowsVpnService({
     MethodChannel? methodChannel,
     EventChannel? eventChannel,
     WindowsLatencyJobDelay? latencyPollDelay,
+    WindowsServiceAvailabilityDelay? serviceAvailabilityDelay,
+    List<Duration>? serviceAvailabilityRetryDelays,
   })  : _methodChannel = methodChannel ??
             const MethodChannel(WindowsServiceProtocol.methodChannel),
         _eventChannel = eventChannel ??
             const EventChannel(WindowsServiceProtocol.eventChannel),
-        _latencyPollDelay = latencyPollDelay {
+        _latencyPollDelay = latencyPollDelay,
+        _serviceAvailabilityDelay =
+            serviceAvailabilityDelay ?? _defaultServiceAvailabilityDelay,
+        _serviceAvailabilityRetryDelays = serviceAvailabilityRetryDelays ??
+            _defaultServiceAvailabilityRetryDelays {
     _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
       _handleState,
       onError: (Object error, StackTrace stackTrace) {
@@ -33,8 +41,19 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   final MethodChannel _methodChannel;
   final EventChannel _eventChannel;
   final WindowsLatencyJobDelay? _latencyPollDelay;
+  final WindowsServiceAvailabilityDelay _serviceAvailabilityDelay;
+  final List<Duration> _serviceAvailabilityRetryDelays;
   final StreamController<VpnState> _stateController =
       StreamController<VpnState>.broadcast();
+
+  static const List<Duration> _defaultServiceAvailabilityRetryDelays = [
+    Duration(milliseconds: 250),
+    Duration(milliseconds: 500),
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+  ];
 
   StreamSubscription<Object?>? _eventSubscription;
   VpnState _state = const VpnState(
@@ -48,9 +67,20 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<bool> requestPermission() async {
     try {
-      final result = await _invokeMap('getStatus');
-      _handleState(result);
-      return result['error_code'] != 'service_unavailable';
+      for (var attempt = 0;; attempt++) {
+        final result = await _invokeMap('getStatus');
+        final serviceUnavailable =
+            result['error_code']?.toString() == 'service_unavailable';
+        if (!serviceUnavailable ||
+            attempt >= _serviceAvailabilityRetryDelays.length) {
+          _handleState(result);
+          return !serviceUnavailable;
+        }
+
+        await _serviceAvailabilityDelay(
+          _serviceAvailabilityRetryDelays[attempt],
+        );
+      }
     } on PlatformException catch (error) {
       _setUnavailable(error.message);
       return false;
@@ -59,6 +89,9 @@ class WindowsVpnService implements VpnManager, ConnectionLatencyManager {
       return false;
     }
   }
+
+  static Future<void> _defaultServiceAvailabilityDelay(Duration delay) =>
+      Future<void>.delayed(delay);
 
   @override
   Future<void> start(String config) async {
