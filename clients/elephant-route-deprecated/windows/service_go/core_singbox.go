@@ -46,14 +46,6 @@ func (instance *singBoxInstance) LatencyProbe() latencyProbeFunc {
 	return probe.Probe
 }
 
-func (instance *singBoxInstance) HasLatencyOutbound(tag string) bool {
-	outbound, found := instance.box.Outbound().Outbound(tag)
-	if !found {
-		return false
-	}
-	return outbound.Type() != "selector" && outbound.Type() != "urltest"
-}
-
 func (singBoxFactory) Version() string {
 	return bundledSingBoxVersion
 }

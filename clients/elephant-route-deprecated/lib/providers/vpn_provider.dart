@@ -25,6 +25,7 @@ class VpnProvider with ChangeNotifier {
   final TrafficStreamClient _trafficStreamClient;
   final TrafficRetryDelay _trafficRetryDelay;
   final bool _usesNativeTrafficOnly;
+  final bool _preferFreshSubscriptionOnConnect;
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
   StreamSubscription<TrafficSample>? _trafficSubscription;
   Timer? _trafficReconnectTimer;
@@ -42,6 +43,7 @@ class VpnProvider with ChangeNotifier {
     TrafficRetryDelay? trafficRetryDelay,
     SubscriptionConfigCache? subscriptionConfigCache,
     bool? usesNativeTrafficOnly,
+    bool? preferFreshSubscriptionOnConnect,
   })  : _userService = UserService(
           dioClient,
           configCache: subscriptionConfigCache ?? SubscriptionConfigCache(),
@@ -52,7 +54,9 @@ class VpnProvider with ChangeNotifier {
             ),
         _trafficRetryDelay = trafficRetryDelay ?? _defaultTrafficRetryDelay,
         _usesNativeTrafficOnly =
-            usesNativeTrafficOnly ?? (!kIsWeb && Platform.isAndroid) {
+            usesNativeTrafficOnly ?? (!kIsWeb && Platform.isAndroid),
+        _preferFreshSubscriptionOnConnect = preferFreshSubscriptionOnConnect ??
+            (!kIsWeb && Platform.isWindows) {
     // 监听 VPN 状态变化
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
       if (_disposed) return;
@@ -147,16 +151,32 @@ class VpnProvider with ChangeNotifier {
         return false;
       }
 
-      // 2. Prefer the last known-good config. A slow subscription endpoint must
-      // not hold the power switch for 15+ seconds on every connection.
-      String? config = await _userService.getCachedSubscriptionConfig();
-      final usedCachedConfig = config != null;
+      // Windows node latency runs inside the active core. Prefer a fresh
+      // subscription there so the node list and the core cannot start from
+      // different snapshots. Other platforms keep the fast cached startup.
+      final cachedConfig = await _userService.getCachedSubscriptionConfig();
+      String? config;
+      var usedCachedConfig = false;
+      var refreshAttempted = false;
+      if (_preferFreshSubscriptionOnConnect) {
+        refreshAttempted = true;
+        config = await _fetchSubscriptionConfig();
+        if (config == null || config.isEmpty) {
+          config = cachedConfig;
+          usedCachedConfig = config != null;
+        }
+      } else {
+        config = cachedConfig;
+        usedCachedConfig = config != null;
+        if (config == null || config.isEmpty) {
+          refreshAttempted = true;
+          config = await _fetchSubscriptionConfig();
+        }
+      }
       if (usedCachedConfig) {
         await AppLogger.instance.info(
-          'Using cached subscription config for connect flow, length=${config.length}',
+          'Using cached subscription config for connect flow, length=${config!.length}',
         );
-      } else {
-        config = await _fetchSubscriptionConfig();
       }
 
       if (config == null || config.isEmpty) {
@@ -190,7 +210,7 @@ class VpnProvider with ChangeNotifier {
         return false;
       }
 
-      if (usedCachedConfig) {
+      if (usedCachedConfig && !refreshAttempted) {
         unawaited(_refreshSubscriptionConfigCache());
       }
 

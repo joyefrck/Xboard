@@ -53,10 +53,6 @@ func (core *fakeLatencyCore) LatencyProbe() latencyProbeFunc {
 	return core.probe
 }
 
-func (core *fakeLatencyCore) HasLatencyOutbound(string) bool {
-	return true
-}
-
 func TestCoreManagerRunsLatencyOnlyOnConnectedCore(t *testing.T) {
 	core := &fakeLatencyCore{
 		started: make(chan struct{}),
@@ -96,6 +92,56 @@ func TestCoreManagerRunsLatencyOnlyOnConnectedCore(t *testing.T) {
 	if final.Status != latencyJobCompleted ||
 		final.Results["Tokyo"].LatencyMS != 24 {
 		t.Fatalf("unexpected latency result: %#v", final)
+	}
+}
+
+func TestCoreManagerKeepsRunningWhenOneLatencyNodeIsUnavailable(t *testing.T) {
+	core := &fakeLatencyCore{
+		started: make(chan struct{}),
+		closed:  make(chan struct{}),
+		probe: func(
+			_ context.Context,
+			nodeTag string,
+			_ string,
+			_ time.Duration,
+		) latencyNodeResult {
+			if nodeTag == "missing" {
+				return latencyNodeResult{
+					LatencyMS:   -1,
+					Attempts:    []int{-1, -1},
+					FailureKind: latencyFailureService,
+				}
+			}
+			return latencyNodeResult{
+				LatencyMS: 24,
+				Attempts:  []int{40, 24},
+			}
+		},
+	}
+	manager := testCoreManager(
+		t,
+		&fakeLatencyCoreFactory{core: core},
+		time.Second,
+	)
+	if result := manager.start(context.Background(), validTunConfig, false); result.Status != statusConnected {
+		t.Fatalf("core did not connect: %#v", result)
+	}
+
+	request := validLatencyJobRequest("known")
+	request.NodeTags = []string{"known", "missing"}
+	started, failure := manager.startLatencyTest(context.Background(), request)
+	if failure != nil {
+		t.Fatalf("latency batch was rejected: %#v", failure)
+	}
+	final := waitForLatencyJob(t, manager.latency, started.RunID)
+	if final.Status != latencyJobCompleted {
+		t.Fatalf("latency batch did not complete: %#v", final)
+	}
+	if result := final.Results["known"]; result.LatencyMS != 24 || !result.Success() {
+		t.Fatalf("known node did not succeed: %#v", result)
+	}
+	if result := final.Results["missing"]; result.FailureKind != latencyFailureService {
+		t.Fatalf("missing node did not fail independently: %#v", result)
 	}
 }
 

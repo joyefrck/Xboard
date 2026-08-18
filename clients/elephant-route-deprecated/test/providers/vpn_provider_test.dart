@@ -21,8 +21,10 @@ void main() {
     late _ImmediateVpnManager vpnManager;
     late _FakeTrafficStreamClient trafficClient;
     late _FakeSubscriptionConfigCache subscriptionConfigCache;
+    late bool failSubscriptionFetch;
 
     setUp(() {
+      failSubscriptionFetch = false;
       final dioClient = DioClient();
       dioClient.dio.interceptors.add(
         InterceptorsWrapper(
@@ -43,6 +45,15 @@ void main() {
             }
 
             if (options.path == ApiConstants.subscribe) {
+              if (failSubscriptionFetch) {
+                handler.reject(
+                  DioException(
+                    requestOptions: options,
+                    error: 'subscription unavailable',
+                  ),
+                );
+                return;
+              }
               handler.resolve(
                 Response(
                   requestOptions: options,
@@ -50,7 +61,14 @@ void main() {
                     'dns': {
                       'servers': <Map<String, dynamic>>[],
                     },
-                    'outbounds': <Map<String, dynamic>>[],
+                    'outbounds': <Map<String, dynamic>>[
+                      {
+                        'type': 'anytls',
+                        'tag': 'fresh',
+                        'server': 'example.com',
+                        'server_port': 443,
+                      },
+                    ],
                   },
                 ),
               );
@@ -73,6 +91,7 @@ void main() {
         trafficRetryDelay: (_) => const Duration(milliseconds: 10),
         subscriptionConfigCache: subscriptionConfigCache,
         usesNativeTrafficOnly: false,
+        preferFreshSubscriptionOnConnect: true,
       );
     });
 
@@ -102,16 +121,35 @@ void main() {
       expect(subscriptionConfigCache.writeCalls, 1);
     });
 
-    test('存在上次可用配置时不等待远程刷新即可连接', () async {
+    test('Windows 连接时使用最新订阅而不是旧缓存', () async {
       subscriptionConfigCache.value =
           '{"outbounds":[{"type":"direct","tag":"direct"}]}';
 
       final result = await vpnProvider.connect();
-      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       expect(result, isTrue);
       expect(vpnManager.startCalls, 1);
       expect(subscriptionConfigCache.readCalls, 1);
+      expect(subscriptionConfigCache.writeCalls, 1);
+      expect(vpnManager.lastStartedConfig, isNot(contains('"tag":"direct"')));
+      expect(vpnManager.lastStartedConfig, contains('"tag":"fresh"'));
+      expect(vpnProvider.state.status, VpnStatus.connected);
+    });
+
+    test('Windows 最新订阅获取失败时降级到上次可用配置', () async {
+      subscriptionConfigCache.value =
+          '{"outbounds":[{"type":"direct","tag":"cached"}]}';
+      failSubscriptionFetch = true;
+
+      final result = await vpnProvider.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(result, isTrue);
+      expect(vpnManager.startCalls, 1);
+      expect(subscriptionConfigCache.readCalls, 1);
+      expect(subscriptionConfigCache.writeCalls, 0);
+      expect(vpnManager.lastStartedConfig, contains('"tag":"cached"'));
       expect(vpnProvider.state.status, VpnStatus.connected);
     });
 
@@ -317,6 +355,7 @@ class _ImmediateVpnManager implements VpnManager {
       StreamController<VpnState>.broadcast();
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
   int startCalls = 0;
+  String? lastStartedConfig;
 
   @override
   VpnState get currentState => _state;
@@ -330,6 +369,7 @@ class _ImmediateVpnManager implements VpnManager {
   @override
   Future<void> start(String config) async {
     startCalls++;
+    lastStartedConfig = config;
     _state = const VpnState(status: VpnStatus.connecting);
     _controller.add(_state);
     _state = const VpnState(status: VpnStatus.connected);
