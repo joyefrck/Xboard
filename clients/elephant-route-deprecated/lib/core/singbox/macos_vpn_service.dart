@@ -13,6 +13,7 @@ import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
 import 'macos_clash_controller.dart';
+import 'macos_dns_policy.dart';
 import 'macos_latency_fallback.dart';
 import 'macos_latency_session.dart';
 import 'macos_latency_source_selector.dart';
@@ -490,19 +491,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<int> urlTest(String groupTag) async {
     try {
-      final encodedGroup = Uri.encodeComponent(groupTag);
-      final response = await _clashDio.get(
-        '/proxies/$encodedGroup/delay',
-        queryParameters: {
-          'url': 'https://www.gstatic.com/generate_204',
-          'timeout': 3000,
-        },
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        final delay = response.data['delay'];
-        if (delay is int && delay > 0) return delay;
-      }
-      return -1;
+      return await _clashController.urlTest(groupTag);
     } catch (e) {
       await AppLogger.instance.warn('macOS urlTest failed for $groupTag: $e');
       return -1;
@@ -787,6 +776,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       final config = jsonDecode(jsonConfig) as Map<String, dynamic>;
       config.remove('use_tun_mode');
       config['log'] = {'level': 'warn', 'timestamp': true};
+      MacosDnsPolicy.apply(config);
 
       if (config['inbounds'] is List) {
         final inbounds = config['inbounds'] as List<dynamic>;
