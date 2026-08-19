@@ -9,6 +9,7 @@ use App\Models\TicketMessage;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Services\Plugin\HookManager;
 
 class TicketService
@@ -68,6 +69,27 @@ class TicketService
             throw $e;
         }
         $this->sendEmailNotify($ticket, $ticketMessage);
+    }
+
+    public function closeByAdmin(int $ticketId, int $operatorId): void
+    {
+        $ticket = Ticket::find($ticketId);
+        if (!$ticket) {
+            throw new ApiException('工单不存在');
+        }
+        if ($ticket->status === Ticket::STATUS_CLOSED) {
+            return;
+        }
+
+        $ticket->status = Ticket::STATUS_CLOSED;
+        if (!$ticket->save()) {
+            throw new ApiException('关闭失败');
+        }
+
+        Log::info('管理员关闭工单', [
+            'ticket_id' => $ticketId,
+            'operator_id' => $operatorId,
+        ]);
     }
 
     public function createTicket($userId, $subject, $level, $message)

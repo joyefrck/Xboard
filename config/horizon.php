@@ -212,6 +212,16 @@ return [
                 'maxJobs' => 25,
                 'maxTime' => 900,
             ],
+            'XboardTicketTelegram' => [
+                'connection' => 'redis',
+                'queue' => ['send_ticket_telegram'],
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
+                'tries' => 1,
+                'maxJobs' => 25,
+                'maxTime' => 900,
+            ],
             'XboardEmail' => [
                 'connection' => 'redis',
                 'queue' => [

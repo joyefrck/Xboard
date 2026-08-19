@@ -794,6 +794,30 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "title": "Group Link",
         "description": "Once filled in, it will be displayed on the user side or used where needed.",
         "placeholder": "https://t.me/xxxxxx"
+      },
+      "ticket_bot": {
+        "title": "Ticket Bot Settings",
+        "notify_title": "Enable Ticket Notifications",
+        "notify_description": "Send Telegram notifications when tickets are created or users reply.",
+        "enable_title": "Enable Dedicated Ticket Bot",
+        "enable_description": "Route ticket notifications and actions exclusively through the dedicated bot.",
+        "token_title": "Ticket Bot Token",
+        "token_description": "The token is write-only and will not be displayed after saving.",
+        "token_placeholder": "Enter a new ticket bot token",
+        "token_success": "Ticket bot token verified and saved",
+        "configured": "Configured: @{{username}}",
+        "webhook_ready": "Webhook status: configured",
+        "webhook_pending": "Webhook status: setup required"
+      },
+      "ticket_webhook": {
+        "button": "Set Ticket Webhook",
+        "setting": "Setting...",
+        "success": "Ticket bot webhook configured"
+      },
+      "ticket_test": {
+        "button": "Send Test Message",
+        "sending": "Sending...",
+        "success": "Test message sent"
       }
     },
     "app": {

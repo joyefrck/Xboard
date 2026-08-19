@@ -1,6 +1,6 @@
 # Dedicated Ticket Telegram Bot Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a separately configured Telegram bot that exclusively delivers and operates tickets, including contextual user and order views, without changing the general bot's non-ticket behavior.
 
@@ -19,7 +19,7 @@
 - Modify: `app/Services/TelegramService.php`
 - Modify: `app/Jobs/SendTelegramJob.php`
 
-- [ ] **Step 1: Write the failing profile and credential contract tests**
+- [x] **Step 1: Write the failing profile and credential contract tests**
 
 ```js
 test('Telegram bot profiles resolve separate settings without serializing tokens', () => {
@@ -34,13 +34,13 @@ test('Telegram bot profiles resolve separate settings without serializing tokens
 });
 ```
 
-- [ ] **Step 2: Run the new test and verify the missing files fail**
+- [x] **Step 2: Run the new test and verify the missing files fail**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js`
 
 Expected: FAIL because `TelegramBotProfile.php` and `TelegramCredentialService.php` do not exist.
 
-- [ ] **Step 3: Implement explicit profiles and encrypted ticket credentials**
+- [x] **Step 3: Implement explicit profiles and encrypted ticket credentials**
 
 ```php
 enum TelegramBotProfile: string
@@ -57,13 +57,13 @@ enum TelegramBotProfile: string
 
 `TelegramCredentialService` must encrypt/decrypt only the ticket token and Webhook secret, while reading the legacy general token unchanged. `TelegramService` receives `TelegramBotProfile` or an explicit one-time token and never treats a provided token as an `admin_setting()` fallback.
 
-- [ ] **Step 4: Run transport tests**
+- [x] **Step 4: Run transport tests**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js tests/telegram-http-runtime-safety.test.js`
 
 Expected: all tests PASS and the existing NativeHttpClient/retry assertions remain green.
 
-- [ ] **Step 5: Commit the transport boundary**
+- [x] **Step 5: Commit the transport boundary**
 
 ```bash
 git add tests/telegram-ticket-bot-isolation.test.js app/Services/TelegramBotProfile.php app/Services/TelegramCredentialService.php app/Services/TelegramService.php app/Jobs/SendTelegramJob.php
@@ -80,7 +80,7 @@ git commit -m "refactor: isolate telegram bot credentials"
 - Modify: `tests/horizon-fixed-workers.test.js`
 - Modify: `tests/telegram-ticket-bot-isolation.test.js`
 
-- [ ] **Step 1: Add failing queue isolation assertions**
+- [x] **Step 1: Add failing queue isolation assertions**
 
 ```js
 test('ticket delivery has a dedicated bounded queue', () => {
@@ -93,13 +93,13 @@ test('ticket delivery has a dedicated bounded queue', () => {
 });
 ```
 
-- [ ] **Step 2: Verify the new queue test fails**
+- [x] **Step 2: Verify the new queue test fails**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js tests/horizon-fixed-workers.test.js`
 
 Expected: FAIL because the ticket job/supervisor do not exist.
 
-- [ ] **Step 3: Implement the ticket job, notifier, and route switch**
+- [x] **Step 3: Implement the ticket job, notifier, and route switch**
 
 ```php
 if ((bool) admin_setting('telegram_ticket_bot_enable', false)) {
@@ -111,13 +111,13 @@ if ((bool) admin_setting('telegram_ticket_bot_enable', false)) {
 
 The plugin checks its existing `enable_ticket_notify` value before calling the notifier. The notifier sends to admin/staff recipients, selects the queue only from `telegram_ticket_bot_enable`, and never falls back after a ticket-job failure. Configure `XboardTicketTelegram` with one process, `tries=1`, `maxJobs=25`, and `maxTime=900`.
 
-- [ ] **Step 4: Run queue and existing ticket notification tests**
+- [x] **Step 4: Run queue and existing ticket notification tests**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js tests/horizon-fixed-workers.test.js tests/telegram-ticket-inline-actions.test.js`
 
 Expected: all tests PASS.
 
-- [ ] **Step 5: Commit outbound isolation**
+- [x] **Step 5: Commit outbound isolation**
 
 ```bash
 git add app/Jobs/SendTicketTelegramJob.php app/Services/Telegram/TicketTelegramNotifier.php plugins/Telegram/Plugin.php config/horizon.php tests/horizon-fixed-workers.test.js tests/telegram-ticket-bot-isolation.test.js
@@ -137,7 +137,7 @@ git commit -m "feat: route tickets through dedicated telegram queue"
 - Modify: `tests/telegram-ticket-inline-actions.test.js`
 - Modify: `tests/telegram-ticket-bot-isolation.test.js`
 
-- [ ] **Step 1: Write failing Webhook, authorization, and action tests**
+- [x] **Step 1: Write failing Webhook, authorization, and action tests**
 
 ```js
 test('ticket webhook verifies the Telegram secret header', () => {
@@ -155,13 +155,13 @@ test('ticket actions include contextual user and order callbacks', () => {
 });
 ```
 
-- [ ] **Step 2: Run the action tests and verify failure**
+- [x] **Step 2: Run the action tests and verify failure**
 
 Run: `node --test tests/telegram-ticket-inline-actions.test.js tests/telegram-ticket-bot-isolation.test.js`
 
 Expected: FAIL because the controller/parser/handler are missing.
 
-- [ ] **Step 3: Move ticket parsing and operations into focused services**
+- [x] **Step 3: Move ticket parsing and operations into focused services**
 
 `TelegramUpdateParser` returns the current normalized message object for `message`, `reply_message`, and `callback_query`. `TicketTelegramHandler` owns `/start`, `/ticket`, reply matching, ticket history, reply prompt, close confirmation, user view, and order view. Every public entry calls:
 
@@ -173,7 +173,7 @@ $operator = User::where('telegram_id', $msg->from_id)
 
 Add `TicketService::closeByAdmin(int $ticketId, int $operatorId): void` and use it from Telegram and the admin controller. General-bot ticket commands return the configured migration message once the ticket profile is enabled.
 
-- [ ] **Step 4: Run PHP syntax and focused action tests**
+- [x] **Step 4: Run PHP syntax and focused action tests**
 
 Run: `find app/Services/Telegram app/Http/Controllers/V1/Guest app/Services/TicketService.php plugins/Telegram/Plugin.php -name '*.php' -print0 | xargs -0 -n1 php -l`
 
@@ -181,7 +181,7 @@ Run: `node --test tests/telegram-ticket-inline-actions.test.js tests/telegram-ti
 
 Expected: every PHP file reports no syntax errors and all focused tests PASS.
 
-- [ ] **Step 5: Commit incoming ticket operations**
+- [x] **Step 5: Commit incoming ticket operations**
 
 ```bash
 git add app/Http/Controllers/V1/Guest/TicketTelegramController.php app/Services/Telegram/TelegramUpdateParser.php app/Services/Telegram/TicketTelegramHandler.php app/Http/Routes/V1/GuestRoute.php app/Services/TicketService.php app/Http/Controllers/V2/Admin/TicketController.php plugins/Telegram/Plugin.php tests/telegram-ticket-inline-actions.test.js tests/telegram-ticket-bot-isolation.test.js
@@ -194,7 +194,7 @@ git commit -m "feat: handle tickets in dedicated telegram bot"
 - Modify: `app/Services/Telegram/TicketTelegramHandler.php`
 - Modify: `tests/telegram-ticket-bot-isolation.test.js`
 
-- [ ] **Step 1: Add failing privacy and pagination assertions**
+- [x] **Step 1: Add failing privacy and pagination assertions**
 
 ```js
 test('user and order views resolve through ticket and exclude credentials', () => {
@@ -206,23 +206,23 @@ test('user and order views resolve through ticket and exclude credentials', () =
 });
 ```
 
-- [ ] **Step 2: Run the privacy test and verify failure**
+- [x] **Step 2: Run the privacy test and verify failure**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js`
 
 Expected: FAIL until both views and their whitelists are present.
 
-- [ ] **Step 3: Implement five-order pages and explicit user fields**
+- [x] **Step 3: Implement five-order pages and explicit user fields**
 
 Build user text from individual properties only. Query orders through `Order::with(['plan', 'trafficPackage', 'payment'])->where('user_id', $ticket->user_id)->latest('created_at')`, calculate pages at five items each, and render only trade number, product, type, status, amount, payment method, creation time, and paid time.
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run: `node --test tests/telegram-ticket-bot-isolation.test.js tests/telegram-ticket-inline-actions.test.js`
 
 Expected: all tests PASS.
 
-- [ ] **Step 5: Commit contextual views**
+- [x] **Step 5: Commit contextual views**
 
 ```bash
 git add app/Services/Telegram/TicketTelegramHandler.php tests/telegram-ticket-bot-isolation.test.js
@@ -242,7 +242,7 @@ git commit -m "feat: show ticket user and orders in telegram"
 - Modify: `public/assets/admin/locales/zh-CN.js`
 - Create: `tests/admin-ticket-telegram-settings.test.js`
 
-- [ ] **Step 1: Write failing configuration and compiled-UI tests**
+- [x] **Step 1: Write failing configuration and compiled-UI tests**
 
 ```js
 test('ticket token is write only and ticket webhook setup is separate', () => {
@@ -266,17 +266,17 @@ test('compiled admin exposes protected ticket bot controls', () => {
 });
 ```
 
-- [ ] **Step 2: Run the admin setting test and verify failure**
+- [x] **Step 2: Run the admin setting test and verify failure**
 
 Run: `node --test tests/admin-ticket-telegram-settings.test.js`
 
 Expected: FAIL because the routes, endpoints, and UI fields do not exist.
 
-- [ ] **Step 3: Implement sanitized endpoints and compiled settings controls**
+- [x] **Step 3: Implement sanitized endpoints and compiled settings controls**
 
 Add authenticated endpoints to replace/validate the encrypted ticket token, register the Webhook with `secret_token` and `allowed_updates`, fetch sanitized status, and test-send to the authenticated administrator's Telegram ID. Patch the compiled Telegram settings component and all shipped locales at the smallest stable string/component boundary. Change both token inputs to password type without returning the stored ticket token.
 
-- [ ] **Step 4: Run admin contracts and PHP syntax checks**
+- [x] **Step 4: Run admin contracts and PHP syntax checks**
 
 Run: `node --test tests/admin-ticket-telegram-settings.test.js tests/telegram-ticket-bot-isolation.test.js`
 
@@ -284,7 +284,7 @@ Run: `php -l app/Http/Controllers/V2/Admin/ConfigController.php && php -l app/Ht
 
 Expected: all tests PASS and every file reports no syntax errors.
 
-- [ ] **Step 5: Commit administration support**
+- [x] **Step 5: Commit administration support**
 
 ```bash
 git add app/Http/Controllers/V2/Admin/ConfigController.php app/Http/Requests/Admin/ConfigSave.php app/Http/Routes/V2/AdminRoute.php app/Services/TelegramService.php public/assets/admin/assets/index.js public/assets/admin/locales/en-US.js public/assets/admin/locales/ko-KR.js public/assets/admin/locales/zh-CN.js tests/admin-ticket-telegram-settings.test.js tests/telegram-ticket-bot-isolation.test.js
@@ -299,7 +299,7 @@ git commit -m "feat: configure dedicated ticket telegram bot"
 - Modify: `tests/admin-ticket-telegram-settings.test.js`
 - Modify: `docs/superpowers/plans/2026-08-19-dedicated-ticket-telegram-bot.md`
 
-- [ ] **Step 1: Add cutover and secret-leak assertions**
+- [x] **Step 1: Add cutover and secret-leak assertions**
 
 ```js
 test('ticket cutover never falls back or exposes credentials', () => {
@@ -316,19 +316,21 @@ test('ticket cutover never falls back or exposes credentials', () => {
 });
 ```
 
-- [ ] **Step 2: Run all repository Node tests**
+- [x] **Step 2: Run all repository Node tests**
 
 Run: `node --test tests/*.test.js`
 
 Expected: all tests PASS with zero failures.
 
-- [ ] **Step 3: Run complete PHP syntax verification for changed PHP files**
+Verification note: the dedicated ticket-bot suites pass. The repository-wide run reports 160/161 passing; the sole failure is the pre-existing macOS beta packaging contract (`APP_DISTRIBUTION_URL`) and is unrelated to Telegram files.
+
+- [x] **Step 3: Run complete PHP syntax verification for changed PHP files**
 
 Run: `git diff --name-only HEAD~5 -- '*.php' | xargs -n1 php -l`
 
 Expected: every changed PHP file reports `No syntax errors detected`.
 
-- [ ] **Step 4: Verify Laravel route registration and diff hygiene**
+- [x] **Step 4: Verify Laravel route registration and diff hygiene**
 
 Run: `php artisan route:list --path=telegram`
 
@@ -338,7 +340,7 @@ Run: `git diff --check && git status --short`
 
 Expected: no whitespace errors and only the intended implementation/plan changes are present.
 
-- [ ] **Step 5: Mark this plan's completed checkboxes and commit verification metadata**
+- [x] **Step 5: Mark this plan's completed checkboxes and commit verification metadata**
 
 ```bash
 git add docs/superpowers/plans/2026-08-19-dedicated-ticket-telegram-bot.md tests/telegram-ticket-bot-isolation.test.js tests/telegram-ticket-inline-actions.test.js tests/admin-ticket-telegram-settings.test.js

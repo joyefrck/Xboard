@@ -9,6 +9,7 @@ use App\Http\Controllers\V1\Guest\DomainCheckController;
 use App\Http\Controllers\V1\Guest\PaymentController;
 use App\Http\Controllers\V1\Guest\PlanController;
 use App\Http\Controllers\V1\Guest\TelegramController;
+use App\Http\Controllers\V1\Guest\TicketTelegramController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class GuestRoute
@@ -22,6 +23,7 @@ class GuestRoute
             $router->get('/plan/fetch', [PlanController::class, 'fetch']);
             // Telegram
             $router->post('/telegram/webhook', [TelegramController::class, 'webhook']);
+            $router->post('/telegram/ticket/webhook', [TicketTelegramController::class, 'webhook']);
             // Payment
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm

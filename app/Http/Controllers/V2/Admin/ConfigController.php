@@ -11,7 +11,10 @@ use App\Protocols\Stash;
 use App\Protocols\Surfboard;
 use App\Protocols\Surge;
 use App\Services\MailService;
+use App\Services\Plugin\PluginConfigService;
 use App\Services\TelegramService;
+use App\Services\TelegramBotProfile;
+use App\Services\TelegramCredentialService;
 use App\Services\ThemeService;
 use App\Utils\Dict;
 use Illuminate\Console\Command;
@@ -81,6 +84,97 @@ class ConfigController extends Controller
         $telegramService->getMe();
         $telegramService->setWebhook($hookUrl);
         $telegramService->registerBotCommands();
+        return $this->success(true);
+    }
+
+    public function setTicketTelegramToken(Request $request, TelegramCredentialService $credentials)
+    {
+        $request->validate([
+            'token' => 'nullable|string',
+        ]);
+
+        $token = trim((string) $request->input('token'));
+        if ($token === '') {
+            return $this->success([
+                'configured' => $credentials->hasToken(TelegramBotProfile::TICKET),
+                'username' => admin_setting('telegram_ticket_bot_username', ''),
+            ]);
+        }
+        $service = new TelegramService($token);
+        $bot = $service->getMe()->result ?? null;
+        if (!$bot || empty($bot->username)) {
+            return $this->fail([422, '无法验证工单机器人']);
+        }
+
+        $credentials->storeTicketToken($token);
+        admin_setting([
+            'telegram_ticket_bot_username' => (string) $bot->username,
+            'telegram_ticket_bot_enable' => false,
+            'telegram_ticket_webhook_configured_at' => null,
+            'telegram_ticket_webhook_url' => null,
+        ]);
+
+        return $this->success([
+            'configured' => true,
+            'username' => (string) $bot->username,
+        ]);
+    }
+
+    public function setTicketTelegramWebhook(TelegramCredentialService $credentials)
+    {
+        if (!$credentials->hasToken(TelegramBotProfile::TICKET)) {
+            return $this->fail([422, '请先配置工单机器人令牌']);
+        }
+
+        $webhookUrl = $this->ticketTelegramWebhookUrl();
+        if ($webhookUrl === '') {
+            return $this->fail([422, '请先设置站点网址']);
+        }
+
+        $secret = $credentials->ensureTicketWebhookSecret();
+        $service = new TelegramService(profile: TelegramBotProfile::TICKET);
+        $service->setWebhook($webhookUrl, [
+            'secret_token' => $secret,
+            'allowed_updates' => ['message', 'callback_query'],
+        ]);
+        $service->registerBotCommands([
+            ['command' => 'start', 'description' => '验证工单处理权限'],
+            ['command' => 'ticket', 'description' => '查看工单记录'],
+        ]);
+        $info = $service->getWebhookInfo()->result ?? (object) [];
+        if ((string) ($info->url ?? '') !== $webhookUrl) {
+            return $this->fail([502, '工单机器人 Webhook 验证失败']);
+        }
+        admin_setting([
+            'telegram_ticket_webhook_configured_at' => time(),
+            'telegram_ticket_webhook_url' => $webhookUrl,
+        ]);
+
+        return $this->success([
+            'configured' => true,
+            'username' => admin_setting('telegram_ticket_bot_username', ''),
+            'webhook_url' => (string) ($info->url ?? ''),
+            'pending_update_count' => (int) ($info->pending_update_count ?? 0),
+            'last_error_date' => $info->last_error_date ?? null,
+            'last_error_message' => $info->last_error_message ?? null,
+        ]);
+    }
+
+    public function testTicketTelegram(Request $request, TelegramCredentialService $credentials)
+    {
+        if (!$credentials->hasToken(TelegramBotProfile::TICKET)) {
+            return $this->fail([422, '请先配置工单机器人令牌']);
+        }
+        if (!$request->user()->telegram_id) {
+            return $this->fail([422, '当前管理员尚未绑定 Telegram']);
+        }
+
+        $service = new TelegramService(profile: TelegramBotProfile::TICKET);
+        $service->sendMessage(
+            (int) $request->user()->telegram_id,
+            '工单机器人测试消息发送成功。'
+        );
+
         return $this->success(true);
     }
 
@@ -171,6 +265,15 @@ class ConfigController extends Controller
             'telegram' => [
                 'telegram_bot_enable' => (bool) admin_setting('telegram_bot_enable', 0),
                 'telegram_bot_token' => admin_setting('telegram_bot_token'),
+                'telegram_ticket_notify_enable' => (bool) admin_setting(
+                    'telegram_ticket_notify_enable',
+                    app(PluginConfigService::class)->getDbConfig('telegram')['enable_ticket_notify'] ?? true
+                ),
+                'telegram_ticket_bot_enable' => (bool) admin_setting('telegram_ticket_bot_enable', 0),
+                'telegram_ticket_bot_configured' => app(TelegramCredentialService::class)
+                    ->hasToken(TelegramBotProfile::TICKET),
+                'telegram_ticket_bot_username' => admin_setting('telegram_ticket_bot_username', ''),
+                'telegram_ticket_webhook_configured' => $this->ticketTelegramWebhookConfigured(),
                 'telegram_discuss_link' => admin_setting('telegram_discuss_link')
             ],
             'app' => [
@@ -224,9 +327,18 @@ class ConfigController extends Controller
         ];
     }
 
-    public function save(ConfigSave $request)
+    public function save(ConfigSave $request, TelegramCredentialService $credentials)
     {
         $data = $request->validated();
+
+        if (($data['telegram_ticket_bot_enable'] ?? false)
+            && !$credentials->hasToken(TelegramBotProfile::TICKET)) {
+            return $this->fail([422, '请先配置工单机器人令牌']);
+        }
+        if (($data['telegram_ticket_bot_enable'] ?? false)
+            && !$this->ticketTelegramWebhookConfigured()) {
+            return $this->fail([422, '请先设置工单机器人 Webhook']);
+        }
 
         foreach ($data as $k => $v) {
             if ($k == 'frontend_theme') {
@@ -237,6 +349,25 @@ class ConfigController extends Controller
         }
 
         return $this->success(true);
+    }
+
+    private function ticketTelegramWebhookUrl(): string
+    {
+        $appUrl = rtrim((string) admin_setting('app_url', ''), '/');
+
+        return $appUrl === '' ? '' : $appUrl . '/api/v1/guest/telegram/ticket/webhook';
+    }
+
+    private function ticketTelegramWebhookConfigured(): bool
+    {
+        $expectedUrl = $this->ticketTelegramWebhookUrl();
+
+        return $expectedUrl !== ''
+            && (bool) admin_setting('telegram_ticket_webhook_configured_at', false)
+            && hash_equals(
+                $expectedUrl,
+                (string) admin_setting('telegram_ticket_webhook_url', '')
+            );
     }
 
     /**

@@ -34,14 +34,17 @@ test('high-frequency queues use isolated fixed Horizon workers', () => {
   assertFixedSupervisor('XboardOnline', ['online_sync'], 1);
   assertFixedSupervisor('XboardOrder', ['order_handle'], 1);
   assertFixedSupervisor('XboardTelegram', ['send_telegram'], 1);
+  assertFixedSupervisor('XboardTicketTelegram', ['send_ticket_telegram'], 1);
   assert.doesNotMatch(horizon, /'Xboard'\s*=>\s*\[/);
   assert.doesNotMatch(horizon, /'XboardCore'\s*=>\s*\[/);
 });
 
 test('Telegram worker is recycled before leaked runtime resources can accumulate', () => {
-  const config = supervisor('XboardTelegram');
+  const configs = [supervisor('XboardTelegram'), supervisor('XboardTicketTelegram')];
 
-  assert.match(config, /'maxJobs'\s*=>\s*25/);
-  assert.match(config, /'maxTime'\s*=>\s*900/);
+  for (const config of configs) {
+    assert.match(config, /'maxJobs'\s*=>\s*25/);
+    assert.match(config, /'maxTime'\s*=>\s*900/);
+  }
   assert.doesNotMatch(supervisor('XboardOrder'), /'send_telegram'/);
 });

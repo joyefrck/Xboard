@@ -4,10 +4,12 @@ namespace Plugin\Telegram;
 
 use App\Models\Order;
 use App\Models\Ticket;
+use App\Models\TicketMessage;
 use App\Models\User;
 use App\Services\Plugin\AbstractPlugin;
 use App\Services\Plugin\HookManager;
 use App\Services\TelegramService;
+use App\Services\Telegram\TicketTelegramNotifier;
 use App\Services\TicketService;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Log;
@@ -126,46 +128,14 @@ class Plugin extends AbstractPlugin
 
   public function sendTicketNotify(Ticket $ticket): void
   {
-    if (!$this->getConfig('enable_ticket_notify', true)) {
+    if (!(bool) admin_setting(
+      'telegram_ticket_notify_enable',
+      $this->getConfig('enable_ticket_notify', true)
+    )) {
       return;
     }
 
-    $message = $ticket->messages()->latest()->first();
-    $user = User::find($ticket->user_id);
-    if (!$user)
-      return;
-    $user->load('plan');
-    $transfer_enable = $this->transferToGBString($user->transfer_enable);
-    $remaining_traffic = $this->transferToGBString($user->transfer_enable - $user->u - $user->d);
-    $u = $this->transferToGBString($user->u);
-    $d = $this->transferToGBString($user->d);
-    $expired_at = $user->expired_at ? date('Y-m-d H:i:s', $user->expired_at) : '长期有效';
-    $money = $user->balance / 100;
-    $affmoney = $user->commission_balance / 100;
-    $plan = $user->plan;
-    $ip = request()?->ip() ?? '';
-    $region = $ip ? (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? (new \Ip2Region())->simple($ip) : 'NULL') : '';
-    $TGmessage = "📮 *工单提醒* #{$ticket->id}\n";
-    $TGmessage .= "━━━━━━━━━━━━━━━━━━━━\n";
-    $TGmessage .= "📧 邮箱: `{$user->email}`\n";
-    $TGmessage .= "📍 位置: `{$region}`\n";
-
-    if ($plan) {
-      $TGmessage .= "📦 套餐: `{$plan->name}`\n";
-      $TGmessage .= "📊 流量: `{$remaining_traffic}G / {$transfer_enable}G` (剩余/总计)\n";
-      $TGmessage .= "⬆️⬇️ 已用: `{$u}G / {$d}G`\n";
-      $TGmessage .= "⏰ 到期: `{$expired_at}`\n";
-    } else {
-      $TGmessage .= "📦 套餐: `未订购任何套餐`\n";
-    }
-
-    $TGmessage .= "💰 余额: `{$money}元`\n";
-    $TGmessage .= "💸 佣金: `{$affmoney}元`\n";
-    $TGmessage .= "━━━━━━━━━━━━━━━━━━━━\n";
-    $TGmessage .= "📝 *主题*: `{$ticket->subject}`\n";
-    $TGmessage .= "💬 *内容*: `{$message->message}`\n";
-    $TGmessage .= "↩️ 回复本消息即可回复工单";
-    $this->sendAdminNotification($TGmessage, $this->buildTicketActionKeyboard($ticket->id));
+    app(TicketTelegramNotifier::class)->send($ticket);
   }
 
   protected function registerDefaultCommands(): void
@@ -248,6 +218,16 @@ class Plugin extends AbstractPlugin
     list($msg) = $data;
     if ($handled)
       return $handled;
+
+    if ((bool) admin_setting('telegram_ticket_bot_enable', false) && $this->isLegacyTicketMessage($msg)) {
+      $username = trim((string) admin_setting('telegram_ticket_bot_username', ''));
+      $destination = $username !== '' ? " @{$username}" : '新的工单机器人';
+      $this->telegramService->sendMessage($msg->chat_id, "工单功能已迁移至{$destination}，请在那里继续处理。");
+      if (!empty($msg->callback_query_id)) {
+        $this->telegramService->answerCallbackQuery($msg->callback_query_id, '工单功能已迁移', true);
+      }
+      return true;
+    }
 
     try {
       return match ($msg->message_type) {
@@ -578,14 +558,17 @@ class Plugin extends AbstractPlugin
     $history = "📮 *工单 #{$ticket->id} 记录* ({$page}/{$totalPages})\n";
     $history .= "主题: {$this->cleanTelegramText($ticket->subject)}\n";
     $history .= "状态: " . (Ticket::$statusMap[$ticket->status] ?? $ticket->status) . "\n";
-    $history .= "用户: {$this->cleanTelegramText($ticket->user?->email ?? '未知用户')}\n";
+    $history .= "用户: {$this->cleanTelegramText($ticket->user->email)}\n";
     $history .= "━━━━━━━━━━━━━━━━━━━━\n";
 
     foreach ($pageMessages as $ticketMessage) {
+      /** @var TicketMessage $ticketMessage */
+      /** @var User|null $messageUser */
+      $messageUser = $ticketMessage->user;
       $author = $ticketMessage->user_id === $ticket->user_id
         ? '用户'
-        : ($ticketMessage->user?->is_admin ? '管理员' : '客服');
-      $time = date('Y-m-d H:i:s', (int) $ticketMessage->created_at);
+        : ($messageUser?->is_admin ? '管理员' : '客服');
+      $time = date('Y-m-d H:i:s', (int) $ticketMessage->getRawOriginal('created_at'));
       $content = $this->cleanTelegramText($ticketMessage->message);
       $history .= "[{$time}] {$author}\n{$content}\n\n";
     }
@@ -647,18 +630,13 @@ class Plugin extends AbstractPlugin
 
   private function closeTicketFromTelegram(object $msg, int $ticketId): void
   {
-    if (!$this->getTicketOperator($msg)) {
+    $operator = $this->getTicketOperator($msg);
+    if (!$operator) {
       $this->answerCallback($msg, '没有权限', true);
       return;
     }
 
-    $ticket = $this->findTicketForTelegram($msg, $ticketId);
-    if (!$ticket) {
-      return;
-    }
-
-    $ticket->status = Ticket::STATUS_CLOSED;
-    $ticket->save();
+    (new TicketService())->closeByAdmin($ticketId, $operator->id);
 
     $this->answerCallback($msg, '工单已关闭');
     $this->sendMessage($msg, "工单 #{$ticketId} 已关闭");
@@ -668,21 +646,6 @@ class Plugin extends AbstractPlugin
   {
     $this->answerCallback($msg, '已取消');
     $this->sendMessage($msg, '已取消关闭工单');
-  }
-
-  private function buildTicketActionKeyboard(int $ticketId): array
-  {
-    return [
-      'reply_markup' => [
-        'inline_keyboard' => [
-          [
-            ['text' => '查看记录', 'callback_data' => "ticket:view:{$ticketId}:1"],
-            ['text' => '回复', 'callback_data' => "ticket:reply:{$ticketId}"],
-            ['text' => '关闭', 'callback_data' => "ticket:close:{$ticketId}"],
-          ],
-        ],
-      ],
-    ];
   }
 
   private function buildTicketHistoryKeyboard(int $ticketId, int $page, int $totalPages): array
@@ -740,6 +703,9 @@ class Plugin extends AbstractPlugin
   public function addBotCommands(array $commands): array
   {
     foreach ($this->commandConfigs as $command => $config) {
+      if ($command === '/ticket' && (bool) admin_setting('telegram_ticket_bot_enable', false)) {
+        continue;
+      }
       $commands[] = [
         'command' => $command,
         'description' => $config['description']
@@ -747,6 +713,18 @@ class Plugin extends AbstractPlugin
     }
 
     return $commands;
+  }
+
+  private function isLegacyTicketMessage(object $msg): bool
+  {
+    if (($msg->command ?? '') === '/ticket') {
+      return true;
+    }
+    if (str_starts_with((string) ($msg->callback_data ?? ''), 'ticket:')) {
+      return true;
+    }
+    return ($msg->message_type ?? '') === 'reply_message'
+      && preg_match('/(📮.*?工单提醒.*?#?|工单ID: ?)(\d+)/', (string) ($msg->reply_text ?? '')) === 1;
   }
 
   private function transferToGBString(float $transfer_enable, int $decimals = 2): string

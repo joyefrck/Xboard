@@ -21,9 +21,17 @@ class TelegramService
     protected HttpClientInterface $http;
     protected string $apiUrl;
 
-    public function __construct(?string $token = null, ?HttpClientInterface $http = null)
-    {
-        $botToken = admin_setting('telegram_bot_token', $token);
+    public function __construct(
+        ?string $token = null,
+        ?HttpClientInterface $http = null,
+        TelegramBotProfile $profile = TelegramBotProfile::GENERAL,
+        ?TelegramCredentialService $credentials = null
+    ) {
+        $credentials ??= app(TelegramCredentialService::class);
+        $botToken = $token ?? $credentials->getToken($profile);
+        if (blank($botToken)) {
+            throw new ApiException('Telegram 机器人令牌未配置');
+        }
         $this->apiUrl = "https://api.telegram.org/bot{$botToken}/";
 
         $this->http = $http ?? new NativeHttpClient([
@@ -94,19 +102,26 @@ class TelegramService
         return $this->request('getMe');
     }
 
-    public function setWebhook(string $url): object
+    public function setWebhook(string $url, array $options = []): object
     {
-        $result = $this->request('setWebhook', ['url' => $url]);
+        $result = $this->request('setWebhook', $this->normalizeParams(array_merge([
+            'url' => $url,
+        ], $options)));
         return $result;
+    }
+
+    public function getWebhookInfo(): object
+    {
+        return $this->request('getWebhookInfo');
     }
 
     /**
      * 注册 Bot 命令列表
      */
-    public function registerBotCommands(): void
+    public function registerBotCommands(?array $commands = null): void
     {
         try {
-            $commands = HookManager::filter('telegram.bot.commands', []);
+            $commands ??= HookManager::filter('telegram.bot.commands', []);
 
             if (empty($commands)) {
                 Log::warning('没有找到任何 Telegram Bot 命令');
@@ -162,7 +177,7 @@ class TelegramService
 
     protected function normalizeParams(array $params): array
     {
-        foreach (['reply_markup'] as $jsonKey) {
+        foreach (['reply_markup', 'allowed_updates', 'commands', 'scope'] as $jsonKey) {
             if (isset($params[$jsonKey]) && is_array($params[$jsonKey])) {
                 $params[$jsonKey] = json_encode($params[$jsonKey], JSON_UNESCAPED_UNICODE);
             }
@@ -232,7 +247,7 @@ class TelegramService
         } catch (\Throwable $e) {
             Log::error('Telegram API 请求失败', [
                 'method' => $method,
-                'params' => $params,
+                'params' => $this->redactParams($params),
                 'error' => $e->getMessage(),
             ]);
 
@@ -253,5 +268,16 @@ class TelegramService
     private function sleepBeforeRetry(int $seconds): void
     {
         usleep($seconds * 1_000_000);
+    }
+
+    private function redactParams(array $params): array
+    {
+        foreach (['secret_token', 'text'] as $sensitiveKey) {
+            if (array_key_exists($sensitiveKey, $params)) {
+                $params[$sensitiveKey] = '[REDACTED]';
+            }
+        }
+
+        return $params;
     }
 }

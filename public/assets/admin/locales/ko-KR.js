@@ -729,6 +729,30 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
         "title": "그룹 링크",
         "description": "입력하면 사용자 측에 표시되거나 필요한 곳에서 사용됩니다.",
         "placeholder": "https://t.me/xxxxxx"
+      },
+      "ticket_bot": {
+        "title": "티켓 봇 설정",
+        "notify_title": "티켓 알림 활성화",
+        "notify_description": "티켓 생성 및 사용자 답변 시 Telegram 알림을 전송합니다.",
+        "enable_title": "전용 티켓 봇 활성화",
+        "enable_description": "티켓 알림과 작업을 전용 봇에서만 처리합니다.",
+        "token_title": "티켓 봇 토큰",
+        "token_description": "토큰은 저장 후 다시 표시되지 않습니다.",
+        "token_placeholder": "새 티켓 봇 토큰 입력",
+        "token_success": "티켓 봇 토큰이 확인되고 저장되었습니다",
+        "configured": "설정됨: @{{username}}",
+        "webhook_ready": "Webhook 상태: 설정됨",
+        "webhook_pending": "Webhook 상태: 설정 필요"
+      },
+      "ticket_webhook": {
+        "button": "티켓 웹훅 설정",
+        "setting": "설정 중...",
+        "success": "티켓 봇 웹훅 설정 완료"
+      },
+      "ticket_test": {
+        "button": "테스트 메시지 보내기",
+        "sending": "전송 중...",
+        "success": "테스트 메시지를 보냈습니다"
       }
     },
     "app": {

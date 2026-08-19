@@ -714,6 +714,30 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "群组链接",
         "description": "填写后将在用户端显示或在需要的地方使用。",
         "placeholder": "https://t.me/xxxxxx"
+      },
+      "ticket_bot": {
+        "title": "工单机器人设置",
+        "notify_title": "开启工单通知",
+        "notify_description": "控制工单创建和用户回复时是否发送 Telegram 通知。",
+        "enable_title": "启用独立工单机器人",
+        "enable_description": "开启后，工单提醒和工单操作只通过独立机器人处理。",
+        "token_title": "工单机器人令牌",
+        "token_description": "令牌仅用于更新，保存后不会再次显示。",
+        "token_placeholder": "输入新的工单机器人令牌",
+        "token_success": "工单机器人令牌验证并保存成功",
+        "configured": "已配置：@{{username}}",
+        "webhook_ready": "Webhook 状态：已配置",
+        "webhook_pending": "Webhook 状态：待设置"
+      },
+      "ticket_webhook": {
+        "button": "设置工单Webhook",
+        "setting": "设置中...",
+        "success": "工单机器人Webhook设置成功"
+      },
+      "ticket_test": {
+        "button": "发送测试消息",
+        "sending": "发送中...",
+        "success": "测试消息发送成功"
       }
     },
     "app": {

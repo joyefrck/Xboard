@@ -5,7 +5,6 @@ namespace App\Http\Controllers\V2\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Services\TicketService;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class TicketController extends Controller
@@ -128,14 +127,14 @@ class TicketController extends Controller
             'id.required' => '工单ID不能为空'
         ]);
         try {
-            $ticket = Ticket::findOrFail($request->input('id'));
-            $ticket->status = Ticket::STATUS_CLOSED;
-            $ticket->save();
+            $ticketService = new TicketService();
+            $ticketService->closeByAdmin(
+                (int) $request->input('id'),
+                (int) $request->user()->id
+            );
             return $this->success(true);
-        } catch (ModelNotFoundException $e) {
-            return $this->fail([400202, '工单不存在']);
         } catch (\Exception $e) {
-            return $this->fail([500101, '关闭失败']);
+            return $this->fail([500101, $e->getMessage() ?: '关闭失败']);
         }
     }
 

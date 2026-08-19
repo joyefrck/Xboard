@@ -68,6 +68,8 @@ class ConfigSave extends FormRequest
         // telegram
         'telegram_bot_enable' => '',
         'telegram_bot_token' => '',
+        'telegram_ticket_notify_enable' => 'boolean',
+        'telegram_ticket_bot_enable' => 'boolean',
         'telegram_discuss_id' => '',
         'telegram_channel_id' => '',
         'telegram_discuss_link' => 'nullable|url',

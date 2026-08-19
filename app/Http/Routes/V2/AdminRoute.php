@@ -40,6 +40,9 @@ class AdminRoute
                 $router->get('/getEmailTemplate', [ConfigController::class, 'getEmailTemplate']);
                 $router->get('/getThemeTemplate', [ConfigController::class, 'getThemeTemplate']);
                 $router->post('/setTelegramWebhook', [ConfigController::class, 'setTelegramWebhook']);
+                $router->post('/setTicketTelegramToken', [ConfigController::class, 'setTicketTelegramToken']);
+                $router->post('/setTicketTelegramWebhook', [ConfigController::class, 'setTicketTelegramWebhook']);
+                $router->post('/testTicketTelegram', [ConfigController::class, 'testTicketTelegram']);
                 $router->post('/testSendMail', [ConfigController::class, 'testSendMail']);
             });
 

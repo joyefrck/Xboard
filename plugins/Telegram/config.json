@@ -8,12 +8,6 @@
         "xboard": ">=1.0.0"
     },
     "config": {
-        "enable_ticket_notify": {
-            "type": "boolean",
-            "default": true,
-            "label": "开启工单通知",
-            "description": "是否开启工单创建和回复的 Telegram 通知功能"
-        },
         "enable_register_notify": {
             "type": "boolean",
             "default": true,

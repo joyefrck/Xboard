@@ -10,14 +10,14 @@ function readRepoFile(relativePath) {
 }
 
 test('Telegram webhook parses callback query ticket action payloads', () => {
-  const controller = readRepoFile('app/Http/Controllers/V1/Guest/TelegramController.php');
+  const parser = readRepoFile('app/Services/Telegram/TelegramUpdateParser.php');
 
-  assert.match(controller, /formatCallbackQuery\(\$data\)/);
-  assert.match(controller, /\$data\['callback_query'\]/);
-  assert.match(controller, /callback_query_id/);
-  assert.match(controller, /callback_data/);
-  assert.match(controller, /from_id/);
-  assert.match(controller, /message_type'\s*=>\s*'callback_query'/);
+  assert.match(parser, /\$data\['callback_query'\]/);
+  assert.match(parser, /parseCallback/);
+  assert.match(parser, /callback_query_id/);
+  assert.match(parser, /callback_data/);
+  assert.match(parser, /from_id/);
+  assert.match(parser, /message_type'\s*=>\s*'callback_query'/);
 });
 
 test('Telegram service and queue job support structured message options', () => {
@@ -47,65 +47,77 @@ test('Telegram payment notification labels first and repeat valid payments', () 
 });
 
 test('Telegram ticket reminder includes inline action buttons', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const notifier = readRepoFile('app/Services/Telegram/TicketTelegramNotifier.php');
 
-  assert.match(plugin, /buildTicketActionKeyboard\(int \$ticketId\)/);
-  assert.match(plugin, /inline_keyboard/);
-  assert.match(plugin, /ticket:view:\{\$ticketId\}:1/);
-  assert.match(plugin, /ticket:reply:\{\$ticketId\}/);
-  assert.match(plugin, /ticket:close:\{\$ticketId\}/);
-  assert.match(plugin, /sendAdminNotification\(\$TGmessage, \$this->buildTicketActionKeyboard\(\$ticket->id\)\)/);
+  assert.match(notifier, /ticketActionKeyboard\(int \$ticketId\)/);
+  assert.match(notifier, /inline_keyboard/);
+  assert.match(notifier, /ticket:view:\{\$ticketId\}:1/);
+  assert.match(notifier, /ticket:reply:\{\$ticketId\}/);
+  assert.match(notifier, /ticket:close:\{\$ticketId\}/);
+  assert.match(notifier, /ticket:user:\{\$ticketId\}/);
+  assert.match(notifier, /ticket:orders:\{\$ticketId\}:1/);
+  assert.match(notifier, /SendTicketTelegramJob::dispatch/);
 });
 
 test('Telegram ticket actions verify admin or staff identity by callback sender', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
 
-  assert.match(plugin, /private function getTicketOperator\(object \$msg\): \?User/);
-  assert.match(plugin, /User::where\('telegram_id', \$msg->from_id\)/);
-  assert.match(plugin, /where\(fn\(\$query\) => \$query->where\('is_admin', 1\)->orWhere\('is_staff', 1\)\)/);
-  assert.doesNotMatch(plugin, /User::where\('telegram_id', \$msg->chat_id\)->where\(fn\(\$query\) => \$query->where\('is_admin', 1\)->orWhere\('is_staff', 1\)\)/);
+  assert.match(handler, /private function getTicketOperator\(object \$msg\): User/);
+  assert.match(handler, /User::where\('telegram_id', \$msg->from_id\)/);
+  assert.match(handler, /empty\(\$msg->is_private\)/);
+  assert.match(handler, /where\(fn\(\$query\) => \$query->where\('is_admin', 1\)->orWhere\('is_staff', 1\)\)/);
+  assert.doesNotMatch(handler, /User::where\('telegram_id', \$msg->chat_id\)/);
 });
 
 test('Telegram ticket history is paginated with compact callback data', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
 
-  assert.match(plugin, /private const TICKET_HISTORY_PAGE_SIZE = 5/);
-  assert.match(plugin, /handleTicketCallback\(object \$msg\)/);
-  assert.match(plugin, /showTicketHistory\(object \$msg, int \$ticketId, int \$page = 1\)/);
-  assert.match(plugin, /forPage\(\$page, self::TICKET_HISTORY_PAGE_SIZE\)/);
-  assert.match(plugin, /ticket:view:\{\$ticketId\}:\{\$previousPage\}/);
-  assert.match(plugin, /ticket:view:\{\$ticketId\}:\{\$nextPage\}/);
+  assert.match(handler, /private const TICKET_HISTORY_PAGE_SIZE = 5/);
+  assert.match(handler, /handleCallback\(object \$msg\)/);
+  assert.match(handler, /showTicketHistory\(object \$msg, int \$ticketId, int \$page\)/);
+  assert.match(handler, /forPage\(\$page, self::TICKET_HISTORY_PAGE_SIZE\)/);
+  assert.match(handler, /ticket:view:\{\$ticketId\}:" \. \(\$page - 1\)/);
+  assert.match(handler, /ticket:view:\{\$ticketId\}:" \. \(\$page \+ 1\)/);
 });
 
 test('Telegram ticket history can be requested without inline buttons', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
 
-  assert.match(plugin, /'\/ticket'\s*=>\s*\['description'\s*=>\s*'查看工单记录',\s*'handler'\s*=>\s*'handleTicketCommand'\]/);
-  assert.match(plugin, /public function handleTicketCommand\(object \$msg\): void/);
-  assert.match(plugin, /showTicketHistory\(\$msg, \$ticketId, \$page\)/);
-  assert.match(plugin, /private function isTicketHistoryRequest\(string \$text\): bool/);
-  assert.match(plugin, /if \(\$this->isTicketHistoryRequest\(\$msg->text\)\) \{[\s\S]*showTicketHistory\(\$msg, \$ticketId\);[\s\S]*return;/);
-  assert.match(plugin, /\$msg->message_type === 'callback_query' && \$msg->message_id/);
+  assert.match(handler, /'\/ticket' => \$this->handleTicketCommand\(\$msg\)/);
+  assert.match(handler, /private function handleTicketCommand\(object \$msg\): void/);
+  assert.match(handler, /showTicketHistory\(\$msg, \$ticketId, \$page\)/);
+  assert.match(handler, /用法：\/ticket 工单ID/);
+  assert.match(handler, /\$msg->message_type === 'callback_query' && \$msg->message_id/);
 });
 
 test('Telegram ticket reply uses ForceReply and writes through TicketService', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
 
-  assert.match(plugin, /requestTicketReply\(object \$msg, int \$ticketId\)/);
-  assert.match(plugin, /回复本消息即可回复工单/);
-  assert.match(plugin, /force_reply/);
-  assert.match(plugin, /工单ID: \{\$ticketId\}/);
-  assert.match(plugin, /replyByAdmin\(\s*\$ticketId,\s*\$this->extractTicketReplyText\(\$msg->text\),\s*\$operator->id\s*\)/);
+  assert.match(handler, /requestTicketReply\(object \$msg, int \$ticketId\)/);
+  assert.match(handler, /请回复这条消息发送工单回复/);
+  assert.match(handler, /force_reply/);
+  assert.match(handler, /工单ID: \{\$ticketId\}/);
+  assert.match(handler, /replyByAdmin\(\$ticketId, \$message, \$operator->id\)/);
 });
 
 test('Telegram ticket close action requires confirmation before closing', () => {
-  const plugin = readRepoFile('plugins/Telegram/Plugin.php');
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
 
-  assert.match(plugin, /confirmTicketClose\(object \$msg, int \$ticketId\)/);
-  assert.match(plugin, /ticket:close_confirm:\{\$ticketId\}/);
-  assert.match(plugin, /ticket:close_cancel:\{\$ticketId\}/);
-  assert.match(plugin, /closeTicketFromTelegram\(object \$msg, int \$ticketId\)/);
-  assert.match(plugin, /\$ticket->status = Ticket::STATUS_CLOSED/);
+  assert.match(handler, /confirmTicketClose\(object \$msg, int \$ticketId\)/);
+  assert.match(handler, /ticket:close_confirm:\{\$ticketId\}/);
+  assert.match(handler, /ticket:close_cancel:\{\$ticketId\}/);
+  assert.match(handler, /closeTicket\(object \$msg, int \$ticketId\)/);
+  assert.match(handler, /closeByAdmin\(\$ticketId, \$operator->id\)/);
+});
+
+test('Telegram contextual user and order views stay scoped to the ticket owner', () => {
+  const handler = readRepoFile('app/Services/Telegram/TicketTelegramHandler.php');
+
+  assert.match(handler, /showUser\(object \$msg, int \$ticketId\)/);
+  assert.match(handler, /showOrders\(object \$msg, int \$ticketId, int \$page\)/);
+  assert.match(handler, /where\('user_id', \$ticket->user_id\)/);
+  assert.match(handler, /private const ORDER_PAGE_SIZE = 5/);
+  assert.doesNotMatch(handler, /subscribe_url|password_algo|password_salt|callback_no/);
 });
 
 test('Ticket messages expose their author for Telegram history labels', () => {
