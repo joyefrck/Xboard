@@ -25,8 +25,29 @@ void main() {
         .readAsStringSync();
 
     expect(runtime, contains("{'reason': reason}"));
-    expect(macos, contains('VpnStopReason.nodeSwitch'));
+    expect(
+      macos,
+      contains(r'macOS runtime stop requested reason=${reason.wireValue}'),
+    );
     expect(tray, contains('VpnStopReason.trayExit'));
     expect(update, contains("'reason': 'update_install'"));
+  });
+
+  test('macOS outbound selection never restarts the TUN runtime', () {
+    final source =
+        File('lib/core/singbox/macos_vpn_service.dart').readAsStringSync();
+    final start = source.indexOf(
+      'Future<void> selectOutbound(String groupTag, String outboundTag)',
+    );
+    final end = source.indexOf('\n  @override\n  void dispose()', start);
+
+    expect(start, greaterThanOrEqualTo(0));
+    expect(end, greaterThan(start));
+    final selectBody = source.substring(start, end);
+
+    expect(selectBody, contains('_clashController.selectOutbound'));
+    expect(selectBody, isNot(contains('_runtime.stopCore')));
+    expect(selectBody, isNot(contains('_runtime.startTunMode')));
+    expect(selectBody, isNot(contains('VpnStatus.coreStarting')));
   });
 }

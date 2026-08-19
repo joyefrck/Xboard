@@ -12,6 +12,7 @@ import '../api/subscription_config_cache.dart';
 import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
+import 'macos_clash_controller.dart';
 import 'macos_latency_fallback.dart';
 import 'macos_latency_session.dart';
 import 'macos_latency_source_selector.dart';
@@ -59,6 +60,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         return client;
       },
     );
+    _clashController = MacosClashController(_clashDio);
     final productionClashProbe = MacosProductionClashLatencyProbe(_clashDio);
     _latencyFallbackRunner = latencyFallbackRunner ??
         MacosLatencyFallbackRunner(
@@ -78,6 +80,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   static const String _clashApiBase = 'http://127.0.0.1:9090';
 
   final Dio _clashDio;
+  late final MacosClashController _clashController;
   final SubscriptionConfigCache _subscriptionConfigCache;
   final Duration _latencyCacheReadTimeout;
   final Duration _latencyRunTimeout;
@@ -508,88 +511,74 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
 
   @override
   Future<void> selectOutbound(String groupTag, String outboundTag) async {
-    if (_lastSanitizedConfig == null ||
-        _singboxDirPath == null ||
-        _singboxBinPath == null) {
+    if (_lastSanitizedConfig == null || _singboxDirPath == null) {
       return;
     }
 
     try {
-      _updateState(VpnStatus.coreStarting);
-
-      final config = jsonDecode(_lastSanitizedConfig!) as Map<String, dynamic>;
-      final outbounds = config['outbounds'];
-      if (outbounds is List) {
-        for (final outbound in outbounds) {
-          if (outbound is Map<String, dynamic> &&
-              outbound['type'] == 'selector' &&
-              outbound['tag'] == groupTag) {
-            outbound['default'] = outboundTag;
-            break;
-          }
-        }
-      }
-
-      final updatedConfig = jsonEncode(config);
+      final updatedConfig = _configWithSelectedOutbound(
+        _lastSanitizedConfig!,
+        groupTag,
+        outboundTag,
+      );
+      await _clashController.selectOutbound(groupTag, outboundTag);
       _lastSanitizedConfig = updatedConfig;
-      final configFile = File('$_singboxDirPath/config.json');
-      await configFile.writeAsString(updatedConfig);
-      await _cleanupResidualCacheFiles(_singboxDirPath!);
-
-      final configValid = await _validateConfig(
-        binaryPath: _singboxBinPath!,
-        configPath: configFile.path,
-      );
-      if (!configValid) return;
-
-      await _runtime.stopCore(reason: VpnStopReason.nodeSwitch.wireValue);
-      Map<String, dynamic> startResult;
-      if (_isTunMode) {
-        startResult = await _runtime.startTunMode(
-          configPath: configFile.path,
-          binaryPath: _singboxBinPath!,
-        );
-      } else {
-        _updateState(VpnStatus.applyingProxy);
-        startResult = await _runtime.startProxyMode(
-          configPath: configFile.path,
-          binaryPath: _singboxBinPath!,
-          proxyPort: _proxyPort,
+      try {
+        final configFile = File('$_singboxDirPath/config.json');
+        await configFile.writeAsString(updatedConfig);
+      } catch (error, stackTrace) {
+        await AppLogger.instance.error(
+          'macOS hot switch config persistence failed',
+          error: error,
+          stackTrace: stackTrace,
         );
       }
-
-      if (startResult['ok'] != true || !await _waitForHealthCheck()) {
-        final errorMessage = (startResult['error'] as String?) ?? '节点切换失败，请重试';
-        _updateState(
-          VpnStatus.error,
-          errorMessage: errorMessage,
-          failureReason: _mapStartFailureReason(
-            startResult,
-            isTunMode: _isTunMode,
-            fallbackError: errorMessage,
-          ),
-        );
-        return;
-      }
-
-      _updateState(
-        VpnStatus.connected,
-        connectionMode:
-            _isTunMode ? VpnConnectionMode.tun : VpnConnectionMode.proxy,
-        runtimeDetails: await _runtime.getRuntimeStatus(),
-        resetError: true,
-        resetFailure: true,
-      );
-      await AppLogger.instance.info('Node switch completed: $outboundTag');
-    } catch (e, stackTrace) {
       await AppLogger.instance
-          .error('Node switch failed', error: e, stackTrace: stackTrace);
-      _updateState(
-        VpnStatus.error,
-        errorMessage: '节点切换失败: $e',
-        failureReason: VpnFailureReason.unknown,
+          .info('macOS outbound hot switch completed: $outboundTag');
+    } catch (e, stackTrace) {
+      await AppLogger.instance.error('macOS outbound hot switch failed',
+          error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  String _configWithSelectedOutbound(
+    String jsonConfig,
+    String groupTag,
+    String outboundTag,
+  ) {
+    final config = jsonDecode(jsonConfig) as Map<String, dynamic>;
+    final outbounds = config['outbounds'];
+    if (outbounds is! List) {
+      throw const MacosClashControllerException(
+        'Active config has no outbound selectors',
       );
     }
+
+    Map<String, dynamic>? selector;
+    for (final outbound in outbounds) {
+      if (outbound is Map<String, dynamic> &&
+          outbound['type'] == 'selector' &&
+          outbound['tag'] == groupTag) {
+        selector = outbound;
+        break;
+      }
+    }
+    if (selector == null) {
+      throw MacosClashControllerException(
+        'Selector group not found: $groupTag',
+      );
+    }
+
+    final selectorOutbounds = selector['outbounds'];
+    if (selectorOutbounds is! List ||
+        !selectorOutbounds.contains(outboundTag)) {
+      throw MacosClashControllerException(
+        'Selector outbound not found: $outboundTag',
+      );
+    }
+    selector['default'] = outboundTag;
+    return jsonEncode(config);
   }
 
   @override
