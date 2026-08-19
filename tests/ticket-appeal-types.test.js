@@ -81,13 +81,14 @@ test('ElephantRoute exposes three manual types and renders system and legacy val
   assert.match(themeOverride, /\['请选项工单等级', '请选择申诉类型'\]/);
 });
 
-test('admin ticket UI maps all stored types and leaves legacy null blank', () => {
+test('admin ticket UI maps all stored types, filters manual types, and leaves legacy null blank', () => {
   const bundle = readRepoFile('public/assets/admin/assets/index.js');
   const helperDefinition = /xboardTicketTypeKey=s=>s===js\.LOW\?"low":s===js\.MIDDLE\?"medium":s===js\.HIGH\?"high":s===3\?"withdrawal":null/;
 
   assert.match(bundle, helperDefinition);
   assert.ok((bundle.match(/xboardTicketTypeKey\(/g) || []).length >= 3);
-  assert.match(bundle, /label:n\("level\.withdrawal"\),value:3/);
+  assert.match(bundle, /options:\[\{label:n\("level\.low"\),value:js\.LOW,icon:Wp,color:"gray"\},\{label:n\("level\.medium"\),value:js\.MIDDLE,icon:Ki,color:"yellow"\},\{label:n\("level\.high"\),value:js\.HIGH,icon:Bi,color:"red"\}\]\}/);
+  assert.doesNotMatch(bundle, /options:\[[^\]]*label:n\("level\.withdrawal"\),value:3/);
   assert.match(bundle, /==null\?"":/);
 
   const expected = {

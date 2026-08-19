@@ -102,7 +102,7 @@ At the ticket enum boundary, map `0/1/2/3` to the existing locale-key namespace 
 
 - [ ] **Step 2: Update the admin filter**
 
-Expose all four stored values in the admin type filter, including the system-only withdrawal type.
+Expose only the three manual values (`0`, `1`, and `2`) in the admin type filter. Keep the system-only withdrawal value (`3`) in the shared display mapping so existing withdrawal tickets still render correctly in table and detail views.
 
 - [ ] **Step 3: Update admin locale labels**
 
@@ -112,7 +112,7 @@ Rename the column to appeal type and replace low/medium/high labels with node is
 
 Run: `node --test tests/admin-ticket-row-click.test.js tests/ticket-appeal-types.test.js`
 
-Expected: all assertions pass.
+Expected: all assertions pass, the filter has exactly three options, and the display mapping still recognizes type `3`.
 
 ### Task 5: Verify the complete change set
 

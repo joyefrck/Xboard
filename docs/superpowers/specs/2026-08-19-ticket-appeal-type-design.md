@@ -38,7 +38,7 @@ The bundled user frontend is patched at its existing ticket option and renderer 
 
 ## Admin interface
 
-The admin ticket table and detail copy display `申诉类型` and the same four labels. `NULL` remains blank. Because the admin application is distributed as a compiled bundle plus locale files, the change is applied at the smallest ticket-specific mapping and translation boundaries and covered by source-contract tests.
+The admin ticket table and detail copy display `申诉类型` and the same four labels. `NULL` remains blank. The appeal-type filter exposes only the three manual types (`0`, `1`, and `2`); the system-only promotion commission withdrawal type (`3`) remains displayable in ticket rows and details but is not offered as a filter option. Because the admin application is distributed as a compiled bundle plus locale files, the change is applied at the smallest ticket-specific mapping and translation boundaries and covered by source-contract tests.
 
 ## Verification
 
