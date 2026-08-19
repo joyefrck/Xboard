@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+env:
+  MACOS_BUILD_NAME: '1.6.4'
+  MACOS_BUILD_NUMBER: '10604'
+
 jobs:
   build-test-package:
     runs-on: macos-26
@@ -52,7 +56,7 @@ jobs:
 
       - name: Verify release contract
         run: |
-          DMG=build/macos-beta/ElephantRoute-macos-arm64.dmg
+          DMG=build/macos-beta/ElephantRoute-macos-arm64-v${MACOS_BUILD_NAME}.dmg
           test -f "$DMG"
           test ! -e build/macos-beta/ElephantRoute-macos-arm64.app
           MOUNT_DIR=$(mktemp -d)
@@ -82,5 +86,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ElephantRoute-macOS-arm64
-          path: clients/elephant-route-deprecated/build/macos-beta/ElephantRoute-macos-arm64.dmg
+          path: clients/elephant-route-deprecated/build/macos-beta/ElephantRoute-macos-arm64-v${{ env.MACOS_BUILD_NAME }}.dmg
           if-no-files-found: error

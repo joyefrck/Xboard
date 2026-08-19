@@ -54,6 +54,31 @@ void main() {
     expect(script, contains('shasum -a 256'));
   });
 
+  test('macOS CI supplies the independent version to every package step', () {
+    final workflow = File(
+      '../../.github/workflows/macos-client.yml',
+    ).readAsStringSync();
+
+    expect(workflow, contains("MACOS_BUILD_NAME: '1.6.4'"));
+    expect(workflow, contains("MACOS_BUILD_NUMBER: '10604'"));
+    expect(
+      workflow,
+      contains(
+        r'DMG=build/macos-beta/ElephantRoute-macos-arm64-v${MACOS_BUILD_NAME}.dmg',
+      ),
+    );
+    expect(
+      workflow,
+      contains(
+        r'path: clients/elephant-route-deprecated/build/macos-beta/ElephantRoute-macos-arm64-v${{ env.MACOS_BUILD_NAME }}.dmg',
+      ),
+    );
+    expect(
+      workflow,
+      isNot(contains('DMG=build/macos-beta/ElephantRoute-macos-arm64.dmg')),
+    );
+  });
+
   test(
     'bundled arm64 core supports AnyTLS',
     () {
