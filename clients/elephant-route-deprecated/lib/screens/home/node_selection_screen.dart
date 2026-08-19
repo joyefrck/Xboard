@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -255,7 +256,7 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
 
     return GestureDetector(
       onTap: () {
-        provider.selectNode(node);
+        unawaited(provider.selectNode(node));
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
@@ -416,7 +417,7 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
           _isCardPressed = false;
           _pressedIndex = null;
         });
-        provider.selectNode(node);
+        unawaited(provider.selectNode(node));
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }

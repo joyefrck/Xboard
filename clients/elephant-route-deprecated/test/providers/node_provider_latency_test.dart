@@ -179,6 +179,98 @@ void main() {
 
     expect(provider.latencyResultFor('node-good'), isNull);
   });
+
+  test('retains current auto node when focused confirmation succeeds',
+      () async {
+    await provider.testAllLatencies();
+    expect(provider.autoSelectedRealNode?.name, 'node-good');
+    vpnManager.selectedNodes.clear();
+    vpnManager.latencyResults = {
+      'node-good': _failedResult,
+      'node-timeout': _successfulResult(70),
+      'node-failed': _failedResult,
+    };
+    vpnManager.urlTestResults['node-good'] = 45;
+
+    await provider.testAllLatencies();
+
+    expect(provider.autoSelectedRealNode?.name, 'node-good');
+    expect(
+      provider.nodes.singleWhere((node) => node.name == 'node-good').latency,
+      45,
+    );
+    expect(vpnManager.urlTestCalls, ['node-good']);
+    expect(vpnManager.selectedNodes, isEmpty);
+  });
+
+  test('switches after bulk and focused checks both fail', () async {
+    await provider.testAllLatencies();
+    expect(provider.autoSelectedRealNode?.name, 'node-good');
+    vpnManager.selectedNodes.clear();
+    vpnManager.latencyResults = {
+      'node-good': _failedResult,
+      'node-timeout': _successfulResult(70),
+      'node-failed': _failedResult,
+    };
+    vpnManager.urlTestResults['node-good'] = -1;
+
+    await provider.testAllLatencies();
+
+    expect(provider.autoSelectedRealNode?.name, 'node-timeout');
+    expect(vpnManager.urlTestCalls, ['node-good']);
+    expect(vpnManager.selectedNodes, ['node-timeout']);
+  });
+
+  test('serializes explicit choices so the newest node is applied last',
+      () async {
+    vpnManager.delaySelections = true;
+    final nodeA = provider.nodes.singleWhere(
+      (node) => node.name == 'node-timeout',
+    );
+    final nodeB = provider.nodes.singleWhere(
+      (node) => node.name == 'node-good',
+    );
+
+    final first = provider.selectNode(nodeA);
+    await _waitFor(() => vpnManager.selectionAttempts.length == 1);
+    final second = provider.selectNode(nodeB);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(vpnManager.selectionAttempts, ['node-timeout']);
+
+    vpnManager.completeSelection('node-timeout');
+    await _waitFor(() => vpnManager.selectionAttempts.length == 2);
+    vpnManager.completeSelection('node-good');
+    await Future.wait([first, second]);
+
+    expect(vpnManager.selectionAttempts, ['node-timeout', 'node-good']);
+    expect(vpnManager.selectedNodes, ['node-timeout', 'node-good']);
+    expect(provider.selectedNode?.name, 'node-good');
+  });
+}
+
+const _failedResult = ConnectionLatencyResult(
+  latencyMs: -1,
+  elapsedMs: 300,
+  failureKind: ConnectionLatencyFailureKind.transportError,
+  source: ConnectionLatencySource.connectionProbe,
+);
+
+ConnectionLatencyResult _successfulResult(int latencyMs) =>
+    ConnectionLatencyResult(
+      latencyMs: latencyMs,
+      elapsedMs: latencyMs + 10,
+      source: ConnectionLatencySource.connectionProbe,
+    );
+
+Future<void> _waitFor(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 1));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition was not met before timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
 }
 
 class _FixedDomainResolver extends DomainResolver {
@@ -194,6 +286,30 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   int latencyTestCalls = 0;
   int stopLatencyTestCalls = 0;
   bool hangLatencyTest = false;
+  bool delaySelections = false;
+  Map<String, ConnectionLatencyResult> latencyResults = {
+    'node-good': const ConnectionLatencyResult(
+      latencyMs: 80,
+      elapsedMs: 90,
+      source: ConnectionLatencySource.clashFallback,
+    ),
+    'node-timeout': const ConnectionLatencyResult(
+      latencyMs: -1,
+      elapsedMs: 5000,
+      failureKind: ConnectionLatencyFailureKind.timeout,
+      source: ConnectionLatencySource.clashFallback,
+    ),
+    'node-failed': const ConnectionLatencyResult(
+      latencyMs: -1,
+      elapsedMs: 300,
+      failureKind: ConnectionLatencyFailureKind.serviceError,
+      source: ConnectionLatencySource.clashFallback,
+    ),
+  };
+  final Map<String, int> urlTestResults = {};
+  final List<String> urlTestCalls = [];
+  final List<String> selectionAttempts = [];
+  final Map<String, Completer<void>> _selectionCompleters = {};
   Completer<void> latencyTestStarted = Completer<void>();
   Completer<Map<String, ConnectionLatencyResult>>? _hangingLatencyTest;
   ConnectionLatencyResultCallback? _hangingResultCallback;
@@ -221,29 +337,10 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
       _hangingLatencyTest = Completer<Map<String, ConnectionLatencyResult>>();
       return _hangingLatencyTest!.future;
     }
-    const results = <String, ConnectionLatencyResult>{
-      'node-good': ConnectionLatencyResult(
-        latencyMs: 80,
-        elapsedMs: 90,
-        source: ConnectionLatencySource.clashFallback,
-      ),
-      'node-timeout': ConnectionLatencyResult(
-        latencyMs: -1,
-        elapsedMs: 5000,
-        failureKind: ConnectionLatencyFailureKind.timeout,
-        source: ConnectionLatencySource.clashFallback,
-      ),
-      'node-failed': ConnectionLatencyResult(
-        latencyMs: -1,
-        elapsedMs: 300,
-        failureKind: ConnectionLatencyFailureKind.serviceError,
-        source: ConnectionLatencySource.clashFallback,
-      ),
-    };
     for (final nodeTag in nodeTags) {
-      onResult?.call(nodeTag, results[nodeTag]!);
+      onResult?.call(nodeTag, latencyResults[nodeTag]!);
     }
-    return results;
+    return latencyResults;
   }
 
   @override
@@ -261,7 +358,17 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
 
   @override
   Future<void> selectOutbound(String groupTag, String outboundTag) async {
+    selectionAttempts.add(outboundTag);
+    if (delaySelections) {
+      final completer = Completer<void>();
+      _selectionCompleters[outboundTag] = completer;
+      await completer.future;
+    }
     selectedNodes.add(outboundTag);
+  }
+
+  void completeSelection(String outboundTag) {
+    _selectionCompleters.remove(outboundTag)?.complete();
   }
 
   @override
@@ -282,7 +389,10 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   }) async {}
 
   @override
-  Future<int> urlTest(String groupTag) async => -1;
+  Future<int> urlTest(String groupTag) async {
+    urlTestCalls.add(groupTag);
+    return urlTestResults[groupTag] ?? -1;
+  }
 
   void emit(VpnStatus status) {
     _currentState = _currentState.copyWith(status: status);

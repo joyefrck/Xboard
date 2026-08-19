@@ -32,6 +32,11 @@ class NodeProvider with ChangeNotifier {
   Timer? _connectionLatencyTimer;
   VpnStatus _lastVpnStatus = VpnStatus.disconnected;
   int _latencyRunGeneration = 0;
+  int _selectionGeneration = 0;
+  int _autoEvaluationGeneration = 0;
+  Future<void> _selectionTail = Future<void>.value();
+  Future<bool> _autoEvaluationTail = Future<bool>.value(true);
+  bool _disposed = false;
 
   final _storage = const LocalStorage();
   List<ProxyNode> _nodes = [];
@@ -163,17 +168,20 @@ class NodeProvider with ChangeNotifier {
 
     if (changed) {
       // 延迟更新后重新评估自动选择
-      _evaluateAutoSelect();
+      unawaited(_evaluateAutoSelect());
       notifyListeners();
     }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _vpnStateSubscription?.cancel();
     _connectionLatencyTimer?.cancel();
     _connectionLatencyTimer = null;
     _latencyRunGeneration++;
+    _selectionGeneration++;
+    _autoEvaluationGeneration++;
     _isTestingLatency = false;
     final manager = _vpnManager;
     if (manager is ConnectionLatencyManager) {
@@ -293,7 +301,7 @@ class NodeProvider with ChangeNotifier {
       }
 
       // 测速完成后评估自动选择
-      _evaluateAutoSelect();
+      await _evaluateAutoSelect();
     } catch (e) {
       debugPrint('[SPEED_TEST_DART] 测速失败: $e');
       if (context != null && context.mounted) {
@@ -622,7 +630,7 @@ class NodeProvider with ChangeNotifier {
 
       // 8. 如果是自动模式，尝试选择最优节点
       if (_isAutoMode) {
-        _evaluateAutoSelect();
+        unawaited(_evaluateAutoSelect());
       }
 
       _isLoading = false;
@@ -638,45 +646,103 @@ class NodeProvider with ChangeNotifier {
   // ==================== 节点选择 ====================
 
   /// 选择节点
-  void selectNode(ProxyNode node) {
+  Future<void> selectNode(ProxyNode node) async {
     debugPrint(
         'NODE_SWITCH: selectNode called with "${node.name}" (type=${node.type}), isConnected=${_vpnManager.currentState.status}');
+    final generation = ++_selectionGeneration;
+    _autoEvaluationGeneration++;
+    final previousSelectedNode = _selectedNode;
+    final previousAutoMode = _isAutoMode;
+    final previousAutoNode = _autoSelectedRealNode;
     _selectedNode = node;
+    _errorMessage = null;
 
     if (node.type == 'auto') {
       // 用户选择了自动选择节点
       _isAutoMode = true;
-      _storage.write(key: 'auto_mode', value: 'true');
 
       // 立即选择当前最优真实节点
-      _evaluateAutoSelect(forceSwitch: true);
+      final applied = await _evaluateAutoSelect(
+        forceSwitch: true,
+        selectionGeneration: generation,
+      );
+      if (!_isSelectionCurrent(generation)) return;
+      if (!applied) {
+        _selectedNode = previousSelectedNode;
+        _isAutoMode = previousAutoMode;
+        _autoSelectedRealNode = previousAutoNode;
+        notifyListeners();
+        return;
+      }
     } else {
       // 用户选择了具体节点
       _isAutoMode = false;
       _autoSelectedRealNode = null;
-      _storage.write(key: 'auto_mode', value: 'false');
 
       // 通知 VPN 切换节点
       debugPrint(
           'NODE_SWITCH: calling selectOutbound("节点选择", "${node.name}"), VPN status=${_vpnManager.currentState.status}');
-      _vpnManager.selectOutbound("节点选择", node.name);
+      final applied = await _enqueueOutboundSelection(node.name, generation);
+      if (!_isSelectionCurrent(generation)) return;
+      if (!applied) {
+        _selectedNode = previousSelectedNode;
+        _isAutoMode = previousAutoMode;
+        _autoSelectedRealNode = previousAutoNode;
+        notifyListeners();
+        return;
+      }
     }
 
     notifyListeners();
 
-    // 持久化选中节点
-    _storage.write(key: 'selected_node', value: jsonEncode(node.toJson()));
+    await Future.wait([
+      _storage.write(
+        key: 'auto_mode',
+        value: node.type == 'auto' ? 'true' : 'false',
+      ),
+      _storage.write(
+        key: 'selected_node',
+        value: jsonEncode(node.toJson()),
+      ),
+    ]);
   }
 
   // ==================== 自动选择逻辑 ====================
 
   /// 评估并执行自动选择
   /// [forceSwitch] 为 true 时强制切换到最优节点（用户主动选择自动模式时）
-  void _evaluateAutoSelect({bool forceSwitch = false}) {
-    if (!_isAutoMode) return;
+  Future<bool> _evaluateAutoSelect({
+    bool forceSwitch = false,
+    int? selectionGeneration,
+  }) {
+    final previous = _autoEvaluationTail;
+    final evaluation = () async {
+      try {
+        await previous;
+      } catch (_) {
+        // A failed older evaluation must not block a newer selection request.
+      }
+      return _runAutoSelectEvaluation(
+        forceSwitch: forceSwitch,
+        selectionGeneration: selectionGeneration,
+      );
+    }();
+    _autoEvaluationTail = evaluation;
+    return evaluation;
+  }
+
+  Future<bool> _runAutoSelectEvaluation({
+    required bool forceSwitch,
+    int? selectionGeneration,
+  }) async {
+    if (!_isAutoMode) return true;
+
+    final generation = selectionGeneration ?? _selectionGeneration;
+    if (!_isSelectionCurrent(generation)) return false;
+    final evaluationGeneration = ++_autoEvaluationGeneration;
 
     final available = realNodes;
-    if (available.isEmpty) return;
+    if (available.isEmpty) return true;
 
     // 找到延迟最低的在线节点
     ProxyNode? bestNode;
@@ -694,28 +760,41 @@ class NodeProvider with ChangeNotifier {
     if (bestNode == null) {
       // 没有任何在线节点，保持当前选择或选第一个
       if (_autoSelectedRealNode == null && available.isNotEmpty) {
-        _autoSelectedRealNode = available.first;
-        _vpnManager.selectOutbound("节点选择", available.first.name);
-        debugPrint('DEBUG 自动选择: 无测速数据，选择第一个节点: ${available.first.name}');
+        return _switchAutoNode(
+          available.first,
+          generation,
+          evaluationGeneration,
+          reason: '无测速数据，选择第一个节点',
+        );
       }
-      return;
+      return true;
     }
 
     if (forceSwitch) {
       // 强制切换（用户主动选择自动模式）
-      _autoSelectedRealNode = bestNode;
-      _vpnManager.selectOutbound("节点选择", bestNode.name);
-      debugPrint('DEBUG 自动选择: 强制切换到最优节点: ${bestNode.name} (${bestLatency}ms)');
-      return;
+      return _switchAutoNode(
+        bestNode,
+        generation,
+        evaluationGeneration,
+        reason: '强制切换到最优节点 (${bestLatency}ms)',
+      );
     }
 
     // 检查当前自动选中的节点是否仍在线
     if (_autoSelectedRealNode != null) {
       // 在最新的节点列表中找到它
-      final currentNode = available.firstWhere(
-        (n) => n.name == _autoSelectedRealNode!.name,
-        orElse: () => available.first,
+      final currentIndex = available.indexWhere(
+        (node) => node.name == _autoSelectedRealNode!.name,
       );
+      if (currentIndex == -1) {
+        return _switchAutoNode(
+          bestNode,
+          generation,
+          evaluationGeneration,
+          reason: '当前节点已不在订阅中 (${bestLatency}ms)',
+        );
+      }
+      final currentNode = available[currentIndex];
 
       final currentLatency = currentNode.latency;
 
@@ -725,17 +804,112 @@ class NodeProvider with ChangeNotifier {
         _autoSelectedRealNode = currentNode; // 更新延迟数据
         debugPrint(
             'DEBUG 自动选择: 当前节点 ${currentNode.name} (${currentLatency}ms) 仍在线，不切换');
-        return;
+        return true;
       }
 
-      // 当前节点超时了，切换到最优节点
+      final confirmedLatency = await _confirmCurrentNode(currentNode.name);
+      if (!_isAutoEvaluationCurrent(
+        generation,
+        evaluationGeneration,
+      )) {
+        return false;
+      }
+      if (confirmedLatency > 0) {
+        _applyConfirmedLatency(currentNode.name, confirmedLatency);
+        debugPrint(
+            'DEBUG 自动选择: 当前节点 ${currentNode.name} 二次确认成功 (${confirmedLatency}ms)，不切换');
+        return true;
+      }
+
+      // 批量测速与二次确认均失败，切换到最优节点
       debugPrint(
-          'DEBUG 自动选择: 当前节点 ${_autoSelectedRealNode!.name} 已超时，切换到: ${bestNode.name} (${bestLatency}ms)');
+          'DEBUG 自动选择: 当前节点 ${_autoSelectedRealNode!.name} 批量测速和二次确认均失败，切换到: ${bestNode.name} (${bestLatency}ms)');
     } else {
       debugPrint('DEBUG 自动选择: 首次选择最优节点: ${bestNode.name} (${bestLatency}ms)');
     }
 
-    _autoSelectedRealNode = bestNode;
-    _vpnManager.selectOutbound("节点选择", bestNode.name);
+    return _switchAutoNode(
+      bestNode,
+      generation,
+      evaluationGeneration,
+      reason: '切换到可用节点 (${bestLatency}ms)',
+    );
+  }
+
+  Future<int> _confirmCurrentNode(String nodeName) async {
+    try {
+      return await _vpnManager.urlTest(nodeName);
+    } catch (error) {
+      debugPrint('DEBUG 自动选择: 当前节点 $nodeName 二次确认失败: $error');
+      return -1;
+    }
+  }
+
+  void _applyConfirmedLatency(String nodeName, int latency) {
+    final index = _nodes.indexWhere((node) => node.name == nodeName);
+    if (index == -1) return;
+    _nodes[index] = _nodes[index].copyWithLatency(latency);
+    _autoSelectedRealNode = _nodes[index];
+    _latencyResults[nodeName] = ConnectionLatencyResult(
+      latencyMs: latency,
+      elapsedMs: latency,
+      source: ConnectionLatencySource.clashFallback,
+    );
+    notifyListeners();
+  }
+
+  Future<bool> _switchAutoNode(
+    ProxyNode node,
+    int generation,
+    int evaluationGeneration, {
+    required String reason,
+  }) async {
+    final applied = await _enqueueOutboundSelection(node.name, generation);
+    if (!applied ||
+        !_isAutoEvaluationCurrent(generation, evaluationGeneration)) {
+      return false;
+    }
+    _autoSelectedRealNode = node;
+    _errorMessage = null;
+    notifyListeners();
+    debugPrint('DEBUG 自动选择: $reason: ${node.name}');
+    return true;
+  }
+
+  Future<bool> _enqueueOutboundSelection(
+    String outboundTag,
+    int generation,
+  ) {
+    final previous = _selectionTail;
+    final operation = () async {
+      try {
+        await previous;
+        if (!_isSelectionCurrent(generation)) return false;
+        await _vpnManager.selectOutbound('节点选择', outboundTag);
+        return _isSelectionCurrent(generation);
+      } catch (error) {
+        if (_isSelectionCurrent(generation)) {
+          _errorMessage = '节点切换失败: $error';
+          notifyListeners();
+        }
+        return false;
+      }
+    }();
+    _selectionTail = operation.then<void>((_) {});
+    return operation;
+  }
+
+  bool _isSelectionCurrent(int generation) {
+    return !_disposed && generation == _selectionGeneration;
+  }
+
+  bool _isAutoEvaluationCurrent(
+    int selectionGeneration,
+    int evaluationGeneration,
+  ) {
+    return _isSelectionCurrent(selectionGeneration) &&
+        evaluationGeneration == _autoEvaluationGeneration &&
+        _isAutoMode &&
+        _vpnManager.currentState.status == VpnStatus.connected;
   }
 }
