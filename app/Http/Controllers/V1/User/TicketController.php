@@ -142,7 +142,7 @@ class TicketController extends Controller
             $ticket = $ticketService->createTicket(
                 $request->user()->id,
                 $subject,
-                2,
+                Ticket::TYPE_COMMISSION_WITHDRAWAL,
                 $message
             );
         } catch (\Exception $e) {

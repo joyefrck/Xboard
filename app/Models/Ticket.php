@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property int $user_id 用户ID
  * @property string $subject 工单主题
- * @property string|null $level 工单等级
+ * @property int|null $level 申诉类型
  * @property int $status 工单状态
  * @property int|null $reply_status 回复状态
  * @property int|null $last_reply_user_id 最后回复人
@@ -34,6 +34,15 @@ class Ticket extends Model
 
     const STATUS_OPENING = 0;
     const STATUS_CLOSED = 1;
+    const TYPE_NODE_ISSUE = 0;
+    const TYPE_REFUND = 1;
+    const TYPE_USAGE_GUIDE = 2;
+    const TYPE_COMMISSION_WITHDRAWAL = 3;
+    const MANUAL_TYPES = [
+        self::TYPE_NODE_ISSUE,
+        self::TYPE_REFUND,
+        self::TYPE_USAGE_GUIDE
+    ];
     public static $statusMap = [
         self::STATUS_OPENING => '开启',
         self::STATUS_CLOSED => '关闭'

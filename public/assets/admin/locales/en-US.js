@@ -1925,7 +1925,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "columns": {
       "id": "Ticket ID",
       "subject": "Subject",
-      "level": "Priority",
+      "level": "Appeal Type",
       "status": "Status",
       "updated_at": "Last Updated",
       "created_at": "Created At",
@@ -1938,9 +1938,10 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "processing": "Processing"
     },
     "level": {
-      "low": "Low Priority",
-      "medium": "Medium Priority",
-      "high": "High Priority"
+      "low": "Node Issue",
+      "medium": "Refund",
+      "high": "Usage Guide",
+      "withdrawal": "Promotion Commission Withdrawal"
     },
     "filter": {
       "placeholder": "Search {field}...",

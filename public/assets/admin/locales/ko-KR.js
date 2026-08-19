@@ -1405,7 +1405,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     "columns": {
       "id": "티켓 번호",
       "subject": "제목",
-      "level": "우선순위",
+      "level": "이의 신청 유형",
       "status": "상태",
       "updated_at": "최근 업데이트",
       "created_at": "생성일",
@@ -1418,9 +1418,10 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "processing": "처리중"
     },
     "level": {
-      "low": "낮은 우선순위",
-      "medium": "중간 우선순위",
-      "high": "높은 우선순위"
+      "low": "노드 문제",
+      "medium": "환불",
+      "high": "사용 방법",
+      "withdrawal": "프로모션 수수료 출금"
     },
     "filter": {
       "placeholder": "{field} 검색...",

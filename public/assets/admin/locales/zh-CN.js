@@ -1917,7 +1917,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     "columns": {
       "id": "工单号",
       "subject": "主题",
-      "level": "优先级",
+      "level": "申诉类型",
       "status": "状态",
       "updated_at": "最后更新",
       "created_at": "创建时间",
@@ -1930,9 +1930,10 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "processing": "处理中"
     },
     "level": {
-      "low": "低优先",
-      "medium": "中优先",
-      "high": "高优先"
+      "low": "节点问题",
+      "medium": "退款",
+      "high": "使用方法",
+      "withdrawal": "推广佣金提现"
     },
     "filter": {
       "placeholder": "搜索{field}...",

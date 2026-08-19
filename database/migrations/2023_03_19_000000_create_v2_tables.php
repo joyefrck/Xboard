@@ -333,7 +333,7 @@ return new class extends Migration {
                 $table->integer('id', true);
                 $table->integer('user_id');
                 $table->string('subject');
-                $table->integer('level');
+                $table->integer('level')->nullable();
                 $table->integer('status')->default(0)->comment('0:已开启 1:已关闭');
                 $table->integer('reply_status')->default(1)->comment('0:待回复 1:已回复');
                 $table->integer('created_at');

@@ -72,6 +72,8 @@
     "Ticket subject cannot be empty": "工单主题不能为空",
     "Ticket level cannot be empty": "工单等级不能为空",
     "Incorrect ticket level format": "工单等级参数有误",
+    "Ticket appeal type cannot be empty": "申诉类型不能为空",
+    "Incorrect ticket appeal type format": "申诉类型参数有误",
     "The withdrawal method cannot be empty": "提现方式不能为空",
     "The withdrawal account cannot be empty": "提现账号不能为空",
     "Old password cannot be empty": "旧密码不能为空",

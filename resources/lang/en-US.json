@@ -72,6 +72,8 @@
     "Ticket subject cannot be empty": "Ticket subject cannot be empty",
     "Ticket level cannot be empty": "Ticket level cannot be empty",
     "Incorrect ticket level format": "Incorrect ticket level format",
+    "Ticket appeal type cannot be empty": "Ticket appeal type cannot be empty",
+    "Incorrect ticket appeal type format": "Incorrect ticket appeal type format",
     "The withdrawal method cannot be empty": "The withdrawal method cannot be empty",
     "The withdrawal account cannot be empty": "The withdrawal account cannot be empty",
     "Old password cannot be empty": "Old password cannot be empty",

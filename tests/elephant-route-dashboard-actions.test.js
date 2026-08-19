@@ -358,10 +358,11 @@ test('ElephantRoute rewrites ticket page copy to appeal wording', () => {
   assert.match(script, /\['工单历史', '申诉记录'\]/);
   assert.match(script, /\['新的工单', '提交申诉'\]/);
   assert.match(script, /\['请输入工单主题', '请输入申诉主题'\]/);
-  assert.match(script, /\['工单级别', '申诉级别'\]/);
-  assert.match(script, /\['工单等级', '申诉级别'\]/);
-  assert.match(script, /\['请选择工单优先级', '请选择申诉优先级'\]/);
-  assert.match(script, /\['请选择工单等级', '请选择申诉优先级'\]/);
+  assert.match(script, /\['工单级别', '申诉类型'\]/);
+  assert.match(script, /\['工单等级', '申诉类型'\]/);
+  assert.match(script, /\['请选择工单优先级', '请选择申诉类型'\]/);
+  assert.match(script, /\['请选择工单等级', '请选择申诉类型'\]/);
+  assert.match(script, /\['请选项工单等级', '请选择申诉类型'\]/);
   assert.match(script, /\['请描述您遇到的问题', '请描述您的申诉问题'\]/);
   assert.match(script, /\['工单详情', '申诉详情'\]/);
   assert.match(script, /\['工单状态', '申诉状态'\]/);
@@ -523,10 +524,10 @@ test('ElephantRoute dashboard shows stacked traffic package balance inside subsc
   assert.match(stylesheet, /@media \(max-width: 767px\)/);
 });
 
-test('ElephantRoute dashboard asset cache busting is updated for subscription shortcuts', () => {
+test('ElephantRoute dashboard asset cache busting is updated for appeal types', () => {
   const blade = readRepoFile('theme/ElephantRoute/dashboard.blade.php');
 
-  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20260703inviteRegister1/);
+  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20260819appealType1/);
   assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260708trafficPackagePlanJump1/);
-  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20260708trafficPackagePlanJump1/);
+  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20260819appealType1/);
 });

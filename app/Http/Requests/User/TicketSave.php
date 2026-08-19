@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\User;
 
+use App\Models\Ticket;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class TicketSave extends FormRequest
 {
@@ -15,7 +17,7 @@ class TicketSave extends FormRequest
     {
         return [
             'subject' => 'required',
-            'level' => 'required|in:0,1,2',
+            'level' => ['required', 'integer', Rule::in(Ticket::MANUAL_TYPES)],
             'message' => 'required'
         ];
     }
@@ -24,8 +26,9 @@ class TicketSave extends FormRequest
     {
         return [
             'subject.required' => __('Ticket subject cannot be empty'),
-            'level.required' => __('Ticket level cannot be empty'),
-            'level.in' => __('Incorrect ticket level format'),
+            'level.required' => __('Ticket appeal type cannot be empty'),
+            'level.integer' => __('Incorrect ticket appeal type format'),
+            'level.in' => __('Incorrect ticket appeal type format'),
             'message.required' => __('Message cannot be empty')
         ];
     }
