@@ -125,7 +125,9 @@ void main() {
   test('only the latest connected transition starts a latency test', () async {
     vpnManager.emit(VpnStatus.disconnected);
     vpnManager.emit(VpnStatus.connected);
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+    // Let the first connected event schedule its timer without relying on a
+    // short wall-clock delay that can overrun on a busy CI runner.
+    await Future<void>.delayed(Duration.zero);
     vpnManager.emit(VpnStatus.disconnected);
     vpnManager.emit(VpnStatus.connected);
 
