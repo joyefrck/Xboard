@@ -178,5 +178,5 @@ void main() {
       0,
       reason: '${result.stdout}\n${result.stderr}',
     );
-  });
+  }, skip: !Platform.isMacOS);
 }

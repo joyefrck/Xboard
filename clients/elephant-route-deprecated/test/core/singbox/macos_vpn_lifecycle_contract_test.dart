@@ -5,8 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('macOS disposal releases Dart resources without stopping the tunnel',
       () {
-    final source =
-        File('lib/core/singbox/macos_vpn_service.dart').readAsStringSync();
+    final source = File('lib/core/singbox/macos_vpn_service.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
     final disposeBody = RegExp(
       r'void dispose\(\) \{([\s\S]*?)\n  \}',
     ).firstMatch(source)!.group(1)!;
@@ -34,8 +35,9 @@ void main() {
   });
 
   test('macOS outbound selection never restarts the TUN runtime', () {
-    final source =
-        File('lib/core/singbox/macos_vpn_service.dart').readAsStringSync();
+    final source = File('lib/core/singbox/macos_vpn_service.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
     final start = source.indexOf(
       'Future<void> selectOutbound(String groupTag, String outboundTag)',
     );
@@ -64,8 +66,9 @@ void main() {
   });
 
   test('macOS connected latency stays on the live core', () {
-    final source =
-        File('lib/core/singbox/macos_vpn_service.dart').readAsStringSync();
+    final source = File('lib/core/singbox/macos_vpn_service.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
     final start = source.indexOf(
       'Future<Map<String, ConnectionLatencyResult>> _runConnectionLatencies',
     );
