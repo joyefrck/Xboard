@@ -3,6 +3,7 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const zlib = require('node:zlib');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -22,10 +23,11 @@ test('ticket appeal types use a stable backend numeric contract', () => {
   const controller = readRepoFile('app/Http/Controllers/V1/User/TicketController.php');
 
   assert.match(model, /TYPE_NODE_ISSUE\s*=\s*0/);
-  assert.match(model, /TYPE_REFUND\s*=\s*1/);
+  assert.match(model, /TYPE_OTHER\s*=\s*1/);
+  assert.match(model, /TYPE_REFUND\s*=\s*self::TYPE_OTHER/);
   assert.match(model, /TYPE_USAGE_GUIDE\s*=\s*2/);
   assert.match(model, /TYPE_COMMISSION_WITHDRAWAL\s*=\s*3/);
-  assert.match(model, /MANUAL_TYPES\s*=\s*\[\s*self::TYPE_NODE_ISSUE,\s*self::TYPE_REFUND,\s*self::TYPE_USAGE_GUIDE\s*\]/s);
+  assert.match(model, /MANUAL_TYPES\s*=\s*\[\s*self::TYPE_NODE_ISSUE,\s*self::TYPE_OTHER,\s*self::TYPE_USAGE_GUIDE\s*\]/s);
   assert.match(request, /Rule::in\(Ticket::MANUAL_TYPES\)/);
   assert.match(controller, /Ticket::TYPE_COMMISSION_WITHDRAWAL/);
   assert.doesNotMatch(controller, /\$subject,\s*2,\s*\$message/s);
@@ -68,12 +70,17 @@ test('manual ticket validation reports appeal-type errors in API locales', () =>
 test('ElephantRoute exposes three manual types and renders system and legacy values safely', () => {
   const themeBundle = readRepoFile('theme/ElephantRoute/assets/umi.js');
   const publicBundle = readRepoFile('public/theme/ElephantRoute/assets/umi.js');
+  const gzipBundle = zlib.gunzipSync(fs.readFileSync(path.join(repoRoot, 'theme/ElephantRoute/assets/umi.js.gz'))).toString('utf8');
+  const brotliBundle = zlib.brotliDecompressSync(fs.readFileSync(path.join(repoRoot, 'theme/ElephantRoute/assets/umi.js.br'))).toString('utf8');
   const themeOverride = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard.js');
   const publicOverride = readRepoFile('public/theme/ElephantRoute/assets/elephant-route-dashboard.js');
 
   assert.equal(publicBundle, themeBundle);
+  assert.equal(gzipBundle, themeBundle);
+  assert.equal(brotliBundle, themeBundle);
   assert.equal(publicOverride, themeOverride);
-  assert.match(themeBundle, /n=\[\{label:"节点问题",value:0\},\{label:"退款",value:1\},\{label:"使用方法",value:2\},\{label:"推广佣金提现",value:3\}\]/);
+  assert.match(themeBundle, /n=\[\{label:"节点问题",value:0\},\{label:"其他",value:1\},\{label:"使用方法",value:2\},\{label:"推广佣金提现",value:3\}\]/);
+  assert.doesNotMatch(themeBundle, /\{label:"退款",value:1\}/);
   assert.match(themeBundle, /render\(h\)\{return n\[h\.level\]\?n\[h\.level\]\.label:""\}/);
   assert.match(themeBundle, /options:n\.slice\(0,3\)/);
   assert.match(themeOverride, /\['工单级别', '申诉类型'\]/);
@@ -92,9 +99,9 @@ test('admin ticket UI maps all stored types, filters manual types, and leaves le
   assert.match(bundle, /==null\?"":/);
 
   const expected = {
-    'zh-CN': ['申诉类型', '节点问题', '退款', '使用方法', '推广佣金提现'],
-    'en-US': ['Appeal Type', 'Node Issue', 'Refund', 'Usage Guide', 'Promotion Commission Withdrawal'],
-    'ko-KR': ['이의 신청 유형', '노드 문제', '환불', '사용 방법', '프로모션 수수료 출금']
+    'zh-CN': ['申诉类型', '节点问题', '其他', '使用方法', '推广佣金提现'],
+    'en-US': ['Appeal Type', 'Node Issue', 'Other', 'Usage Guide', 'Promotion Commission Withdrawal'],
+    'ko-KR': ['이의 신청 유형', '노드 문제', '기타', '사용 방법', '프로모션 수수료 출금']
   };
 
   for (const [locale, labels] of Object.entries(expected)) {

@@ -17,7 +17,7 @@
 
 - [ ] **Step 1: Write source-contract tests**
 
-Assert that the model exposes `TYPE_NODE_ISSUE = 0`, `TYPE_REFUND = 1`, `TYPE_USAGE_GUIDE = 2`, and `TYPE_COMMISSION_WITHDRAWAL = 3`; manual validation only accepts the first three values; the withdrawal controller uses the system constant; the migration makes `level` nullable and separates historical withdrawal rows; user/admin bundles render all four labels and preserve blank `NULL` values.
+Assert that the model exposes `TYPE_NODE_ISSUE = 0`, `TYPE_OTHER = 1` (with `TYPE_REFUND` retained as a compatibility alias), `TYPE_USAGE_GUIDE = 2`, and `TYPE_COMMISSION_WITHDRAWAL = 3`; manual validation only accepts the first three values; the withdrawal controller uses the system constant; the migration makes `level` nullable and separates historical withdrawal rows; user/admin bundles render all four labels and preserve blank `NULL` values.
 
 - [ ] **Step 2: Run the focused test and confirm red state**
 
@@ -72,7 +72,7 @@ Expected: every command reports `No syntax errors detected`.
 
 - [ ] **Step 1: Patch ticket options and null-safe rendering**
 
-Change the ticket mapping to `节点问题`, `退款`, `使用方法`, and `推广佣金提现`; expose only the first three options in the manual select; render `NULL` as an empty string instead of indexing type `0`; keep the theme and public bundles identical.
+Change the ticket mapping to `节点问题`, `其他`, `使用方法`, and `推广佣金提现`; expose only the first three options in the manual select; render `NULL` as an empty string instead of indexing type `0`; keep the theme and public bundles identical.
 
 - [ ] **Step 2: Update ticket copy normalization**
 
@@ -106,7 +106,7 @@ Expose only the three manual values (`0`, `1`, and `2`) in the admin type filter
 
 - [ ] **Step 3: Update admin locale labels**
 
-Rename the column to appeal type and replace low/medium/high labels with node issue/refund/usage guide, adding promotion commission withdrawal in Chinese, English, and Korean.
+Rename the column to appeal type and replace low/medium/high labels with node issue/other/usage guide, adding promotion commission withdrawal in Chinese, English, and Korean.
 
 - [ ] **Step 4: Run focused admin contract tests**
 

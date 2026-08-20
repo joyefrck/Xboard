@@ -1955,7 +1955,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     },
     "level": {
       "low": "节点问题",
-      "medium": "退款",
+      "medium": "其他",
       "high": "使用方法",
       "withdrawal": "推广佣金提现"
     },

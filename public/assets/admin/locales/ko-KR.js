@@ -1443,7 +1443,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     },
     "level": {
       "low": "노드 문제",
-      "medium": "환불",
+      "medium": "기타",
       "high": "사용 방법",
       "withdrawal": "프로모션 수수료 출금"
     },

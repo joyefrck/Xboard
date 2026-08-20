@@ -9,7 +9,7 @@ Replace the user-facing ticket priority with a required appeal type while preser
 The existing `level` field remains the transport and database field for compatibility, but its business meaning becomes appeal type:
 
 - `0`: 节点问题
-- `1`: 退款
+- `1`: 其他
 - `2`: 使用方法
 - `3`: 推广佣金提现
 - `NULL`: legacy non-withdrawal ticket with no appeal type
@@ -32,7 +32,7 @@ The user and admin APIs continue returning `level`, including `NULL`, so existin
 
 ## User interface
 
-The ElephantRoute user interface displays the column and form label as `申诉类型`, the placeholder as `请选择申诉类型`, and the fixed choices as `节点问题`, `退款`, and `使用方法`. Type `3` displays as `推广佣金提现` when system tickets appear in lists or details. A `NULL` historical value renders as an empty cell rather than being treated as type `0`.
+The ElephantRoute user interface displays the column and form label as `申诉类型`, the placeholder as `请选择申诉类型`, and the fixed choices as `节点问题`, `其他`, and `使用方法`. Type `3` displays as `推广佣金提现` when system tickets appear in lists or details. A `NULL` historical value renders as an empty cell rather than being treated as type `0`.
 
 The bundled user frontend is patched at its existing ticket option and renderer boundary, and the theme/public copies stay byte-identical. The existing ElephantRoute text-normalization override is updated so later DOM passes do not restore priority wording.
 

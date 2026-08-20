@@ -35,12 +35,13 @@ class Ticket extends Model
     const STATUS_OPENING = 0;
     const STATUS_CLOSED = 1;
     const TYPE_NODE_ISSUE = 0;
-    const TYPE_REFUND = 1;
+    const TYPE_OTHER = 1;
+    const TYPE_REFUND = self::TYPE_OTHER;
     const TYPE_USAGE_GUIDE = 2;
     const TYPE_COMMISSION_WITHDRAWAL = 3;
     const MANUAL_TYPES = [
         self::TYPE_NODE_ISSUE,
-        self::TYPE_REFUND,
+        self::TYPE_OTHER,
         self::TYPE_USAGE_GUIDE
     ];
     public static $statusMap = [

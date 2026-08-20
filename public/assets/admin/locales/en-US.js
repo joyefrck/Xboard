@@ -1963,7 +1963,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     },
     "level": {
       "low": "Node Issue",
-      "medium": "Refund",
+      "medium": "Other",
       "high": "Usage Guide",
       "withdrawal": "Promotion Commission Withdrawal"
     },
