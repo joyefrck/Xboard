@@ -120,7 +120,7 @@ void main() {
     final results = await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': success},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
@@ -143,7 +143,7 @@ void main() {
     final results = await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': failed503},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
       onResult: (nodeTag, result) => callbacks.add(result),
@@ -168,7 +168,7 @@ void main() {
     final results = await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
@@ -176,13 +176,14 @@ void main() {
     expect(results['node-a']?.latencyMs, 210);
   });
 
-  test('retries one transient 503 and keeps the successful retry', () async {
-    var probes = 0;
-    var delays = 0;
+  test('falls back to GStatic after a Cloudflare 503', () async {
+    final requestedUrls = <String>[];
+    final requestedTimeouts = <int>[];
     final runner = MacosLatencyFallbackRunner(
       probe: (nodeTag, testUrl, timeoutMs) async {
-        probes++;
-        if (probes == 1) {
+        requestedUrls.add(testUrl);
+        requestedTimeouts.add(timeoutMs);
+        if (testUrl.contains('cloudflare')) {
           return const ConnectionLatencyResult(
             latencyMs: -1,
             elapsedMs: 300,
@@ -197,20 +198,81 @@ void main() {
           source: ConnectionLatencySource.clashFallback,
         );
       },
-      retryDelay: (_) async => delays++,
     );
 
     final results = await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': failed503},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const [
+        'https://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
 
-    expect(probes, 2);
-    expect(delays, 1);
+    expect(requestedUrls, [
+      'https://cp.cloudflare.com/generate_204',
+      'https://www.gstatic.com/generate_204',
+    ]);
+    expect(requestedTimeouts, [2500, 2500]);
     expect(results['node-a']?.latencyMs, 180);
+  });
+
+  test('does not probe GStatic after Cloudflare succeeds', () async {
+    final requestedUrls = <String>[];
+    final runner = MacosLatencyFallbackRunner(
+      probe: (nodeTag, testUrl, timeoutMs) async {
+        requestedUrls.add(testUrl);
+        return const ConnectionLatencyResult(
+          latencyMs: 175,
+          elapsedMs: 190,
+          source: ConnectionLatencySource.clashFallback,
+        );
+      },
+    );
+
+    final results = await runner.resolve(
+      nodeTags: const ['node-a'],
+      primaryResults: const {'node-a': failed503},
+      testUrls: const [
+        'https://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ],
+      timeoutMs: 5000,
+      isCancelled: () => false,
+    );
+
+    expect(requestedUrls, ['https://cp.cloudflare.com/generate_204']);
+    expect(results['node-a']?.latencyMs, 175);
+  });
+
+  test('publishes one final failure after all targets fail', () async {
+    final callbacks = <ConnectionLatencyResult>[];
+    final runner = MacosLatencyFallbackRunner(
+      probe: (nodeTag, testUrl, timeoutMs) async => ConnectionLatencyResult(
+        latencyMs: -1,
+        elapsedMs: 100,
+        failureKind: ConnectionLatencyFailureKind.httpError,
+        source: ConnectionLatencySource.clashFallback,
+        httpStatusCodes: const [503],
+      ),
+    );
+
+    final results = await runner.resolve(
+      nodeTags: const ['node-a'],
+      primaryResults: const {'node-a': failed503},
+      testUrls: const [
+        'https://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ],
+      timeoutMs: 5000,
+      isCancelled: () => false,
+      onResult: (nodeTag, result) => callbacks.add(result),
+    );
+
+    expect(callbacks, hasLength(1));
+    expect(results['node-a']?.isSuccess, isFalse);
   });
 
   test('does not retry a real fallback timeout', () async {
@@ -230,7 +292,7 @@ void main() {
     final results = await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': timeout},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
@@ -258,7 +320,7 @@ void main() {
     await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': timeout},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
@@ -288,7 +350,7 @@ void main() {
     await runner.resolve(
       nodeTags: const ['a', 'b', 'c', 'd'],
       primaryResults: const {},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const ['https://www.gstatic.com/generate_204'],
       timeoutMs: 5000,
       isCancelled: () => false,
     );
@@ -313,7 +375,10 @@ void main() {
     await runner.resolve(
       nodeTags: const ['node-a'],
       primaryResults: const {'node-a': failed503},
-      testUrl: 'https://www.gstatic.com/generate_204',
+      testUrls: const [
+        'https://cp.cloudflare.com/generate_204',
+        'https://www.gstatic.com/generate_204',
+      ],
       timeoutMs: 5000,
       isCancelled: () => cancelled,
       onResult: (nodeTag, result) => callbacks++,

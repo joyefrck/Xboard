@@ -11,9 +11,12 @@ import 'package:path_provider/path_provider.dart';
 import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
+import 'latency_test_policy.dart';
 import 'macos_clash_controller.dart';
 import 'macos_dns_policy.dart';
+import 'macos_inbound_policy.dart';
 import 'macos_latency_fallback.dart';
+import 'macos_outbound_policy.dart';
 import 'macos_tun_permission.dart';
 import 'macos_singbox_runtime.dart';
 import 'vpn_manager.dart';
@@ -302,7 +305,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     return _latencyFallbackRunner.resolve(
       nodeTags: nodeTags,
       primaryResults: const {},
-      testUrl: testUrl,
+      testUrls: LatencyTestPolicy.macosConnectionProbeUrls(testUrl),
       timeoutMs: timeoutMs,
       isCancelled: isCancelled,
       onResult: (nodeTag, result) {
@@ -656,10 +659,11 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
           for (final inbound in inbounds) {
             if (inbound['type'] == 'tun') {
               hasTunInbound = true;
-              inbound.remove('address');
               inbound.remove('interface_name');
-              inbound['inet4_address'] = '172.19.0.1/30';
-              inbound['inet6_address'] = 'fdfe:dcba:9876::1/126';
+              inbound['address'] = const [
+                '172.19.0.1/30',
+                'fdfe:dcba:9876::1/126',
+              ];
               inbound['mtu'] = 1500;
               inbound['auto_route'] = true;
               inbound['strict_route'] = false;
@@ -670,8 +674,10 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
             inbounds.add({
               'type': 'tun',
               'tag': 'tun-in',
-              'inet4_address': '172.19.0.1/30',
-              'inet6_address': 'fdfe:dcba:9876::1/126',
+              'address': const [
+                '172.19.0.1/30',
+                'fdfe:dcba:9876::1/126',
+              ],
               'mtu': 1500,
               'auto_route': true,
               'strict_route': false,
@@ -695,6 +701,9 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
           });
         }
       }
+
+      MacosInboundPolicy.apply(config);
+      MacosOutboundPolicy.apply(config);
 
       if (config['route'] is Map<String, dynamic>) {
         final route = config['route'] as Map<String, dynamic>;

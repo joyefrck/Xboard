@@ -10,7 +10,7 @@ typedef MacosConfigValidator = Future<MacosConfigValidationResult> Function({
 });
 
 class MacosSingBoxRuntime {
-  static const String targetVersion = '1.12.25';
+  static const String targetVersion = '1.13.15-xboard.1';
   static const Map<String, String> compatibilityEnvironment = {
     'ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS': 'true',
     'ENABLE_DEPRECATED_LEGACY_DNS_SERVERS': 'true',

@@ -84,7 +84,7 @@ An explicit custom URL remains a one-item list.
 `MacosVpnService` passes this ordered target list into
 `MacosLatencyFallbackRunner`. Each worker tests one node at a time and advances
 to the next target only after failure. The total caller timeout is divided
-across the targets with a minimum one-second target budget. The first success
+equally across the targets with a positive per-target budget. The first success
 is published immediately. A failed result is published only after the target
 list is exhausted. Cancellation suppresses stale callbacks between targets.
 
@@ -102,6 +102,15 @@ tags from sing-box `v1.13.15` and PR #4376 applied. Its reported version will be
 
 `MacosSingBoxRuntime.targetVersion` will use the same version marker so an
 installed `1.12.25` runtime is replaced on the next connection.
+
+### Configuration compatibility
+
+The current subscription schema still contains fields removed in sing-box
+1.13. The macOS sanitizer will migrate legacy inbound sniff/resolve fields to
+route actions, merge legacy TUN address fields into `address`, replace the
+legacy DNS outbound with `hijack-dns`, and replace outbound DNS rules with
+domain resolver options. The compatibility environment remains enabled for
+legacy DNS server and special group formats that 1.13 still supports.
 
 ## Error Handling
 
@@ -124,6 +133,8 @@ Focused tests will prove:
 - custom URLs do not gain a built-in fallback;
 - the five-second total budget is divided between two built-in targets;
 - core version and provenance markers match the embedded binary.
+- the currently installed sanitized configuration passes the patched core
+  after the same compatibility migrations used during connection startup.
 
 The patched core must report arm64, the intended version and feature tags,
 validate the installed sanitized configuration without printing its contents,

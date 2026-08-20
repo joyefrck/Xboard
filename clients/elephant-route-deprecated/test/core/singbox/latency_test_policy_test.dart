@@ -136,6 +136,27 @@ void main() {
       );
     });
 
+    test('macOS live core falls back from Cloudflare to GStatic', () {
+      expect(
+        LatencyTestPolicy.macosConnectionProbeUrls(
+          LatencyTestPolicy.connectionDefaultProbeUrl,
+        ),
+        [
+          'https://cp.cloudflare.com/generate_204',
+          'https://www.gstatic.com/generate_204',
+        ],
+      );
+    });
+
+    test('macOS live core preserves an explicit custom target', () {
+      expect(
+        LatencyTestPolicy.macosConnectionProbeUrls(
+          'https://example.com/custom_204',
+        ),
+        ['https://example.com/custom_204'],
+      );
+    });
+
     test('selects minimum valid latency from multiple probes', () async {
       final tester = LatencyTester(
         probeUrls: const ['first', 'second', 'third'],

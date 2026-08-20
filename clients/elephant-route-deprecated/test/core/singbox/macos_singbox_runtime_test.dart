@@ -15,6 +15,10 @@ void main() {
     tempDirectory.deleteSync(recursive: true);
   });
 
+  test('targets the patched stable AnyTLS core', () {
+    expect(MacosSingBoxRuntime.targetVersion, '1.13.15-xboard.1');
+  });
+
   test('replaces a stale runtime core and records the target version',
       () async {
     final binary = File('${tempDirectory.path}/sing-box-darwin-arm64')

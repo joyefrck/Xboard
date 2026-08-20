@@ -13,7 +13,6 @@ typedef MacosClashLatencyProbe = Future<ConnectionLatencyResult> Function(
   int timeoutMs,
 );
 typedef MacosLatencyCancellationCheck = bool Function();
-typedef MacosLatencyRetryDelay = Future<void> Function(Duration duration);
 typedef MacosLatencyFallbackLogger = void Function(
   String nodeTag,
   ConnectionLatencyResult result,
@@ -101,11 +100,9 @@ class MacosProductionClashLatencyProbe {
 class MacosLatencyFallbackRunner {
   MacosLatencyFallbackRunner({
     required MacosClashLatencyProbe probe,
-    MacosLatencyRetryDelay? retryDelay,
     MacosLatencyFallbackLogger? logger,
     this.concurrency = 4,
   })  : _probe = probe,
-        _retryDelay = retryDelay ?? Future<void>.delayed,
         _logger = logger {
     if (concurrency <= 0) {
       throw ArgumentError.value(concurrency, 'concurrency', 'must be positive');
@@ -113,18 +110,22 @@ class MacosLatencyFallbackRunner {
   }
 
   final MacosClashLatencyProbe _probe;
-  final MacosLatencyRetryDelay _retryDelay;
   final MacosLatencyFallbackLogger? _logger;
   final int concurrency;
 
   Future<Map<String, ConnectionLatencyResult>> resolve({
     required List<String> nodeTags,
     required Map<String, ConnectionLatencyResult> primaryResults,
-    required String testUrl,
+    required List<String> testUrls,
     required int timeoutMs,
     required MacosLatencyCancellationCheck isCancelled,
     ConnectionLatencyResultCallback? onResult,
   }) async {
+    if (testUrls.isEmpty) {
+      throw ArgumentError.value(testUrls, 'testUrls', 'must not be empty');
+    }
+    final orderedTestUrls = testUrls.toSet().toList(growable: false);
+    final perTargetTimeoutMs = max(1, timeoutMs ~/ orderedTestUrls.length);
     final results = <String, ConnectionLatencyResult>{...primaryResults};
     final failedTags = nodeTags
         .where((tag) => !(primaryResults[tag]?.isSuccess ?? false))
@@ -137,16 +138,35 @@ class MacosLatencyFallbackRunner {
         if (index >= failedTags.length) return;
         nextIndex++;
         final nodeTag = failedTags[index];
-        var result = await _probe(nodeTag, testUrl, timeoutMs);
-        _logger?.call(nodeTag, result, 1);
-        if (isCancelled()) return;
+        ConnectionLatencyResult? result;
+        var elapsedMs = 0;
+        final statusCodes = <int>[];
+        for (var targetIndex = 0;
+            targetIndex < orderedTestUrls.length;
+            targetIndex++) {
+          final attempt = await _probe(
+            nodeTag,
+            orderedTestUrls[targetIndex],
+            perTargetTimeoutMs,
+          );
+          elapsedMs += attempt.elapsedMs;
+          statusCodes.addAll(attempt.httpStatusCodes);
+          _logger?.call(nodeTag, attempt, targetIndex + 1);
+          if (isCancelled()) return;
+          result = attempt;
+          if (attempt.isSuccess) break;
+        }
 
-        if (_isRetryable(result, timeoutMs)) {
-          await _retryDelay(const Duration(milliseconds: 200));
-          if (isCancelled()) return;
-          result = await _probe(nodeTag, testUrl, timeoutMs);
-          _logger?.call(nodeTag, result, 2);
-          if (isCancelled()) return;
+        if (result == null) return;
+        if (!result.isSuccess && orderedTestUrls.length > 1) {
+          result = ConnectionLatencyResult(
+            latencyMs: -1,
+            elapsedMs: elapsedMs,
+            failureKind: result.failureKind,
+            source: result.source,
+            httpStatusCodes: List<int>.unmodifiable(statusCodes),
+            processExitCode: result.processExitCode,
+          );
         }
 
         results[nodeTag] = result;
@@ -160,19 +180,5 @@ class MacosLatencyFallbackRunner {
     }
 
     return Map<String, ConnectionLatencyResult>.unmodifiable(results);
-  }
-
-  bool _isRetryable(ConnectionLatencyResult result, int timeoutMs) {
-    if (result.isSuccess) return false;
-    if (result.failureKind == ConnectionLatencyFailureKind.transportError) {
-      return result.elapsedMs < timeoutMs;
-    }
-    if (result.failureKind != ConnectionLatencyFailureKind.httpError) {
-      return false;
-    }
-    return result.httpStatusCodes.any(
-      (statusCode) =>
-          statusCode == 502 || statusCode == 503 || statusCode == 504,
-    );
   }
 }

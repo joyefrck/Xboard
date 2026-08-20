@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:elephant_network/core/singbox/macos_dns_policy.dart';
+import 'package:elephant_network/core/singbox/macos_singbox_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -54,6 +55,60 @@ void main() {
     };
 
     expect(MacosDnsPolicy.apply(config), config);
+  });
+
+  test('migrates the any-outbound DNS rule to the default resolver', () {
+    final config = <String, dynamic>{
+      'dns': {
+        'servers': [
+          {'tag': 'local', 'address': '223.5.5.5'},
+        ],
+        'rules': [
+          {
+            'outbound': ['any'],
+            'server': 'local',
+          },
+          {'clash_mode': 'global', 'server': 'remote'},
+        ],
+      },
+      'route': <String, dynamic>{},
+    };
+
+    MacosDnsPolicy.apply(config);
+
+    expect((config['dns'] as Map)['rules'], [
+      {'clash_mode': 'global', 'server': 'remote'},
+    ]);
+    expect(
+      (config['route'] as Map)['default_domain_resolver'],
+      'local',
+    );
+  });
+
+  test('migrates a tagged outbound DNS rule onto that outbound', () {
+    final config = <String, dynamic>{
+      'dns': {
+        'servers': [
+          {'tag': 'local', 'address': '223.5.5.5'},
+        ],
+        'rules': [
+          {'outbound': 'proxy-a', 'server': 'local'},
+        ],
+      },
+      'outbounds': [
+        {'type': 'socks', 'tag': 'proxy-a'},
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+    };
+
+    MacosDnsPolicy.apply(config);
+
+    expect((config['dns'] as Map)['rules'], isEmpty);
+    expect((config['outbounds'] as List).first, {
+      'type': 'socks',
+      'tag': 'proxy-a',
+      'domain_resolver': 'local',
+    });
   });
 
   test('adds the proxy detour when the default remote DNS lacks one', () {
@@ -112,6 +167,10 @@ void main() {
     final result = await Process.run(
       'assets/bin/sing-box-darwin-arm64',
       ['check', '-c', configFile.path],
+      environment: {
+        ...Platform.environment,
+        ...MacosSingBoxRuntime.compatibilityEnvironment,
+      },
     );
 
     expect(

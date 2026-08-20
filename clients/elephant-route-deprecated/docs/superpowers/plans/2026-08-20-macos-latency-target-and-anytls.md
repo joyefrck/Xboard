@@ -78,7 +78,13 @@ Expected: PASS.
 - Modify: `assets/bin/sing-box-darwin-arm64.sha256`
 - Create: `assets/bin/sing-box-darwin-arm64.provenance`
 - Modify: `lib/core/singbox/macos_singbox_runtime.dart`
+- Modify: `lib/core/singbox/macos_dns_policy.dart`
+- Create: `lib/core/singbox/macos_inbound_policy.dart`
+- Create: `lib/core/singbox/macos_outbound_policy.dart`
 - Modify: `test/core/singbox/macos_singbox_runtime_test.dart`
+- Modify: `test/core/singbox/macos_dns_policy_test.dart`
+- Create: `test/core/singbox/macos_inbound_policy_test.dart`
+- Create: `test/core/singbox/macos_outbound_policy_test.dart`
 - Modify: `test/macos_distribution_contract_test.dart`
 
 - [ ] **Step 1: Add failing version and provenance contracts**
@@ -106,8 +112,10 @@ provenance file.
 - [ ] **Step 5: Validate core and current config compatibility**
 
 Run the embedded binary's `version`, verify Mach-O architecture and checksum,
-and execute `check -c` on the current installed sanitized configuration with
-the app compatibility environment. Do not print configuration contents.
+migrate removed inbound, DNS outbound, outbound DNS-rule, and TUN address
+fields, then execute `check -c` on the current installed sanitized
+configuration with the app compatibility environment. Do not print
+configuration contents.
 
 - [ ] **Step 6: Rerun core and distribution contracts**
 

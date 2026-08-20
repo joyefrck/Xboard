@@ -29,7 +29,6 @@ void main() {
     final callbacks = <String, ConnectionLatencyResult>{};
     final runner = MacosLatencyFallbackRunner(
       concurrency: 4,
-      retryDelay: (_) async {},
       probe: (nodeTag, testUrl, timeoutMs) async => ConnectionLatencyResult(
         latencyMs: nodeTag == 'node-a' ? 120 : 180,
         elapsedMs: 10,
@@ -57,7 +56,6 @@ void main() {
     final callbacks = <ConnectionLatencyResult>[];
     final runner = MacosLatencyFallbackRunner(
       concurrency: 4,
-      retryDelay: (_) async {},
       probe: (nodeTag, testUrl, timeoutMs) async =>
           const ConnectionLatencyResult(
         latencyMs: -1,
@@ -89,5 +87,47 @@ void main() {
       () => MacosVpnService(latencyRunTimeout: Duration.zero),
       throwsArgumentError,
     );
+  });
+
+  test('uses both built-in targets but preserves a custom target', () async {
+    final requestedUrls = <String>[];
+    final runner = MacosLatencyFallbackRunner(
+      probe: (nodeTag, testUrl, timeoutMs) async {
+        requestedUrls.add(testUrl);
+        return ConnectionLatencyResult(
+          latencyMs: testUrl.contains('cloudflare') ? -1 : 180,
+          elapsedMs: 10,
+          failureKind: testUrl.contains('cloudflare')
+              ? ConnectionLatencyFailureKind.httpError
+              : null,
+          source: ConnectionLatencySource.clashFallback,
+          httpStatusCodes:
+              testUrl.contains('cloudflare') ? const [503] : const [200],
+        );
+      },
+    );
+    final service = MacosVpnService(latencyFallbackRunner: runner);
+
+    await service.testConnectionLatencies(
+      nodeTags: const ['built-in'],
+      testUrl: 'https://cp.cloudflare.com/generate_204',
+      timeoutMs: 5000,
+      concurrency: 4,
+    );
+    expect(requestedUrls, [
+      'https://cp.cloudflare.com/generate_204',
+      'https://www.gstatic.com/generate_204',
+    ]);
+
+    requestedUrls.clear();
+    await service.testConnectionLatencies(
+      nodeTags: const ['custom'],
+      testUrl: 'https://example.com/custom_204',
+      timeoutMs: 5000,
+      concurrency: 4,
+    );
+    expect(requestedUrls, ['https://example.com/custom_204']);
+
+    service.dispose();
   });
 }

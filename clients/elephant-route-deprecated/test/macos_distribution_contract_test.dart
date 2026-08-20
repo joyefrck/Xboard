@@ -80,15 +80,57 @@ void main() {
   });
 
   test(
-    'bundled arm64 core supports AnyTLS',
+    'bundled arm64 core is patched, checksummed, and traceable',
     () {
+      const binaryPath = 'assets/bin/sing-box-darwin-arm64';
       final result = Process.runSync(
-        'assets/bin/sing-box-darwin-arm64',
+        binaryPath,
         const ['version'],
       );
 
       expect(result.exitCode, 0);
-      expect(result.stdout.toString(), contains('sing-box version 1.12.25'));
+      final versionOutput = result.stdout.toString();
+      expect(versionOutput, contains('sing-box version 1.13.15-xboard.1'));
+      expect(versionOutput, contains('darwin/arm64'));
+      for (final tag in const [
+        'with_gvisor',
+        'with_quic',
+        'with_wireguard',
+        'with_utls',
+        'with_clash_api',
+      ]) {
+        expect(versionOutput, contains(tag));
+      }
+
+      expect(
+        File('$binaryPath.version').readAsStringSync().trim(),
+        '1.13.15-xboard.1',
+      );
+      final expectedChecksum = File('$binaryPath.sha256')
+          .readAsStringSync()
+          .trim()
+          .split(RegExp(r'\s+'))
+          .first;
+      final checksum = Process.runSync('shasum', ['-a', '256', binaryPath]);
+      expect(checksum.exitCode, 0);
+      expect(
+        checksum.stdout.toString().trim().split(RegExp(r'\s+')).first,
+        expectedChecksum,
+      );
+
+      final fileInfo = Process.runSync('/usr/bin/file', [binaryPath]);
+      expect(fileInfo.exitCode, 0);
+      expect(fileInfo.stdout.toString(), contains('Mach-O 64-bit executable'));
+      expect(fileInfo.stdout.toString(), contains('arm64'));
+
+      final provenance = File('$binaryPath.provenance').readAsStringSync();
+      expect(provenance, contains('base_tag=v1.13.15'));
+      expect(
+        provenance,
+        contains(
+          'upstream_patch=f043ec560f9ecd61f34e1af7a583e81e480f10c1',
+        ),
+      );
     },
     skip: !Platform.isMacOS,
   );
