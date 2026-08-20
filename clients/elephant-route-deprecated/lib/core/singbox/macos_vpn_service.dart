@@ -17,6 +17,7 @@ import 'macos_dns_policy.dart';
 import 'macos_inbound_policy.dart';
 import 'macos_latency_fallback.dart';
 import 'macos_outbound_policy.dart';
+import 'macos_outbound_switch_coordinator.dart';
 import 'macos_tun_permission.dart';
 import 'macos_singbox_runtime.dart';
 import 'vpn_manager.dart';
@@ -50,6 +51,8 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       },
     );
     _clashController = MacosClashController(_clashDio);
+    _outboundSwitchCoordinator =
+        MacosOutboundSwitchCoordinator(_clashController);
     final productionClashProbe = MacosProductionClashLatencyProbe(_clashDio);
     _latencyFallbackRunner = latencyFallbackRunner ??
         MacosLatencyFallbackRunner(
@@ -70,6 +73,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
 
   final Dio _clashDio;
   late final MacosClashController _clashController;
+  late final MacosOutboundSwitchCoordinator _outboundSwitchCoordinator;
   final Duration _latencyRunTimeout;
   late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
@@ -373,7 +377,9 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<void> selectOutbound(String groupTag, String outboundTag) async {
     if (_lastSanitizedConfig == null || _singboxDirPath == null) {
-      return;
+      throw const MacosClashControllerException(
+        'macOS runtime is not ready for outbound selection',
+      );
     }
 
     try {
@@ -382,23 +388,35 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         groupTag,
         outboundTag,
       );
-      await _clashController.selectOutbound(groupTag, outboundTag);
+      final result = await _outboundSwitchCoordinator.switchOutbound(
+        groupTag: groupTag,
+        targetOutbound: outboundTag,
+      );
       _lastSanitizedConfig = updatedConfig;
-      try {
-        final configFile = File('$_singboxDirPath/config.json');
-        await configFile.writeAsString(updatedConfig);
-      } catch (error, stackTrace) {
-        await AppLogger.instance.error(
-          'macOS hot switch config persistence failed',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-      await AppLogger.instance
-          .info('macOS outbound hot switch completed: $outboundTag');
+      await _persistSelectedConfig(updatedConfig);
+      await AppLogger.instance.info(
+        'macOS outbound switch completed: target=$outboundTag '
+        'closedOldConnections=${result.closedConnectionCount}',
+      );
     } catch (e, stackTrace) {
       await AppLogger.instance.error('macOS outbound hot switch failed',
           error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> _persistSelectedConfig(String updatedConfig) async {
+    final configFile = File('$_singboxDirPath/config.json');
+    final tempFile = File('${configFile.path}.tmp');
+    try {
+      await tempFile.writeAsString(updatedConfig, flush: true);
+      await tempFile.rename(configFile.path);
+    } catch (error, stackTrace) {
+      await AppLogger.instance.error(
+        'macOS hot switch config persistence failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
   }

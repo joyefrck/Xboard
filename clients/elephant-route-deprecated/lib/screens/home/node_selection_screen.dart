@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -28,6 +27,7 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
   // ignore: unused_field
   final String _searchQuery = '';
+  String? _switchingNodeName;
 
   @override
   void initState() {
@@ -247,6 +247,32 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
   bool _isCardPressed = false;
   int? _pressedIndex;
 
+  Future<void> _selectNode(NodeProvider provider, ProxyNode node) async {
+    if (_switchingNodeName != null) return;
+    setState(() => _switchingNodeName = node.name);
+
+    bool applied;
+    try {
+      applied = await provider.selectNode(node);
+    } catch (error) {
+      applied = false;
+      debugPrint('NODE_SWITCH: unexpected selection failure: $error');
+    }
+
+    if (!mounted) return;
+    if (applied) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        setState(() => _switchingNodeName = null);
+      }
+      return;
+    }
+
+    setState(() => _switchingNodeName = null);
+    ToastUtils.show(context, provider.errorMessage ?? '节点切换失败，请重试');
+  }
+
   /// 自动选择节点卡片（特殊样式）
   Widget _buildAutoNodeCard(
       ProxyNode node, bool isSelected, bool isDark, NodeProvider provider) {
@@ -254,13 +280,11 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
     final autoLatency = autoRealNode?.latency;
     final autoNodeName = autoRealNode?.name;
 
+    final isSwitchingNode = _switchingNodeName == node.name;
+
     return GestureDetector(
-      onTap: () {
-        unawaited(provider.selectNode(node));
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
-      },
+      onTap:
+          _switchingNodeName == null ? () => _selectNode(provider, node) : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -376,7 +400,17 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (isSelected)
+                if (isSwitchingNode)
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color:
+                          isDark ? AppColors.primaryLight : AppColors.primary,
+                    ),
+                  )
+                else if (isSelected)
                   Icon(
                     Icons.check_circle,
                     size: 22,
@@ -406,26 +440,31 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
   Widget _buildNodeCard(ProxyNode node, bool isSelected, bool isDark,
       NodeProvider provider, int index) {
     final isPressed = _isCardPressed && _pressedIndex == index;
+    final isSwitchingNode = _switchingNodeName == node.name;
+    final canSelect = _switchingNodeName == null;
 
     return GestureDetector(
-      onTapDown: (_) => setState(() {
-        _isCardPressed = true;
-        _pressedIndex = index;
-      }),
-      onTapUp: (_) {
-        setState(() {
-          _isCardPressed = false;
-          _pressedIndex = null;
-        });
-        unawaited(provider.selectNode(node));
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
-      },
-      onTapCancel: () => setState(() {
-        _isCardPressed = false;
-        _pressedIndex = null;
-      }),
+      onTapDown: canSelect
+          ? (_) => setState(() {
+                _isCardPressed = true;
+                _pressedIndex = index;
+              })
+          : null,
+      onTapUp: canSelect
+          ? (_) {
+              setState(() {
+                _isCardPressed = false;
+                _pressedIndex = null;
+              });
+              _selectNode(provider, node);
+            }
+          : null,
+      onTapCancel: canSelect
+          ? () => setState(() {
+                _isCardPressed = false;
+                _pressedIndex = null;
+              })
+          : null,
       child: AnimatedScale(
         scale: isPressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -509,7 +548,21 @@ class _NodeSelectionScreenState extends State<NodeSelectionScreen> {
                   ),
 
                   // 选中状态
-                  if (isSelected)
+                  if (isSwitchingNode)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark
+                              ? AppColors.primaryLight
+                              : AppColors.primary,
+                        ),
+                      ),
+                    )
+                  else if (isSelected)
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0),
                       child: Icon(

@@ -45,10 +45,22 @@ void main() {
     expect(end, greaterThan(start));
     final selectBody = source.substring(start, end);
 
-    expect(selectBody, contains('_clashController.selectOutbound'));
+    expect(
+      selectBody,
+      contains('_outboundSwitchCoordinator.switchOutbound'),
+    );
+    expect(selectBody, isNot(contains('_clashController.selectOutbound')));
+    expect(
+      selectBody.indexOf('_outboundSwitchCoordinator.switchOutbound'),
+      lessThan(selectBody.indexOf('_lastSanitizedConfig = updatedConfig')),
+    );
+    expect(selectBody, contains('_persistSelectedConfig(updatedConfig)'));
     expect(selectBody, isNot(contains('_runtime.stopCore')));
     expect(selectBody, isNot(contains('_runtime.startTunMode')));
     expect(selectBody, isNot(contains('VpnStatus.coreStarting')));
+
+    expect(source, contains(r"File('${configFile.path}.tmp')"));
+    expect(source, contains('flush: true'));
   });
 
   test('macOS connected latency stays on the live core', () {

@@ -53,6 +53,61 @@ void main() {
 
     expect(provider.fetchCount, 1);
   });
+
+  testWidgets('keeps the page open until node migration succeeds',
+      (tester) async {
+    final harness = _SelectionHarness();
+    addTearDown(harness.dispose);
+    await harness.openNodeScreen(tester);
+
+    await tester.tap(find.text('existing-node'));
+    await tester.pump();
+
+    expect(harness.nodeProvider.selectionCount, 1);
+    expect(find.text('选择节点'), findsOneWidget);
+
+    harness.nodeProvider.completeSelection(true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择节点'), findsNothing);
+  });
+
+  testWidgets('keeps the page open and reports a failed node migration',
+      (tester) async {
+    final harness = _SelectionHarness();
+    addTearDown(harness.dispose);
+    await harness.openNodeScreen(tester);
+
+    await tester.tap(find.text('existing-node'));
+    await tester.pump();
+    harness.nodeProvider.completeSelection(
+      false,
+      errorMessage: '节点切换失败: switch rejected',
+    );
+    await tester.pump();
+
+    expect(find.text('选择节点'), findsOneWidget);
+    expect(find.textContaining('节点切换失败'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('ignores duplicate node taps while migration is pending',
+      (tester) async {
+    final harness = _SelectionHarness();
+    addTearDown(harness.dispose);
+    await harness.openNodeScreen(tester);
+
+    await tester.tap(find.text('existing-node'));
+    await tester.pump();
+    await tester.tap(find.text('existing-node'));
+    await tester.pump();
+
+    expect(harness.nodeProvider.selectionCount, 1);
+
+    harness.nodeProvider.completeSelection(true);
+    await tester.pumpAndSettle();
+  });
 }
 
 class _RefreshTrackingNodeProvider extends NodeProvider {
@@ -65,6 +120,12 @@ class _RefreshTrackingNodeProvider extends NodeProvider {
   ) : super(dioClient, vpnManager, configProvider);
 
   int fetchCount = 0;
+  int selectionCount = 0;
+  Completer<bool> selectionCompleter = Completer<bool>();
+  String? selectionErrorMessage;
+
+  @override
+  String? get errorMessage => selectionErrorMessage ?? super.errorMessage;
 
   @override
   List<ProxyNode> get nodes => [
@@ -79,6 +140,78 @@ class _RefreshTrackingNodeProvider extends NodeProvider {
   @override
   Future<void> fetchNodes() async {
     fetchCount++;
+  }
+
+  @override
+  Future<bool> selectNode(ProxyNode node) async {
+    selectionCount++;
+    return selectionCompleter.future;
+  }
+
+  void completeSelection(bool applied, {String? errorMessage}) {
+    selectionErrorMessage = errorMessage;
+    selectionCompleter.complete(applied);
+    notifyListeners();
+  }
+}
+
+class _SelectionHarness {
+  _SelectionHarness()
+      : vpnManager = _FakeVpnManager(),
+        configProvider = ConfigProvider(),
+        dioClient = DioClient(domainResolver: _FixedDomainResolver()) {
+    nodeProvider = _RefreshTrackingNodeProvider(
+      dioClient,
+      vpnManager,
+      configProvider,
+    );
+    vpnProvider = VpnProvider(
+      dioClient,
+      vpnManager,
+      configProvider,
+      usesNativeTrafficOnly: true,
+    );
+  }
+
+  final _FakeVpnManager vpnManager;
+  final ConfigProvider configProvider;
+  final DioClient dioClient;
+  late final _RefreshTrackingNodeProvider nodeProvider;
+  late final VpnProvider vpnProvider;
+
+  Future<void> openNodeScreen(WidgetTester tester) async {
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<NodeProvider>.value(value: nodeProvider),
+          ChangeNotifierProvider<VpnProvider>.value(value: vpnProvider),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NodeSelectionScreen(),
+                    ),
+                  ),
+                  child: const Text('open nodes'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open nodes'));
+    await tester.pumpAndSettle();
+  }
+
+  void dispose() {
+    nodeProvider.dispose();
+    vpnProvider.dispose();
+    vpnManager.dispose();
   }
 }
 

@@ -248,6 +248,34 @@ void main() {
     expect(provider.selectedNode?.name, 'node-good');
   });
 
+  test('manual selection returns true only after the VPN manager confirms it',
+      () async {
+    final node = provider.nodes.singleWhere(
+      (candidate) => candidate.name == 'node-good',
+    );
+
+    final applied = await provider.selectNode(node);
+
+    expect(applied, isTrue);
+    expect(provider.selectedNode?.name, 'node-good');
+    expect(vpnManager.selectedNodes, ['node-good']);
+  });
+
+  test('manual selection returns false and restores the previous node on error',
+      () async {
+    final previous = provider.selectedNode;
+    vpnManager.selectionError = StateError('switch rejected');
+    final node = provider.nodes.singleWhere(
+      (candidate) => candidate.name == 'node-good',
+    );
+
+    final applied = await provider.selectNode(node);
+
+    expect(applied, isFalse);
+    expect(provider.selectedNode, same(previous));
+    expect(provider.errorMessage, contains('switch rejected'));
+  });
+
   test('replays a saved concrete node before connected latency starts',
       () async {
     final manualNode = provider.nodes.singleWhere(
@@ -355,6 +383,7 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   int stopLatencyTestCalls = 0;
   bool hangLatencyTest = false;
   bool delaySelections = false;
+  Object? selectionError;
   Map<String, ConnectionLatencyResult> latencyResults = {
     'node-good': const ConnectionLatencyResult(
       latencyMs: 80,
@@ -433,6 +462,10 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
       final completer = Completer<void>();
       _selectionCompleters[outboundTag] = completer;
       await completer.future;
+    }
+    final error = selectionError;
+    if (error != null) {
+      throw error;
     }
     selectedNodes.add(outboundTag);
   }

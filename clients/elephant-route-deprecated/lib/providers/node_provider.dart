@@ -669,7 +669,7 @@ class NodeProvider with ChangeNotifier {
   // ==================== 节点选择 ====================
 
   /// 选择节点
-  Future<void> selectNode(ProxyNode node) async {
+  Future<bool> selectNode(ProxyNode node) async {
     debugPrint(
         'NODE_SWITCH: selectNode called with "${node.name}" (type=${node.type}), isConnected=${_vpnManager.currentState.status}');
     final generation = ++_selectionGeneration;
@@ -689,13 +689,13 @@ class NodeProvider with ChangeNotifier {
         forceSwitch: true,
         selectionGeneration: generation,
       );
-      if (!_isSelectionCurrent(generation)) return;
+      if (!_isSelectionCurrent(generation)) return false;
       if (!applied) {
         _selectedNode = previousSelectedNode;
         _isAutoMode = previousAutoMode;
         _autoSelectedRealNode = previousAutoNode;
         notifyListeners();
-        return;
+        return false;
       }
     } else {
       // 用户选择了具体节点
@@ -706,28 +706,37 @@ class NodeProvider with ChangeNotifier {
       debugPrint(
           'NODE_SWITCH: calling selectOutbound("节点选择", "${node.name}"), VPN status=${_vpnManager.currentState.status}');
       final applied = await _enqueueOutboundSelection(node.name, generation);
-      if (!_isSelectionCurrent(generation)) return;
+      if (!_isSelectionCurrent(generation)) return false;
       if (!applied) {
         _selectedNode = previousSelectedNode;
         _isAutoMode = previousAutoMode;
         _autoSelectedRealNode = previousAutoNode;
         notifyListeners();
-        return;
+        return false;
       }
     }
 
     notifyListeners();
 
-    await Future.wait([
-      _storage.write(
-        key: 'auto_mode',
-        value: node.type == 'auto' ? 'true' : 'false',
-      ),
-      _storage.write(
-        key: 'selected_node',
-        value: jsonEncode(node.toJson()),
-      ),
-    ]);
+    try {
+      await Future.wait([
+        _storage.write(
+          key: 'auto_mode',
+          value: node.type == 'auto' ? 'true' : 'false',
+        ),
+        _storage.write(
+          key: 'selected_node',
+          value: jsonEncode(node.toJson()),
+        ),
+      ]);
+    } catch (error) {
+      if (_isSelectionCurrent(generation)) {
+        _errorMessage = '节点选择保存失败: $error';
+        notifyListeners();
+      }
+      return false;
+    }
+    return _isSelectionCurrent(generation);
   }
 
   // ==================== 自动选择逻辑 ====================
