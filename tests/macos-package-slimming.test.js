@@ -9,18 +9,20 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('macOS beta build defaults to the production domain and architecture-specific outputs', () => {
+test('macOS beta build keeps distribution dynamic and emits versioned arm64 outputs', () => {
   const script = readRepoFile('clients/elephant-route-deprecated/build_macos_beta.sh');
 
   assert.match(script, /BASE_URL="\$\{BASE_URL:-https:\/\/www\.elephant223\.com\}"/);
-  assert.match(script, /APP_DISTRIBUTION_URL="\$\{APP_DISTRIBUTION_URL:-\$\{BASE_URL\}\}"/);
-  assert.match(script, /MACOS_ARCH="\$\{MACOS_ARCH:-arm64\}"/);
-  assert.match(script, /case "\$\{MACOS_ARCH\}" in/);
+  assert.match(script, /APP_DISTRIBUTION_URL="\$\{APP_DISTRIBUTION_URL:-\}"/);
+  assert.doesNotMatch(script, /APP_DISTRIBUTION_URL="\$\{APP_DISTRIBUTION_URL:-\$\{BASE_URL\}\}"/);
+  assert.match(script, /MACOS_ARCH="arm64"/);
+  assert.doesNotMatch(script, /case "\$\{MACOS_ARCH\}" in/);
   assert.match(script, /\$\{APP_NAME\}-macos-\$\{MACOS_ARCH\}\.app/);
-  assert.match(script, /\$\{APP_NAME\}-macos-\$\{MACOS_ARCH\}\.dmg/);
+  assert.match(script, /\$\{APP_NAME\}-macos-\$\{MACOS_ARCH\}-v\$\{MACOS_BUILD_NAME\}\.dmg/);
   assert.match(script, /prune_for_arch/);
   assert.match(script, /thin_macho_file/);
   assert.match(script, /--dart-define=BASE_URL="\$\{BASE_URL\}"/);
+  assert.match(script, /if \[\[ -n "\$\{APP_DISTRIBUTION_URL\}" \]\]; then/);
   assert.match(script, /--dart-define=APP_DISTRIBUTION_URL="\$\{APP_DISTRIBUTION_URL\}"/);
 });
 
