@@ -1,4 +1,11 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+
+dynamic _decodedClashBody(dynamic data) {
+  if (data is! String) return data;
+  return jsonDecode(data);
+}
 
 class MacosClashConnection {
   const MacosClashConnection({
@@ -55,7 +62,7 @@ class MacosClashController implements MacosClashControl {
       final response = await _dio.get<dynamic>(
         '/proxies/${Uri.encodeComponent(groupTag)}',
       );
-      final data = response.data;
+      final data = _decodedClashBody(response.data);
       if (data is Map) {
         final selected = data['now'];
         if (selected is String && selected.isNotEmpty) {
@@ -85,7 +92,7 @@ class MacosClashController implements MacosClashControl {
   Future<List<MacosClashConnection>> activeConnections() async {
     try {
       final response = await _dio.get<dynamic>('/connections');
-      final data = response.data;
+      final data = _decodedClashBody(response.data);
       if (data is! Map) {
         throw const MacosClashControllerException(
           'Clash API connections response is invalid',
@@ -188,7 +195,7 @@ class MacosClashController implements MacosClashControl {
           'timeout': timeoutMs,
         },
       );
-      final data = response.data;
+      final data = _decodedClashBody(response.data);
       if (data is Map) {
         final delay = data['delay'];
         if (delay is int && delay > 0) return delay;

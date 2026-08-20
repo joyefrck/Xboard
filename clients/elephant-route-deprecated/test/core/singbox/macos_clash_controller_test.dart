@@ -64,6 +64,24 @@ void main() {
     );
   });
 
+  test('reads a selector JSON object served as text/plain', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9090'))
+      ..httpClientAdapter = _RecordingAdapter(
+        statusCode: 200,
+        contentType: Headers.textPlainContentType,
+        responseData: const {
+          'name': '节点选择',
+          'type': 'Selector',
+          'now': '香港',
+        },
+      );
+    final controller = MacosClashController(dio);
+
+    final selected = await controller.selectedOutbound('节点选择');
+
+    expect(selected, '香港');
+  });
+
   test('rejects a selector response without an active member', () async {
     final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9090'))
       ..httpClientAdapter = _RecordingAdapter(
@@ -121,6 +139,40 @@ void main() {
     final controller = MacosClashController(dio);
 
     expect(await controller.activeConnections(), isEmpty);
+  });
+
+  test('parses connections JSON served as text/plain', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9090'))
+      ..httpClientAdapter = _RecordingAdapter(
+        statusCode: 200,
+        contentType: Headers.textPlainContentType,
+        responseData: const {
+          'connections': [
+            {
+              'id': 'old-1',
+              'chains': ['东京', '节点选择'],
+            },
+          ],
+        },
+      );
+    final controller = MacosClashController(dio);
+
+    final connections = await controller.activeConnections();
+
+    expect(connections.single.id, 'old-1');
+    expect(connections.single.chains, ['东京', '节点选择']);
+  });
+
+  test('reads delay JSON served as text/plain', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9090'))
+      ..httpClientAdapter = _RecordingAdapter(
+        statusCode: 200,
+        contentType: Headers.textPlainContentType,
+        responseData: const {'delay': 46},
+      );
+    final controller = MacosClashController(dio);
+
+    expect(await controller.urlTest('香港'), 46);
   });
 
   test('closes one encoded connection through the Clash API', () async {
@@ -187,10 +239,15 @@ void main() {
 }
 
 class _RecordingAdapter implements HttpClientAdapter {
-  _RecordingAdapter({required this.statusCode, this.responseData});
+  _RecordingAdapter({
+    required this.statusCode,
+    this.responseData,
+    this.contentType = Headers.jsonContentType,
+  });
 
   final int statusCode;
   final Object? responseData;
+  final String contentType;
   RequestOptions? lastOptions;
 
   @override
@@ -204,7 +261,7 @@ class _RecordingAdapter implements HttpClientAdapter {
       responseData == null ? '' : jsonEncode(responseData),
       statusCode,
       headers: {
-        Headers.contentTypeHeader: [Headers.jsonContentType],
+        Headers.contentTypeHeader: [contentType],
       },
     );
   }
