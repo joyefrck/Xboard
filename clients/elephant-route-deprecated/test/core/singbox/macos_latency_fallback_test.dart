@@ -266,7 +266,7 @@ void main() {
     expect(probes, 1);
   });
 
-  test('limits fallback probes to two concurrent nodes', () async {
+  test('limits live Clash probes to four concurrent nodes', () async {
     var inFlight = 0;
     var maxInFlight = 0;
     final release = Completer<void>();
@@ -274,7 +274,7 @@ void main() {
       probe: (nodeTag, testUrl, timeoutMs) async {
         inFlight++;
         if (inFlight > maxInFlight) maxInFlight = inFlight;
-        if (inFlight == 2 && !release.isCompleted) release.complete();
+        if (inFlight == 4 && !release.isCompleted) release.complete();
         await release.future;
         inFlight--;
         return const ConnectionLatencyResult(
@@ -287,18 +287,13 @@ void main() {
 
     await runner.resolve(
       nodeTags: const ['a', 'b', 'c', 'd'],
-      primaryResults: const {
-        'a': failed503,
-        'b': failed503,
-        'c': failed503,
-        'd': failed503,
-      },
+      primaryResults: const {},
       testUrl: 'https://www.gstatic.com/generate_204',
       timeoutMs: 5000,
       isCancelled: () => false,
     );
 
-    expect(maxInFlight, 2);
+    expect(maxInFlight, 4);
   });
 
   test('cancellation suppresses stale callbacks', () async {

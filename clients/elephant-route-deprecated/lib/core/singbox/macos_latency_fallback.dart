@@ -103,7 +103,7 @@ class MacosLatencyFallbackRunner {
     required MacosClashLatencyProbe probe,
     MacosLatencyRetryDelay? retryDelay,
     MacosLatencyFallbackLogger? logger,
-    this.concurrency = 2,
+    this.concurrency = 4,
   })  : _probe = probe,
         _retryDelay = retryDelay ?? Future<void>.delayed,
         _logger = logger {

@@ -50,4 +50,23 @@ void main() {
     expect(selectBody, isNot(contains('_runtime.startTunMode')));
     expect(selectBody, isNot(contains('VpnStatus.coreStarting')));
   });
+
+  test('macOS connected latency stays on the live core', () {
+    final source =
+        File('lib/core/singbox/macos_vpn_service.dart').readAsStringSync();
+    final start = source.indexOf(
+      'Future<Map<String, ConnectionLatencyResult>> _runConnectionLatencies',
+    );
+    final end = source.indexOf(
+      '\n  @override\n  Future<void> stopConnectionLatencyTest()',
+      start,
+    );
+    final body = source.substring(start, end);
+
+    expect(body, contains('_latencyFallbackRunner.resolve'));
+    expect(body, contains('primaryResults: const {}'));
+    expect(body, isNot(contains('MacosLatencySession(')));
+    expect(body, isNot(contains('_runtime.stopCore')));
+    expect(body, isNot(contains('_runtime.startTunMode')));
+  });
 }
