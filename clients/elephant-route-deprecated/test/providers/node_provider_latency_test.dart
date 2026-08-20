@@ -247,6 +247,73 @@ void main() {
     expect(vpnManager.selectedNodes, ['node-timeout', 'node-good']);
     expect(provider.selectedNode?.name, 'node-good');
   });
+
+  test('replays a saved concrete node before connected latency starts',
+      () async {
+    final manualNode = provider.nodes.singleWhere(
+      (node) => node.name == 'node-good',
+    );
+    await provider.selectNode(manualNode);
+    vpnManager.events.clear();
+    vpnManager.selectedNodes.clear();
+
+    vpnManager.emit(VpnStatus.disconnected);
+    vpnManager.emit(VpnStatus.connected);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(
+      vpnManager.events,
+      containsAllInOrder(['select:node-good', 'latency']),
+    );
+    expect(vpnManager.selectedNodes.first, 'node-good');
+  });
+
+  test('auto mode starts connected latency without replaying a node', () async {
+    final autoNode = provider.nodes.singleWhere((node) => node.type == 'auto');
+    await provider.selectNode(autoNode);
+    vpnManager.events.clear();
+    vpnManager.selectedNodes.clear();
+    vpnManager.hangLatencyTest = true;
+
+    vpnManager.emit(VpnStatus.disconnected);
+    vpnManager.emit(VpnStatus.connected);
+    await vpnManager.latencyTestStarted.future;
+
+    expect(vpnManager.events.first, 'latency');
+    expect(vpnManager.selectedNodes, isEmpty);
+  });
+
+  test('a newer explicit choice supersedes a delayed reconnect restore',
+      () async {
+    final oldNode = provider.nodes.singleWhere(
+      (node) => node.name == 'node-timeout',
+    );
+    final newNode = provider.nodes.singleWhere(
+      (node) => node.name == 'node-good',
+    );
+    await provider.selectNode(oldNode);
+    vpnManager.selectionAttempts.clear();
+    vpnManager.selectedNodes.clear();
+    vpnManager.delaySelections = true;
+
+    vpnManager.emit(VpnStatus.disconnected);
+    vpnManager.emit(VpnStatus.connected);
+    await _waitFor(
+      () =>
+          vpnManager.selectionAttempts.length == 1 &&
+          vpnManager.selectionAttempts.first == 'node-timeout',
+    );
+
+    final newest = provider.selectNode(newNode);
+    vpnManager.completeSelection('node-timeout');
+    await _waitFor(() => vpnManager.selectionAttempts.length == 2);
+    vpnManager.completeSelection('node-good');
+    await newest;
+
+    expect(vpnManager.selectionAttempts, ['node-timeout', 'node-good']);
+    expect(provider.selectedNode?.name, 'node-good');
+    expect(vpnManager.selectedNodes.last, 'node-good');
+  });
 }
 
 const _failedResult = ConnectionLatencyResult(
@@ -282,6 +349,7 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
   final StreamController<VpnState> _stateController =
       StreamController<VpnState>.broadcast();
   final List<String> selectedNodes = [];
+  final List<String> events = [];
   VpnState _currentState = const VpnState(status: VpnStatus.connected);
   int latencyTestCalls = 0;
   int stopLatencyTestCalls = 0;
@@ -328,6 +396,7 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
     int concurrency = 4,
     ConnectionLatencyResultCallback? onResult,
   }) async {
+    events.add('latency');
     latencyTestCalls++;
     if (hangLatencyTest) {
       if (!latencyTestStarted.isCompleted) {
@@ -358,6 +427,7 @@ class _LatencyVpnManager implements VpnManager, ConnectionLatencyManager {
 
   @override
   Future<void> selectOutbound(String groupTag, String outboundTag) async {
+    events.add('select:$outboundTag');
     selectionAttempts.add(outboundTag);
     if (delaySelections) {
       final completer = Completer<void>();

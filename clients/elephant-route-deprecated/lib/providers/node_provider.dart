@@ -36,6 +36,7 @@ class NodeProvider with ChangeNotifier {
   int _autoEvaluationGeneration = 0;
   Future<void> _selectionTail = Future<void>.value();
   Future<bool> _autoEvaluationTail = Future<bool>.value(true);
+  late final Future<void> _autoModeLoadFuture;
   bool _disposed = false;
 
   final _storage = const LocalStorage();
@@ -70,17 +71,7 @@ class NodeProvider with ChangeNotifier {
       // VPN 连接成功后自动触发一次完整的测速
       if (_lastVpnStatus != VpnStatus.connected &&
           state.status == VpnStatus.connected) {
-        debugPrint(
-            'DEBUG NodeProvider: VPN 连接成功，延迟 2 秒后触发测速，nodes count: ${_nodes.length}');
-        _connectionLatencyTimer?.cancel();
-        _connectionLatencyTimer = Timer(_connectionLatencyDelay, () {
-          _connectionLatencyTimer = null;
-          debugPrint(
-              'DEBUG NodeProvider: 开始执行 testAllLatencies (当前状态=${_vpnManager.currentState.status})');
-          if (_vpnManager.currentState.status == VpnStatus.connected) {
-            testAllLatencies();
-          }
-        });
+        unawaited(_handleConnectedTransition());
       }
       if (state.status != VpnStatus.connected) {
         _connectionLatencyTimer?.cancel();
@@ -88,6 +79,8 @@ class NodeProvider with ChangeNotifier {
       }
       if (_lastVpnStatus == VpnStatus.connected &&
           state.status != VpnStatus.connected) {
+        _selectionGeneration++;
+        _autoEvaluationGeneration++;
         _cancelActiveLatencyTest();
         _hasAuthoritativeConnectionLatencies = false;
         _ignoreNativeLatencyUpdatesUntil = null;
@@ -97,7 +90,35 @@ class NodeProvider with ChangeNotifier {
     });
 
     // 加载持久化的自动模式设置
-    _loadAutoMode();
+    _autoModeLoadFuture = _loadAutoMode();
+  }
+
+  Future<void> _handleConnectedTransition() async {
+    final generation = _selectionGeneration;
+    final selected = _selectedNode;
+    if (!_isAutoMode && selected != null && selected.type != 'auto') {
+      await _enqueueOutboundSelection(selected.name, generation);
+    }
+    if (!_isSelectionCurrent(generation) ||
+        _vpnManager.currentState.status != VpnStatus.connected) {
+      return;
+    }
+    _scheduleConnectedLatencyTest(generation);
+  }
+
+  void _scheduleConnectedLatencyTest(int generation) {
+    debugPrint(
+        'DEBUG NodeProvider: VPN 连接成功，等待 ${_connectionLatencyDelay.inMilliseconds}ms 后触发测速，nodes count: ${_nodes.length}');
+    _connectionLatencyTimer?.cancel();
+    _connectionLatencyTimer = Timer(_connectionLatencyDelay, () {
+      _connectionLatencyTimer = null;
+      debugPrint(
+          'DEBUG NodeProvider: 开始执行 testAllLatencies (当前状态=${_vpnManager.currentState.status})');
+      if (_isSelectionCurrent(generation) &&
+          _vpnManager.currentState.status == VpnStatus.connected) {
+        unawaited(testAllLatencies());
+      }
+    });
   }
 
   /// 从存储中加载自动模式设置
@@ -523,6 +544,8 @@ class NodeProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      await _autoModeLoadFuture;
+
       // 加载本地保存的选中节点（如果有）
       if (_selectedNode == null) {
         final savedNodeJson = await _storage.read(key: 'selected_node');
