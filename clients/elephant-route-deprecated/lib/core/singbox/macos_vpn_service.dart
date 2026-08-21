@@ -33,10 +33,12 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     SubscriptionConfigCache? subscriptionConfigCache,
     Duration latencyCacheReadTimeout = const Duration(seconds: 1),
     Duration latencyRunTimeout = const Duration(seconds: 60),
+    Duration latencyStopTimeout = const Duration(seconds: 2),
   })  : _subscriptionConfigCache =
             subscriptionConfigCache ?? SubscriptionConfigCache(),
         _latencyCacheReadTimeout = latencyCacheReadTimeout,
         _latencyRunTimeout = latencyRunTimeout,
+        _latencyStopTimeout = latencyStopTimeout,
         _clashDio = Dio(
           BaseOptions(
             baseUrl: _clashApiBase,
@@ -55,6 +57,13 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       throw ArgumentError.value(
         _latencyRunTimeout,
         'latencyRunTimeout',
+        'must be positive',
+      );
+    }
+    if (_latencyStopTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        _latencyStopTimeout,
+        'latencyStopTimeout',
         'must be positive',
       );
     }
@@ -92,6 +101,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   final SubscriptionConfigCache _subscriptionConfigCache;
   final Duration _latencyCacheReadTimeout;
   final Duration _latencyRunTimeout;
+  final Duration _latencyStopTimeout;
   late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
   final _stateController = StreamController<VpnState>.broadcast();
@@ -480,10 +490,37 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     );
     return _stopCoordinator.run(() async {
       try {
-        await stopConnectionLatencyTest();
         _updateState(VpnStatus.disconnecting, resetError: true);
+        try {
+          await stopConnectionLatencyTest().timeout(_latencyStopTimeout);
+        } on TimeoutException {
+          await AppLogger.instance.warn(
+            'macOS latency cleanup timed out during stop; '
+            'continuing runtime stop',
+          );
+        }
         final result = await _runtime.stopCore(reason: reason.wireValue);
         final restored = result['proxyRestored'] != false;
+        if (result['stopped'] == false) {
+          final helperStop = result['helperStop'];
+          final helperError = helperStop is Map
+              ? helperStop['error'] ?? helperStop['code']
+              : null;
+          final errorMessage =
+              (result['error'] ?? helperError ?? '后台网络核心未能停止').toString();
+          _updateState(
+            VpnStatus.restoreFailed,
+            errorMessage: errorMessage,
+            failureReason: VpnFailureReason.restoreFailed,
+            connectionMode: VpnConnectionMode.unknown,
+            runtimeDetails: result,
+          );
+          await AppLogger.instance.warn(
+            'macOS runtime stop incomplete: reason=${reason.wireValue} '
+            'error=$errorMessage restored=$restored',
+          );
+          return;
+        }
         final nextStatus =
             restored ? VpnStatus.disconnected : VpnStatus.restoreFailed;
         _updateState(

@@ -34,6 +34,26 @@ void main() {
     expect(update, contains("'reason': 'update_install'"));
   });
 
+  test('macOS stop publishes intent before bounded latency cleanup', () {
+    final source = File('lib/core/singbox/macos_vpn_service.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
+    final start = source.indexOf('Future<void> stop({');
+    final end = source.indexOf('\n  @override\n  Future<int> urlTest', start);
+    final stopBody = source.substring(start, end);
+
+    expect(
+      stopBody.indexOf('_updateState(VpnStatus.disconnecting'),
+      lessThan(stopBody.indexOf('stopConnectionLatencyTest()')),
+    );
+    expect(stopBody, contains('timeout(_latencyStopTimeout)'));
+    expect(
+      stopBody,
+      contains('macOS latency cleanup timed out during stop'),
+    );
+    expect(stopBody, contains("result['stopped'] == false"));
+  });
+
   test('macOS outbound selection never restarts the TUN runtime', () {
     final source = File('lib/core/singbox/macos_vpn_service.dart')
         .readAsStringSync()
