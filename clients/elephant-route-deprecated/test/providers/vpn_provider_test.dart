@@ -22,9 +22,11 @@ void main() {
     late _FakeTrafficStreamClient trafficClient;
     late _FakeSubscriptionConfigCache subscriptionConfigCache;
     late bool failSubscriptionFetch;
+    late DateTime now;
 
     setUp(() {
       failSubscriptionFetch = false;
+      now = DateTime(2026, 8, 21, 12);
       final dioClient = DioClient();
       dioClient.dio.interceptors.add(
         InterceptorsWrapper(
@@ -92,6 +94,8 @@ void main() {
         subscriptionConfigCache: subscriptionConfigCache,
         usesNativeTrafficOnly: false,
         preferFreshSubscriptionOnConnect: true,
+        now: () => now,
+        disconnectSettleDuration: const Duration(seconds: 2),
       );
     });
 
@@ -191,6 +195,25 @@ void main() {
 
       // Assert
       expect(vpnProvider.isConnected, false);
+    });
+
+    test('用户关闭完成后的连续点击不应该立即重新连接', () async {
+      await vpnProvider.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(vpnManager.startCalls, 1);
+
+      await vpnProvider.toggle();
+      await vpnProvider.toggle();
+
+      expect(vpnProvider.state.status, VpnStatus.disconnected);
+      expect(vpnManager.startCalls, 1);
+
+      now = now.add(const Duration(seconds: 3));
+      await vpnProvider.toggle();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(vpnProvider.state.status, VpnStatus.connected);
+      expect(vpnManager.startCalls, 2);
     });
 
     test('处理中状态应该阻止 toggle 操作', () async {

@@ -17,6 +17,7 @@ import '../providers/config_provider.dart';
 import '../../utils/constants.dart';
 
 typedef TrafficRetryDelay = Duration Function(int attempt);
+typedef VpnProviderClock = DateTime Function();
 
 class VpnProvider with ChangeNotifier {
   final VpnManager _vpnManager;
@@ -26,6 +27,8 @@ class VpnProvider with ChangeNotifier {
   final TrafficRetryDelay _trafficRetryDelay;
   final bool _usesNativeTrafficOnly;
   final bool _preferFreshSubscriptionOnConnect;
+  final VpnProviderClock _now;
+  final Duration _disconnectSettleDuration;
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
   StreamSubscription<TrafficSample>? _trafficSubscription;
   Timer? _trafficReconnectTimer;
@@ -33,6 +36,7 @@ class VpnProvider with ChangeNotifier {
   int _trafficRetryAttempt = 0;
   bool _hasNativeTrafficTotals = false;
   bool _disposed = false;
+  DateTime? _lastUserDisconnectAt;
   late final StreamSubscription<VpnState> _vpnStateSubscription;
 
   VpnProvider(
@@ -44,6 +48,8 @@ class VpnProvider with ChangeNotifier {
     SubscriptionConfigCache? subscriptionConfigCache,
     bool? usesNativeTrafficOnly,
     bool? preferFreshSubscriptionOnConnect,
+    VpnProviderClock? now,
+    Duration? disconnectSettleDuration,
   })  : _userService = UserService(
           dioClient,
           configCache: subscriptionConfigCache ?? SubscriptionConfigCache(),
@@ -53,10 +59,15 @@ class VpnProvider with ChangeNotifier {
               endpoint: Uri.parse(ApiConstants.clashTraffic),
             ),
         _trafficRetryDelay = trafficRetryDelay ?? _defaultTrafficRetryDelay,
+        _now = now ?? DateTime.now,
         _usesNativeTrafficOnly =
             usesNativeTrafficOnly ?? (!kIsWeb && Platform.isAndroid),
-        _preferFreshSubscriptionOnConnect = preferFreshSubscriptionOnConnect ??
-            (!kIsWeb && Platform.isWindows) {
+        _preferFreshSubscriptionOnConnect =
+            preferFreshSubscriptionOnConnect ?? (!kIsWeb && Platform.isWindows),
+        _disconnectSettleDuration = disconnectSettleDuration ??
+            (!kIsWeb && Platform.isMacOS
+                ? const Duration(seconds: 5)
+                : Duration.zero) {
     // 监听 VPN 状态变化
     _vpnStateSubscription = _vpnManager.stateStream.listen((state) {
       if (_disposed) return;
@@ -115,8 +126,21 @@ class VpnProvider with ChangeNotifier {
       return; // 正在处理中,忽略操作
     }
 
+    final lastUserDisconnectAt = _lastUserDisconnectAt;
+    if (!_state.isConnected &&
+        lastUserDisconnectAt != null &&
+        _now().difference(lastUserDisconnectAt) < _disconnectSettleDuration) {
+      await AppLogger.instance.info(
+        'Ignoring reconnect toggle during disconnect settling interval',
+      );
+      return;
+    }
+
     if (_state.isConnected) {
-      await disconnect();
+      await disconnect(reason: VpnStopReason.userToggle);
+      if (_state.status == VpnStatus.disconnected) {
+        _lastUserDisconnectAt = _now();
+      }
     } else {
       await connect();
     }
