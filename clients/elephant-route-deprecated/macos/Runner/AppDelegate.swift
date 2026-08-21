@@ -331,10 +331,12 @@ class AppDelegate: FlutterAppDelegate {
     var helperStopResult: [String: Any]?
     if FileManager.default.fileExists(atPath: installedTunHelperPath),
        FileManager.default.fileExists(atPath: installedTunHelperPlistPath) {
-      helperStopResult = callTunHelperIfAvailable(timeout: 2) { helper, reply in
+      helperStopResult = callTunHelperIfAvailable(timeout: 7) { helper, reply in
         helper.stopTun(withReply: reply)
       }
     }
+    let helperStopped = (helperStopResult?["ok"] as? Bool ?? true)
+      && !(helperStopResult?["coreRunning"] as? Bool ?? false)
 
     waitForCoreExit(timeout: 2.0)
 
@@ -347,12 +349,17 @@ class AppDelegate: FlutterAppDelegate {
       )
     }
 
-    return [
-      "stopped": true,
+    var response: [String: Any] = [
+      "stopped": helperStopped,
       "reason": reason,
       "proxyRestored": restored,
       "helperStop": helperStopResult ?? [:]
     ]
+    if !helperStopped {
+      response["code"] = (helperStopResult?["code"] as? String) ?? "CORE_STOP_FAILED"
+      response["error"] = (helperStopResult?["error"] as? String) ?? "后台网络核心未能停止"
+    }
+    return response
   }
 
   private func getRuntimeStatus() -> [String: Any] {

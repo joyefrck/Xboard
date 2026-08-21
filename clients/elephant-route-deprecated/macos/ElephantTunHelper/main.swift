@@ -157,6 +157,11 @@ final class TunHelper: NSObject, ElephantTunHelperProtocol {
     if let process = coreProcess, process.isRunning {
       process.terminate()
       waitForCoreExit(timeout: 1.5)
+      if process.isRunning {
+        log("TUN core ignored SIGTERM; sending SIGKILL pid=\(process.processIdentifier)")
+        _ = Darwin.kill(process.processIdentifier, SIGKILL)
+        waitForCoreExit(timeout: 1.0)
+      }
     }
     coreProcess = nil
 
@@ -164,9 +169,27 @@ final class TunHelper: NSObject, ElephantTunHelperProtocol {
       _ = runCommand("/usr/bin/pkill", args: ["-f", pattern])
     }
     waitForCoreExit(timeout: 2.0)
+
+    if isCoreRunning(), let pattern = currentCoreProcessPattern() {
+      log("TUN core still present after graceful cleanup; forcing pattern=\(pattern)")
+      _ = runCommand("/usr/bin/pkill", args: ["-KILL", "-f", pattern])
+      waitForCoreExit(timeout: 1.0)
+    }
+
+    let coreStillRunning = isCoreRunning()
     cleanupCoreOutputPipe()
 
-    return ["ok": true, "stopped": true, "coreRunning": isCoreRunning()]
+    var result: [String: Any] = [
+      "ok": !coreStillRunning,
+      "stopped": !coreStillRunning,
+      "coreRunning": coreStillRunning,
+      "code": coreStillRunning ? "CORE_STOP_FAILED" : "OK"
+    ]
+    if coreStillRunning {
+      result["error"] = "后台网络核心未能停止"
+      log("TUN core stop failed after SIGKILL fallback")
+    }
+    return result
   }
 
   private func storeCoreOutputPipe(_ pipe: Pipe) {

@@ -155,7 +155,7 @@ git commit -m "fix: bound macOS disconnect preparation"
 Require a SIGKILL fallback and truthful propagation:
 
 ```dart
-expect(helperSource, contains('ProcessSignal.sigkill.rawValue'));
+expect(helperSource, contains('SIGKILL'));
 expect(helperSource, contains('CORE_STOP_FAILED'));
 expect(helperSource, contains('"ok": !coreStillRunning'));
 expect(appSource, contains('let helperStopped'));
@@ -175,7 +175,7 @@ return the actual result:
 
 ```swift
 if isCoreRunning(), let pattern = currentCoreProcessPattern() {
-  _ = runCommand("/usr/bin/pkill", args: ["-\(ProcessSignal.sigkill.rawValue)", "-f", pattern])
+  _ = runCommand("/usr/bin/pkill", args: ["-KILL", "-f", pattern])
   waitForCoreExit(timeout: 1.0)
 }
 let coreStillRunning = isCoreRunning()

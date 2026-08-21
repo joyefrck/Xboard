@@ -168,4 +168,21 @@ void main() {
     expect(helperSource,
         contains('if let conflict = activeTunnelConflictDescription()'));
   });
+
+  test('privileged helper force-stops and truthfully reports a stuck core', () {
+    final appSource = File('macos/Runner/AppDelegate.swift').readAsStringSync();
+    final helperSource =
+        File('macos/ElephantTunHelper/main.swift').readAsStringSync();
+
+    expect(helperSource, contains('SIGKILL'));
+    expect(helperSource, contains('CORE_STOP_FAILED'));
+    expect(helperSource, contains('"ok": !coreStillRunning'));
+    expect(helperSource, contains('"stopped": !coreStillRunning'));
+    expect(appSource, contains('let helperStopped'));
+    expect(appSource, contains('"stopped": helperStopped'));
+    expect(
+      appSource,
+      contains('callTunHelperIfAvailable(timeout: 7) { helper, reply in'),
+    );
+  });
 }
