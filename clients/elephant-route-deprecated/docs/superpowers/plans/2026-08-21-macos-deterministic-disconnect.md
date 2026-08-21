@@ -236,7 +236,10 @@ Expected: all runnable tests pass; only documented environment skips remain.
 
 - [ ] **Step 3: Build the existing 1.6.5 macOS release flow**
 
-Run the repository's macOS release script identified by `rg -n "macos-beta|create-dmg|hdiutil" scripts .github` without changing `version: 1.6.5+10605`.
+Run `MACOS_BUILD_NAME=1.6.5 MACOS_BUILD_NUMBER=10605 ./build_macos_beta.sh`.
+The shared `pubspec.yaml` remains at the Windows release line; the macOS build
+script applies the requested independent version through explicit Flutter
+build flags.
 
 Expected: `build/macos-beta/ElephantRoute-macos-arm64-v1.6.5.dmg` exists.
 
