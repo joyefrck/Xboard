@@ -80,7 +80,7 @@ final session = MacosLatencySession(
   binaryPath: binaryPath,
   sourceConfig: sourceSelection.sourceConfig,
   nodeTags: sourceSelection.eligibleNodeTags,
-  testUrl: LatencyTestPolicy.macosConnectionProbeUrls(testUrl).first,
+  testUrl: LatencyTestPolicy.macosConnectionProbeUrls(testUrl).last,
   timeoutMs: timeoutMs,
   workerCount: concurrency,
 );
@@ -134,7 +134,7 @@ Expected: all isolated-session, fallback, service lifecycle, and source-contract
 ### Task 3: Verify the real symptom and package v1.6.5
 
 **Files:**
-- Verify: `pubspec.yaml`
+- Verify: `build_macos_beta.sh`
 - Verify: `assets/bin/sing-box-darwin-arm64.version`
 - Create: `build/macos-beta/ElephantRoute-macos-arm64-v1.6.5.dmg`
 
@@ -155,7 +155,11 @@ Expected: analyzer exits with no errors and the full Flutter test suite reports 
 
 - [ ] **Step 3: Verify version invariants and build the arm64 DMG**
 
-Confirm `pubspec.yaml` remains `1.6.5+10605` and the bundled core remains `1.13.15-xboard.1`. Run the repository macOS release command used by the existing v1.6.5 packaging workflow, then verify:
+Confirm the macOS release override remains `MACOS_BUILD_NAME=1.6.5` and
+`MACOS_BUILD_NUMBER=10605`, while the bundled core remains
+`1.13.15-xboard.1`. The shared `pubspec.yaml` version is independent of this
+macOS release override. Run the repository macOS release command used by the
+existing v1.6.5 packaging workflow, then verify:
 
 ```bash
 hdiutil verify build/macos-beta/ElephantRoute-macos-arm64-v1.6.5.dmg

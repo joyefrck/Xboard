@@ -84,6 +84,10 @@ void main() {
 
   test('latency lifecycle deadlines must be positive', () {
     expect(
+      () => MacosVpnService(latencyCacheReadTimeout: Duration.zero),
+      throwsArgumentError,
+    );
+    expect(
       () => MacosVpnService(latencyRunTimeout: Duration.zero),
       throwsArgumentError,
     );

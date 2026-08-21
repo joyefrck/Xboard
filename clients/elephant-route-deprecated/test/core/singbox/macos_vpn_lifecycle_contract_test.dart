@@ -65,7 +65,8 @@ void main() {
     expect(source, contains('flush: true'));
   });
 
-  test('macOS connected latency stays on the live core', () {
+  test('macOS connected latency prefers an isolated core with live fallback',
+      () {
     final source = File('lib/core/singbox/macos_vpn_service.dart')
         .readAsStringSync()
         .replaceAll('\r\n', '\n');
@@ -78,9 +79,9 @@ void main() {
     );
     final body = source.substring(start, end);
 
+    expect(body, contains('MacosLatencySession('));
     expect(body, contains('_latencyFallbackRunner.resolve'));
-    expect(body, contains('primaryResults: const {}'));
-    expect(body, isNot(contains('MacosLatencySession(')));
+    expect(body, contains('primaryResults: primaryResults'));
     expect(body, isNot(contains('_runtime.stopCore')));
     expect(body, isNot(contains('_runtime.startTunMode')));
   });

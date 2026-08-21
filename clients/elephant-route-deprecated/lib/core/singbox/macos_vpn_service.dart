@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../api/subscription_config_cache.dart';
 import '../services/app_logger.dart';
 import '../services/mac_runtime_service.dart';
 import 'connection_latency_manager.dart';
@@ -16,6 +17,8 @@ import 'macos_clash_controller.dart';
 import 'macos_dns_policy.dart';
 import 'macos_inbound_policy.dart';
 import 'macos_latency_fallback.dart';
+import 'macos_latency_session.dart';
+import 'macos_latency_source_selector.dart';
 import 'macos_outbound_policy.dart';
 import 'macos_outbound_switch_coordinator.dart';
 import 'macos_tun_permission.dart';
@@ -27,8 +30,13 @@ import 'vpn_stop_coordinator.dart';
 class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   MacosVpnService({
     MacosLatencyFallbackRunner? latencyFallbackRunner,
+    SubscriptionConfigCache? subscriptionConfigCache,
+    Duration latencyCacheReadTimeout = const Duration(seconds: 1),
     Duration latencyRunTimeout = const Duration(seconds: 60),
-  })  : _latencyRunTimeout = latencyRunTimeout,
+  })  : _subscriptionConfigCache =
+            subscriptionConfigCache ?? SubscriptionConfigCache(),
+        _latencyCacheReadTimeout = latencyCacheReadTimeout,
+        _latencyRunTimeout = latencyRunTimeout,
         _clashDio = Dio(
           BaseOptions(
             baseUrl: _clashApiBase,
@@ -36,6 +44,13 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
             receiveTimeout: const Duration(seconds: 5),
           ),
         ) {
+    if (_latencyCacheReadTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        _latencyCacheReadTimeout,
+        'latencyCacheReadTimeout',
+        'must be positive',
+      );
+    }
     if (_latencyRunTimeout <= Duration.zero) {
       throw ArgumentError.value(
         _latencyRunTimeout,
@@ -74,6 +89,8 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   final Dio _clashDio;
   late final MacosClashController _clashController;
   late final MacosOutboundSwitchCoordinator _outboundSwitchCoordinator;
+  final SubscriptionConfigCache _subscriptionConfigCache;
+  final Duration _latencyCacheReadTimeout;
   final Duration _latencyRunTimeout;
   late final MacosLatencyFallbackRunner _latencyFallbackRunner;
   final MacRuntimeService _runtime = MacRuntimeService.instance;
@@ -82,9 +99,11 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   VpnState _state = const VpnState(status: VpnStatus.disconnected);
   String? _lastSanitizedConfig;
   String? _singboxDirPath;
+  String? _singboxBinPath;
   int _proxyPort = 2334;
   bool _isTunMode = false;
   bool _disposed = false;
+  MacosLatencySession? _latencySession;
   int _latencyRunGeneration = 0;
   final VpnStopCoordinator<void> _stopCoordinator = VpnStopCoordinator<void>();
 
@@ -164,6 +183,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       );
       if (!configValid) return;
 
+      _singboxBinPath = binFile.path;
       _proxyPort = _extractProxyPort(sanitizedConfig);
 
       await _cleanupResidualCacheFiles(singBoxDir.path);
@@ -301,15 +321,136 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     await stopConnectionLatencyTest();
     final generation = _latencyRunGeneration;
     bool isCancelled() => _disposed || generation != _latencyRunGeneration;
+    final testUrls = LatencyTestPolicy.macosConnectionProbeUrls(testUrl);
+    final activeConfig = _lastSanitizedConfig;
+    final binaryPath = _singboxBinPath;
 
-    await AppLogger.instance.info(
-      'macOS live-core latency nodes=${nodeTags.length} '
-      'concurrency=${_latencyFallbackRunner.concurrency}',
+    if (activeConfig == null || binaryPath == null) {
+      await AppLogger.instance.warn(
+        'macOS isolated latency unavailable; using live-core fallback',
+      );
+      return _latencyFallbackRunner.resolve(
+        nodeTags: nodeTags,
+        primaryResults: const {},
+        testUrls: testUrls,
+        timeoutMs: timeoutMs,
+        isCancelled: isCancelled,
+        onResult: (nodeTag, result) {
+          if (!isCancelled()) {
+            onResult?.call(nodeTag, result);
+          }
+        },
+      );
+    }
+
+    String? refreshedConfig;
+    try {
+      final cachedConfig = await _subscriptionConfigCache
+          .read()
+          .timeout(_latencyCacheReadTimeout);
+      final singboxDirPath = _singboxDirPath;
+      if (cachedConfig != null && singboxDirPath != null) {
+        refreshedConfig = _sanitizeConfig(
+          cachedConfig,
+          singboxDirPath,
+          _isTunMode,
+        );
+      }
+    } on TimeoutException {
+      await AppLogger.instance.warn(
+        'macOS latency cache read timed out after '
+        '${_latencyCacheReadTimeout.inMilliseconds}ms; using active config',
+      );
+    } catch (_) {
+      // The active config remains a valid latency source if cache access fails.
+    }
+
+    final sourceSelection = MacosLatencySourceSelector.select(
+      activeConfig: activeConfig,
+      refreshedConfig: refreshedConfig,
+      requestedNodeTags: nodeTags,
     );
-    return _latencyFallbackRunner.resolve(
-      nodeTags: nodeTags,
-      primaryResults: const {},
-      testUrls: LatencyTestPolicy.macosConnectionProbeUrls(testUrl),
+    await AppLogger.instance.info(
+      'macOS isolated latency source=${sourceSelection.source.name} '
+      'eligible=${sourceSelection.eligibleNodeTags.length} '
+      'missing=${sourceSelection.missingNodeTags.length} '
+      'concurrency=$concurrency',
+    );
+
+    const unavailableResult = ConnectionLatencyResult(
+      latencyMs: -1,
+      elapsedMs: 0,
+      failureKind: ConnectionLatencyFailureKind.serviceError,
+      source: ConnectionLatencySource.connectionProbe,
+    );
+    final unavailableResults = <String, ConnectionLatencyResult>{
+      for (final nodeTag in sourceSelection.missingNodeTags)
+        nodeTag: unavailableResult,
+    };
+    for (final nodeTag in sourceSelection.missingNodeTags) {
+      if (!isCancelled()) {
+        onResult?.call(nodeTag, unavailableResult);
+      }
+    }
+    if (sourceSelection.eligibleNodeTags.isEmpty) {
+      return Map<String, ConnectionLatencyResult>.unmodifiable(
+        unavailableResults,
+      );
+    }
+
+    Map<String, ConnectionLatencyResult> mergeResults(
+      Map<String, ConnectionLatencyResult> availableResults,
+    ) {
+      return Map<String, ConnectionLatencyResult>.unmodifiable({
+        for (final nodeTag in nodeTags)
+          if (availableResults.containsKey(nodeTag))
+            nodeTag: availableResults[nodeTag]!
+          else if (unavailableResults.containsKey(nodeTag))
+            nodeTag: unavailableResults[nodeTag]!,
+      });
+    }
+
+    final session = MacosLatencySession(
+      binaryPath: binaryPath,
+      sourceConfig: sourceSelection.sourceConfig,
+      nodeTags: sourceSelection.eligibleNodeTags,
+      testUrl: testUrls.last,
+      timeoutMs: timeoutMs,
+      workerCount: concurrency,
+    );
+    _latencySession = session;
+    Map<String, ConnectionLatencyResult> primaryResults;
+    try {
+      primaryResults = await session.run(
+        onResult: (nodeTag, result) {
+          if (!isCancelled() && result.isSuccess) {
+            onResult?.call(nodeTag, result);
+          }
+        },
+      );
+    } catch (error) {
+      await AppLogger.instance.warn(
+        'macOS isolated latency session failed type=${error.runtimeType}',
+      );
+      primaryResults = {
+        for (final nodeTag in sourceSelection.eligibleNodeTags)
+          nodeTag: unavailableResult,
+      };
+    } finally {
+      if (identical(_latencySession, session)) {
+        _latencySession = null;
+      }
+      await session.close();
+    }
+
+    if (isCancelled()) {
+      return mergeResults(primaryResults);
+    }
+
+    final resolvedResults = await _latencyFallbackRunner.resolve(
+      nodeTags: sourceSelection.eligibleNodeTags,
+      primaryResults: primaryResults,
+      testUrls: testUrls,
       timeoutMs: timeoutMs,
       isCancelled: isCancelled,
       onResult: (nodeTag, result) {
@@ -318,11 +459,15 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
         }
       },
     );
+    return mergeResults(resolvedResults);
   }
 
   @override
   Future<void> stopConnectionLatencyTest() async {
     _latencyRunGeneration++;
+    final session = _latencySession;
+    _latencySession = null;
+    await session?.close();
   }
 
   @override
