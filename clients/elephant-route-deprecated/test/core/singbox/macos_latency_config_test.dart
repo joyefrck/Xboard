@@ -67,6 +67,7 @@ void main() {
       nodeTags: const ['node-a', 'node-b'],
       workerPorts: const [31001, 31002],
       clashApiPort: 31003,
+      defaultInterface: 'en0',
     );
 
     expect(output.containsKey('use_tun_mode'), isFalse);
@@ -112,6 +113,8 @@ void main() {
       },
     ]);
     expect(output['route']['final'], 'direct');
+    expect(output['route']['auto_detect_interface'], isFalse);
+    expect(output['route']['default_interface'], 'en0');
     expect(output['dns']['servers'][0]['detour'], 'direct');
     expect(
       (output['outbounds'] as List<dynamic>).any(
@@ -128,6 +131,7 @@ void main() {
       nodeTags: const ['node-a', 'node-b'],
       workerPorts: const [31001, 31002, 31003, 31004],
       clashApiPort: 31005,
+      defaultInterface: 'en0',
     );
 
     final selectors = (output['outbounds'] as List<dynamic>)
@@ -153,6 +157,7 @@ void main() {
         nodeTags: const ['missing'],
         workerPorts: const [31001],
         clashApiPort: 31002,
+        defaultInterface: 'en0',
       ),
       throwsArgumentError,
     );
@@ -162,6 +167,7 @@ void main() {
         nodeTags: const ['节点选择'],
         workerPorts: const [31001],
         clashApiPort: 31002,
+        defaultInterface: 'en0',
       ),
       throwsArgumentError,
     );
@@ -172,5 +178,20 @@ void main() {
       MacosLatencyConfigBuilder.concreteProxyTags(jsonEncode(source)),
       {'node-a', 'node-b'},
     );
+  });
+
+  test('rejects missing and tunnel default interfaces', () {
+    for (final interface in ['', 'utun7', 'en0;unsafe']) {
+      expect(
+        () => MacosLatencyConfigBuilder.build(
+          sourceConfig: jsonEncode(source),
+          nodeTags: const ['node-a'],
+          workerPorts: const [31001],
+          clashApiPort: 31002,
+          defaultInterface: interface,
+        ),
+        throwsArgumentError,
+      );
+    }
   });
 }

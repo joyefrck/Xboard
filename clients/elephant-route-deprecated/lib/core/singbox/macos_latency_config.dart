@@ -39,6 +39,7 @@ class MacosLatencyConfigBuilder {
     required List<String> nodeTags,
     required List<int> workerPorts,
     required int clashApiPort,
+    required String defaultInterface,
   }) {
     if (nodeTags.isEmpty) {
       throw ArgumentError.value(nodeTags, 'nodeTags', 'must not be empty');
@@ -48,6 +49,15 @@ class MacosLatencyConfigBuilder {
         workerPorts,
         'workerPorts',
         'must not be empty',
+      );
+    }
+    if (defaultInterface.isEmpty ||
+        defaultInterface.toLowerCase().startsWith('utun') ||
+        !RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(defaultInterface)) {
+      throw ArgumentError.value(
+        defaultInterface,
+        'defaultInterface',
+        'must be a physical network interface',
       );
     }
 
@@ -154,6 +164,8 @@ class MacosLatencyConfigBuilder {
     } else {
       route.remove('final');
     }
+    route['auto_detect_interface'] = false;
+    route['default_interface'] = defaultInterface;
     config['route'] = route;
 
     final sourceExperimental = config['experimental'];
