@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
@@ -29,6 +30,7 @@ void main() {
       testUrl: 'https://www.gstatic.com/generate_204',
       timeoutMs: 5000,
       workerCount: 1,
+      physicalInterfaceResolver: () async => 'en0',
       configValidator: ({required binaryPath, required configPath}) async =>
           const MacosConfigValidationResult.invalid('invalid fixture'),
       processStarter: (binaryPath, arguments, environment) async {
@@ -39,6 +41,61 @@ void main() {
     );
 
     await expectLater(session.run(), throwsA(isA<MacosLatencyException>()));
+    expect(starts, 0);
+    await session.close();
+  });
+
+  test('pins generated config to the resolved physical interface', () async {
+    final process = _FakeLatencyProcess();
+    Map<String, dynamic>? generatedConfig;
+    final session = _session(
+      process: process,
+      nodeTags: const ['node-a'],
+      workerCount: 1,
+      physicalInterfaceResolver: () async => 'en4',
+      configValidator: ({required binaryPath, required configPath}) async {
+        generatedConfig = jsonDecode(await File(configPath).readAsString())
+            as Map<String, dynamic>;
+        return const MacosConfigValidationResult.valid();
+      },
+    );
+
+    await session.run();
+
+    expect(generatedConfig?['route']['auto_detect_interface'], isFalse);
+    expect(generatedConfig?['route']['default_interface'], 'en4');
+    await session.close();
+  });
+
+  test('does not start latency core without a physical interface', () async {
+    var starts = 0;
+    final session = MacosLatencySession(
+      binaryPath: '/tmp/sing-box',
+      sourceConfig: sourceConfig,
+      nodeTags: const ['node-a'],
+      testUrl: 'https://www.gstatic.com/generate_204',
+      timeoutMs: 5000,
+      workerCount: 1,
+      physicalInterfaceResolver: () async => null,
+      configValidator: ({required binaryPath, required configPath}) async =>
+          const MacosConfigValidationResult.valid(),
+      processStarter: (binaryPath, arguments, environment) async {
+        starts++;
+        return _FakeLatencyProcess();
+      },
+      readinessProbe: (apiPort) async => true,
+    );
+
+    await expectLater(
+      session.run(),
+      throwsA(
+        isA<MacosLatencyException>().having(
+          (error) => error.message,
+          'message',
+          contains('物理网络接口'),
+        ),
+      ),
+    );
     expect(starts, 0);
     await session.close();
   });
@@ -172,6 +229,8 @@ MacosLatencySession _session({
   required int workerCount,
   MacosLatencySelectorUpdater? selectorUpdater,
   MacosLatencyHttpProbe? httpProbe,
+  Future<String?> Function()? physicalInterfaceResolver,
+  MacosConfigValidator? configValidator,
 }) {
   return MacosLatencySession(
     binaryPath: '/tmp/sing-box',
@@ -191,8 +250,10 @@ MacosLatencySession _session({
     testUrl: 'https://www.gstatic.com/generate_204',
     timeoutMs: 5000,
     workerCount: workerCount,
-    configValidator: ({required binaryPath, required configPath}) async =>
-        const MacosConfigValidationResult.valid(),
+    physicalInterfaceResolver: physicalInterfaceResolver ?? () async => 'en0',
+    configValidator: configValidator ??
+        ({required binaryPath, required configPath}) async =>
+            const MacosConfigValidationResult.valid(),
     processStarter: (binaryPath, arguments, environment) async => process,
     readinessProbe: (apiPort) async => true,
     selectorUpdater:

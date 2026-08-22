@@ -7,6 +7,7 @@ import '../services/app_logger.dart';
 import 'connection_latency_manager.dart';
 import 'macos_curl_connection_probe.dart';
 import 'macos_latency_config.dart';
+import 'macos_physical_interface_resolver.dart';
 import 'macos_singbox_runtime.dart';
 
 abstract interface class MacosLatencyProcess {
@@ -35,6 +36,7 @@ typedef MacosLatencyHttpProbe = Future<ConnectionLatencyResult> Function({
 });
 typedef MacosLatencyTempDirectoryCreator = Future<Directory> Function();
 typedef MacosLatencyLogger = Future<void> Function(String message);
+typedef MacosPhysicalInterfaceResolverCallback = Future<String?> Function();
 
 class MacosLatencySession {
   MacosLatencySession({
@@ -49,6 +51,7 @@ class MacosLatencySession {
     MacosLatencyReadinessProbe? readinessProbe,
     MacosLatencySelectorUpdater? selectorUpdater,
     MacosLatencyHttpProbe? httpProbe,
+    MacosPhysicalInterfaceResolverCallback? physicalInterfaceResolver,
     MacosLatencyTempDirectoryCreator? tempDirectoryCreator,
     MacosLatencyLogger? logger,
   })  : nodeTags = List<String>.unmodifiable(nodeTags),
@@ -59,6 +62,8 @@ class MacosLatencySession {
         _readinessProbe = readinessProbe ?? _probeReadiness,
         _selectorUpdater = selectorUpdater ?? _updateSelector,
         _httpProbe = httpProbe,
+        _physicalInterfaceResolver = physicalInterfaceResolver ??
+            MacosPhysicalInterfaceResolver().resolve,
         _tempDirectoryCreator = tempDirectoryCreator ?? _createTempDirectory,
         _logger = logger ?? AppLogger.instance.info {
     if (nodeTags.isEmpty) {
@@ -81,6 +86,7 @@ class MacosLatencySession {
   final MacosLatencyReadinessProbe _readinessProbe;
   final MacosLatencySelectorUpdater _selectorUpdater;
   final MacosLatencyHttpProbe? _httpProbe;
+  final MacosPhysicalInterfaceResolverCallback _physicalInterfaceResolver;
   final MacosLatencyTempDirectoryCreator _tempDirectoryCreator;
   final MacosLatencyLogger _logger;
 
@@ -114,6 +120,16 @@ class MacosLatencySession {
   Future<void> _start() async {
     if (_started) return;
 
+    String? defaultInterface;
+    try {
+      defaultInterface = await _physicalInterfaceResolver();
+    } catch (_) {
+      defaultInterface = null;
+    }
+    if (defaultInterface == null) {
+      throw const MacosLatencyException('无法识别测速物理网络接口');
+    }
+
     final reservations = await _reservePorts(workerCount + 1);
     try {
       _workerPorts = reservations
@@ -128,6 +144,7 @@ class MacosLatencySession {
         nodeTags: nodeTags,
         workerPorts: _workerPorts,
         clashApiPort: _apiPort!,
+        defaultInterface: defaultInterface,
       );
       await configFile.writeAsString(jsonEncode(config), flush: true);
 
