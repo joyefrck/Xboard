@@ -119,6 +119,36 @@ class TicketController extends Controller
         return $this->success(true);
     }
 
+    public function updateRemarks(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer',
+            'remarks' => 'present|nullable|string|max:1000'
+        ], [
+            'id.required' => '工单ID不能为空',
+            'remarks.present' => '备注参数不能为空',
+            'remarks.max' => '备注不能超过1000个字符'
+        ]);
+
+        $ticket = Ticket::find($request->input('id'));
+        if (!$ticket) {
+            return $this->fail([400202, '工单不存在']);
+        }
+
+        $remarks = $request->input('remarks') === null
+            ? null
+            : trim($request->input('remarks'));
+        $remarks = $remarks === '' ? null : $remarks;
+
+        $ticket->timestamps = false;
+        $ticket->remarks = $remarks;
+        $ticket->save();
+
+        return $this->success([
+            'remarks' => $ticket->remarks
+        ]);
+    }
+
     public function close(Request $request)
     {
         $request->validate([

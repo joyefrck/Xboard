@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $status 工单状态
  * @property int|null $reply_status 回复状态
  * @property int|null $last_reply_user_id 最后回复人
+ * @property string|null $remarks 管理员备注
  * @property int $created_at
  * @property int $updated_at
  * 

@@ -1951,8 +1951,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "subject": "Subject",
       "level": "Appeal Type",
       "status": "Status",
-      "updated_at": "Last Updated",
-      "created_at": "Created At",
+      "remarks": "Remarks",
       "actions": "Actions"
     },
     "status": {
@@ -1981,6 +1980,16 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "close_confirm_button": "Confirm Close",
       "close_success": "Ticket closed successfully",
       "view_ticket": "View Ticket"
+    },
+    "remarks": {
+      "add": "Add Remark",
+      "edit": "Edit Remark",
+      "dialog_title": "Ticket Remark",
+      "placeholder": "Enter a remark, up to 1000 characters",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "save_success": "Remark saved"
     },
     "detail": {
       "no_messages": "No messages yet",

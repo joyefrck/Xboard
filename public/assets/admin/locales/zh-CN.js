@@ -1943,8 +1943,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "subject": "主题",
       "level": "申诉类型",
       "status": "状态",
-      "updated_at": "最后更新",
-      "created_at": "创建时间",
+      "remarks": "备注",
       "actions": "操作"
     },
     "status": {
@@ -1973,6 +1972,16 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "close_confirm_button": "确认关闭",
       "close_success": "工单已关闭",
       "view_ticket": "查看工单"
+    },
+    "remarks": {
+      "add": "添加备注",
+      "edit": "编辑备注",
+      "dialog_title": "工单备注",
+      "placeholder": "请输入备注，最多 1000 个字符",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中...",
+      "save_success": "备注已保存"
     },
     "detail": {
       "no_messages": "暂无消息记录",

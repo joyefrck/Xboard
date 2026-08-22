@@ -1431,8 +1431,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "subject": "제목",
       "level": "이의 신청 유형",
       "status": "상태",
-      "updated_at": "최근 업데이트",
-      "created_at": "생성일",
+      "remarks": "비고",
       "actions": "작업"
     },
     "status": {
@@ -1461,6 +1460,16 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "close_confirm_button": "닫기 확인",
       "close_success": "티켓이 성공적으로 닫혔습니다",
       "view_ticket": "티켓 보기"
+    },
+    "remarks": {
+      "add": "비고 추가",
+      "edit": "비고 수정",
+      "dialog_title": "티켓 비고",
+      "placeholder": "비고를 입력하세요. 최대 1000자",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중...",
+      "save_success": "비고가 저장되었습니다"
     },
     "detail": {
       "no_messages": "메시지가 없습니다",
