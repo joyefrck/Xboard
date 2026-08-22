@@ -194,4 +194,71 @@ void main() {
       );
     }
   });
+
+  test('adds live workers without changing the main TUN selector', () {
+    final result = MacosLatencyConfigBuilder.addLiveWorkers(
+      sourceConfig: jsonEncode(source),
+      workerPorts: const [32001, 32002, 32003, 32004],
+    );
+    final output = jsonDecode(result.configJson) as Map<String, dynamic>;
+    final outbounds = (output['outbounds'] as List).cast<Map>();
+    final workers = outbounds.where((item) =>
+        item['tag'].toString().startsWith('__elephant_latency_worker_'));
+    final mainSelector = outbounds.singleWhere((item) => item['tag'] == '节点选择');
+
+    expect(workers, hasLength(4));
+    expect(workers.first['outbounds'], ['node-a', 'node-b']);
+    expect(mainSelector['default'], 'node-a');
+    expect(result.nodeTags, ['node-a', 'node-b']);
+
+    final inbounds = (output['inbounds'] as List).cast<Map>();
+    expect(inbounds.any((item) => item['type'] == 'tun'), isTrue);
+    expect(
+      inbounds.where((item) =>
+          item['tag'].toString().startsWith('__elephant_latency_in_')),
+      hasLength(4),
+    );
+    final rules = (output['route']['rules'] as List).cast<Map>();
+    expect(rules.first, {
+      'inbound': ['__elephant_latency_in_0'],
+      'action': 'resolve',
+      'strategy': 'ipv4_only',
+    });
+    expect(rules.last, {'protocol': 'dns', 'outbound': 'direct'});
+  });
+
+  test('replaces stale live workers and rejects invalid ports', () {
+    final first = MacosLatencyConfigBuilder.addLiveWorkers(
+      sourceConfig: jsonEncode(source),
+      workerPorts: const [32001, 32002, 32003, 32004],
+    );
+    final second = MacosLatencyConfigBuilder.addLiveWorkers(
+      sourceConfig: first.configJson,
+      workerPorts: const [33001, 33002, 33003, 33004],
+    );
+    final output = jsonDecode(second.configJson) as Map<String, dynamic>;
+    expect(
+      (output['outbounds'] as List).where((item) =>
+          item['tag'].toString().startsWith('__elephant_latency_worker_')),
+      hasLength(4),
+    );
+    expect(
+      (output['inbounds'] as List).where((item) =>
+          item['tag'].toString().startsWith('__elephant_latency_in_')),
+      hasLength(4),
+    );
+    for (final ports in const <List<int>>[
+      [],
+      [0],
+      [31001, 31001],
+    ]) {
+      expect(
+        () => MacosLatencyConfigBuilder.addLiveWorkers(
+          sourceConfig: jsonEncode(source),
+          workerPorts: ports,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
 }
