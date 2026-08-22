@@ -16,9 +16,11 @@ import 'latency_test_policy.dart';
 import 'macos_clash_controller.dart';
 import 'macos_dns_policy.dart';
 import 'macos_inbound_policy.dart';
+import 'macos_latency_config.dart';
 import 'macos_latency_fallback.dart';
 import 'macos_latency_session.dart';
 import 'macos_latency_source_selector.dart';
+import 'macos_live_latency_session.dart';
 import 'macos_outbound_policy.dart';
 import 'macos_outbound_switch_coordinator.dart';
 import 'macos_tun_permission.dart';
@@ -114,6 +116,10 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   bool _isTunMode = false;
   bool _disposed = false;
   MacosLatencySession? _latencySession;
+  MacosLiveLatencySession? _liveLatencySession;
+  List<int> _latencyWorkerPorts = const <int>[];
+  Set<String> _latencyNodeTags = const <String>{};
+  bool _latencyWorkersReady = false;
   int _latencyRunGeneration = 0;
   final VpnStopCoordinator<void> _stopCoordinator = VpnStopCoordinator<void>();
 
@@ -159,6 +165,10 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<void> start(String config) async {
     try {
+      await stopConnectionLatencyTest();
+      _latencyWorkersReady = false;
+      _latencyWorkerPorts = const <int>[];
+      _latencyNodeTags = const <String>{};
       _updateState(VpnStatus.connecting, resetFailure: true, resetError: true);
       final supportDir = await getApplicationSupportDirectory();
       final singBoxDir = Directory('${supportDir.path}/sing-box');
@@ -170,10 +180,31 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       _isTunMode = configMap['use_tun_mode'] == true;
       final sanitizedConfig =
           _sanitizeConfig(config, singBoxDir.path, _isTunMode);
+      var runtimeConfig = sanitizedConfig;
+      try {
+        final workerPorts = await _allocateWorkerPorts(4);
+        final latencyConfig = MacosLatencyConfigBuilder.addLiveWorkers(
+          sourceConfig: sanitizedConfig,
+          workerPorts: workerPorts,
+        );
+        runtimeConfig = latencyConfig.configJson;
+        _latencyWorkerPorts = List<int>.unmodifiable(workerPorts);
+        _latencyNodeTags = Set<String>.unmodifiable(latencyConfig.nodeTags);
+        _latencyWorkersReady = true;
+        await AppLogger.instance.info(
+          'macOS live latency workers prepared '
+          'count=${workerPorts.length} nodes=${latencyConfig.nodeTags.length}',
+        );
+      } catch (error) {
+        await AppLogger.instance.warn(
+          'macOS live latency workers unavailable '
+          'type=${error.runtimeType}',
+        );
+      }
       final configFile = File('${singBoxDir.path}/config.json');
-      await configFile.writeAsString(sanitizedConfig);
+      await configFile.writeAsString(runtimeConfig);
 
-      _lastSanitizedConfig = sanitizedConfig;
+      _lastSanitizedConfig = runtimeConfig;
       _singboxDirPath = singBoxDir.path;
 
       final arch = await _getArchitecture();
@@ -194,7 +225,7 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       if (!configValid) return;
 
       _singboxBinPath = binFile.path;
-      _proxyPort = _extractProxyPort(sanitizedConfig);
+      _proxyPort = _extractProxyPort(runtimeConfig);
 
       await _cleanupResidualCacheFiles(singBoxDir.path);
       await AppLogger.instance.info(
@@ -331,6 +362,33 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
     await stopConnectionLatencyTest();
     final generation = _latencyRunGeneration;
     bool isCancelled() => _disposed || generation != _latencyRunGeneration;
+    final canUseLiveWorkers = _latencyWorkersReady &&
+        _latencyWorkerPorts.isNotEmpty &&
+        nodeTags.every(_latencyNodeTags.contains);
+    if (canUseLiveWorkers) {
+      final liveSession = MacosLiveLatencySession(
+        workerPorts: _latencyWorkerPorts,
+      );
+      _liveLatencySession = liveSession;
+      try {
+        return await liveSession.run(
+          nodeTags: nodeTags,
+          testUrl: testUrl,
+          timeoutMs: timeoutMs,
+          concurrency: concurrency,
+          onResult: (nodeTag, result) {
+            if (!isCancelled()) {
+              onResult?.call(nodeTag, result);
+            }
+          },
+        );
+      } finally {
+        if (identical(_liveLatencySession, liveSession)) {
+          _liveLatencySession = null;
+        }
+        await liveSession.stop();
+      }
+    }
     final testUrls = LatencyTestPolicy.macosConnectionProbeUrls(testUrl);
     final activeConfig = _lastSanitizedConfig;
     final binaryPath = _singboxBinPath;
@@ -475,9 +533,14 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
   @override
   Future<void> stopConnectionLatencyTest() async {
     _latencyRunGeneration++;
+    final liveSession = _liveLatencySession;
+    _liveLatencySession = null;
     final session = _latencySession;
     _latencySession = null;
-    await session?.close();
+    await Future.wait<void>([
+      if (liveSession != null) liveSession.stop(),
+      if (session != null) session.close(),
+    ]);
   }
 
   @override
@@ -500,6 +563,9 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
           );
         }
         final result = await _runtime.stopCore(reason: reason.wireValue);
+        _latencyWorkersReady = false;
+        _latencyWorkerPorts = const <int>[];
+        _latencyNodeTags = const <String>{};
         final restored = result['proxyRestored'] != false;
         if (result['stopped'] == false) {
           final helperStop = result['helperStop'];
@@ -758,6 +824,18 @@ class MacosVpnService implements VpnManager, ConnectionLatencyManager {
       }
     }
     return 2334;
+  }
+
+  static Future<List<int>> _allocateWorkerPorts(int count) async {
+    final sockets = <ServerSocket>[];
+    try {
+      for (var index = 0; index < count; index++) {
+        sockets.add(await ServerSocket.bind(InternetAddress.loopbackIPv4, 0));
+      }
+      return sockets.map((socket) => socket.port).toList(growable: false);
+    } finally {
+      await Future.wait(sockets.map((socket) => socket.close()));
+    }
   }
 
   Future<String> _getArchitecture() async {

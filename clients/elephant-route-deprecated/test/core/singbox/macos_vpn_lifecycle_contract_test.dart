@@ -85,8 +85,7 @@ void main() {
     expect(source, contains('flush: true'));
   });
 
-  test('macOS connected latency prefers an isolated core with live fallback',
-      () {
+  test('macOS connected latency prefers private live workers', () {
     final source = File('lib/core/singbox/macos_vpn_service.dart')
         .readAsStringSync()
         .replaceAll('\r\n', '\n');
@@ -99,10 +98,27 @@ void main() {
     );
     final body = source.substring(start, end);
 
+    expect(body, contains('MacosLiveLatencySession('));
+    expect(body, contains('canUseLiveWorkers'));
     expect(body, contains('MacosLatencySession('));
     expect(body, contains('_latencyFallbackRunner.resolve'));
     expect(body, contains('primaryResults: primaryResults'));
     expect(body, isNot(contains('_runtime.stopCore')));
     expect(body, isNot(contains('_runtime.startTunMode')));
+  });
+
+  test('macOS startup injects four private latency workers', () {
+    final source = File('lib/core/singbox/macos_vpn_service.dart')
+        .readAsStringSync()
+        .replaceAll('\r\n', '\n');
+    final start = source.indexOf('Future<void> start(String config)');
+    final end =
+        source.indexOf('\n  @override\n  Future<void> prepareSpeedTest', start);
+    final body = source.substring(start, end);
+
+    expect(body, contains('_allocateWorkerPorts(4)'));
+    expect(body, contains('MacosLatencyConfigBuilder.addLiveWorkers'));
+    expect(body, contains('_latencyWorkersReady = true'));
+    expect(body, isNot(contains("config length")));
   });
 }

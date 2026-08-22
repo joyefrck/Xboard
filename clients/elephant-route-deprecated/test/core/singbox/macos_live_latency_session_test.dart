@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:elephant_network/core/singbox/connection_latency_manager.dart';
 import 'package:elephant_network/core/singbox/macos_live_latency_session.dart';
 import 'package:flutter_test/flutter_test.dart';
