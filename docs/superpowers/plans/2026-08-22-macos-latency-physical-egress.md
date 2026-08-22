@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prevent the macOS isolated latency core from re-entering the active TUN so node delay matches the single-hop Android and Shadowrocket-style path.
+**Goal:** Measure macOS node delay through four private workers inside the active core so results match the single-hop Android and Shadowrocket-style path.
 
-**Architecture:** A focused resolver reads the physical interface from the system default route. `MacosLatencySession` resolves it before creating any temporary core process, and `MacosLatencyConfigBuilder` pins the temporary core to that interface with automatic interface detection disabled; failures reuse the existing live-core fallback path.
+**Architecture:** The physical-interface experiment remains as a guarded fallback, but live verification showed it does not lower the independent-core result. The primary path injects four loopback workers into the active macOS core before startup and probes them through a cancellable live session without changing the user's selector.
 
 **Tech Stack:** Flutter/Dart, sing-box JSON configuration, macOS `/sbin/route`, Flutter test, shell release validation
 
@@ -122,6 +122,13 @@ git commit -m "fix: bypass active TUN during macOS latency tests"
 
 ### Task 4: Verify and release macOS 1.6.5
 
+Before release, add and complete these accuracy tasks because live validation falsified the independent-core-only design:
+
+- [ ] Add `MacosLatencyConfigBuilder.addLiveWorkers` with tests matching the Android worker topology while preserving the macOS main config.
+- [ ] Add a cancellable `MacosLiveLatencySession` with four-worker concurrency and incremental typed results.
+- [ ] Allocate and inject worker ports in `MacosVpnService.start`, prefer the live session in `testConnectionLatencies`, and retain the existing fallback for unavailable workers.
+- [ ] Re-run a real connected-node probe and confirm the live-worker result follows the active-core 66ms baseline instead of the isolated-core 108–121ms baseline.
+
 **Files:**
 - Verify: `clients/elephant-route-deprecated`
 - Build: `clients/elephant-route-deprecated/build/macos-beta/ElephantRoute-macos-arm64-v1.6.5.dmg`
@@ -158,4 +165,3 @@ Verify `CFBundleShortVersionString=1.6.5`, `CFBundleVersion=10605`, arm64 Mach-O
 - [ ] **Step 5: Push and verify CI**
 
 Push current `master`, confirm the remote SHA, and require the macOS, Windows, and Docker workflows for the release SHA to finish successfully before reporting completion.
-
