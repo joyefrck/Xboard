@@ -72,20 +72,26 @@ $isAllowedAppHost = function (Request $request): bool {
     return in_array(strtolower($request->getHost()), array_unique($allowedHosts), true);
 };
 
-$redirectToLogin = function (Request $request) use ($isAllowedAppHost) {
+$serveLandingPage = function (Request $request) use ($isAllowedAppHost) {
     // 检查管理员安全模式设置，保持与 /app 相同的 Host 保护。
     if (!$isAllowedAppHost($request)) {
         abort(403);
     }
 
-    return redirect('/app#/login', 302);
+    $landingPagePath = public_path('landing/index.html');
+    if (!File::exists($landingPagePath)) {
+        abort(404, 'Landing page not found');
+    }
+
+    return response(File::get($landingPagePath), 200)
+        ->header('Content-Type', 'text/html; charset=utf-8');
 };
 
-// Root path - redirect to the SPA login page.
-Route::get('/', $redirectToLogin);
+// Public website homepage.
+Route::get('/', $serveLandingPage);
 
-// Legacy landing page path - no longer serves the landing page.
-Route::get('/welcome', $redirectToLogin);
+// Legacy public website entrypoint.
+Route::get('/welcome', $serveLandingPage);
 
 Route::get('/support/ai', function () {
     return view('support_ai', [

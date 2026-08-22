@@ -9,25 +9,62 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('home and legacy welcome routes redirect to the SPA login page', () => {
+test('home and legacy welcome routes serve the restored landing page', () => {
   const routes = readRepoFile('routes/web.php');
 
-  assert.match(routes, /\$redirectToLogin = function \(Request \$request\)/);
-  assert.match(routes, /return redirect\('\/app#\/login', 302\);/);
-  assert.match(routes, /Route::get\('\/', \$redirectToLogin\);/);
-  assert.match(routes, /Route::get\('\/welcome', \$redirectToLogin\);/);
+  assert.match(routes, /\$serveLandingPage = function \(Request \$request\) use \(\$isAllowedAppHost\)/);
+  assert.match(routes, /if \(!\$isAllowedAppHost\(\$request\)\) \{\s*abort\(403\);\s*\}/);
+  assert.match(routes, /\$landingPagePath = public_path\('landing\/index\.html'\);/);
+  assert.match(routes, /if \(!File::exists\(\$landingPagePath\)\) \{\s*abort\(404, 'Landing page not found'\);\s*\}/);
+  assert.match(routes, /return response\(File::get\(\$landingPagePath\), 200\)/);
+  assert.match(routes, /Route::get\('\/', \$serveLandingPage\);/);
+  assert.match(routes, /Route::get\('\/welcome', \$serveLandingPage\);/);
+  assert.doesNotMatch(routes, /Route::get\('\/', \$redirectToLogin\);/);
 });
 
-test('legacy landing page is no longer served', () => {
-  const routes = readRepoFile('routes/web.php');
-  const landingRoot = path.join(repoRoot, 'public/landing');
+test('restored website pages retain their final tracked titles and links', () => {
+  const expectedPages = new Map([
+    ['public/landing/index.html', '<title>大象网络 - CONNECT THE UNSEEN</title>'],
+    ['public/pricing.html', '<title>定价方案 - 大象网络</title>'],
+    ['public/terms.html', '<title>服务条款 - 大象网络</title>'],
+    ['public/privacy.html', '<title>隐私政策 - 大象网络</title>'],
+    ['public/refund.html', '<title>退款说明 - 大象网络</title>'],
+  ]);
 
-  assert.doesNotMatch(routes, /public_path\('landing\/index\.html'\)/);
-  assert.doesNotMatch(routes, /file_get_contents\(\$landingPagePath\)/);
-  assert.doesNotMatch(routes, /Landing page not found/);
-  assert.equal(fs.existsSync(path.join(repoRoot, 'public/landing/index.html')), false);
-  assert.deepEqual(
-    fs.readdirSync(landingRoot).filter((fileName) => fileName.endsWith('.html')),
-    []
-  );
+  for (const [relativePath, expectedTitle] of expectedPages) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relativePath)), true, `${relativePath} exists`);
+    assert.match(readRepoFile(relativePath), new RegExp(expectedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  const landing = readRepoFile('public/landing/index.html');
+  assert.match(landing, /href="\/pricing\.html"/);
+  assert.match(landing, /href="\/terms\.html"/);
+  assert.match(landing, /href="\/privacy\.html"/);
+  assert.match(landing, /window\.location\.href = "\/app#\/login"/);
+  assert.match(landing, /window\.location\.href = "\/app#\/register"/);
+
+  const pricing = readRepoFile('public/pricing.html');
+  assert.match(pricing, /href="\/terms\.html"/);
+  assert.match(pricing, /href="\/privacy\.html"/);
+
+  for (const policyPath of ['public/terms.html', 'public/privacy.html', 'public/refund.html']) {
+    const policy = readRepoFile(policyPath);
+    assert.match(policy, /最近更新日期：2026年3月17日/);
+    assert.match(policy, /href="\/"/);
+  }
+});
+
+test('all local landing-page image references resolve to retained assets', () => {
+  const landing = readRepoFile('public/landing/index.html');
+  const assetReferences = [...landing.matchAll(/(?:src|content)="(\/landing\/assets\/[^"]+)"/g)]
+    .map((match) => match[1]);
+
+  assert.ok(assetReferences.length > 0);
+  for (const assetReference of assetReferences) {
+    assert.equal(
+      fs.existsSync(path.join(repoRoot, 'public', assetReference.replace(/^\//, ''))),
+      true,
+      `${assetReference} exists`
+    );
+  }
 });
