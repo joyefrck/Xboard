@@ -5,14 +5,41 @@
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <title>大象网络 - CONNECT THE UNSEEN</title>
         <meta name="description" content="专为极客打造的下一代全球网络加速服务。突破物理边界，重塑数字自由。" />
-        <link rel="canonical" href="https://www.elphantroute.com/welcome" />
+        <meta name="robots" content="index,follow,max-image-preview:large" />
+        <link rel="canonical" href="https://www.elphantroute.com/" />
 
         <!-- Open Graph Meta Tags -->
         <meta property="og:title" content="大象网络 - CONNECT THE UNSEEN" />
         <meta property="og:description" content="专为极客打造的下一代全球网络加速服务。突破物理边界，重塑数字自由。" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.elphantroute.com/welcome" />
+        <meta property="og:url" content="https://www.elphantroute.com/" />
         <meta property="og:image" content="https://www.elphantroute.com/landing/assets/elephant-route-logo.jpg" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "WebSite",
+                        "@id": "https://www.elphantroute.com/#website",
+                        "url": "https://www.elphantroute.com/",
+                        "name": "大象网络",
+                        "alternateName": "Elephant Route",
+                        "inLanguage": "zh-CN"
+                    },
+                    {
+                        "@type": "Organization",
+                        "@id": "https://www.elphantroute.com/#organization",
+                        "name": "大象网络",
+                        "alternateName": "Elephant Route",
+                        "url": "https://www.elphantroute.com/",
+                        "logo": {
+                            "@type": "ImageObject",
+                            "url": "https://www.elphantroute.com/landing/assets/elephant-route-logo.jpg"
+                        }
+                    }
+                ]
+            }
+        </script>
         <script>
             // Redirect SPA routes (like /#/login) to the /app path
             (function () {
@@ -861,7 +888,7 @@
             </header>
             <section class="hero" id="hero">
                 <div class="bg-grid"></div>
-                <h1 id="heroTitle"></h1>
+                <h1 id="heroTitle">CONNECT THE <span class="gradient-word">UNSEEN</span></h1>
                 <p class="subtitle" id="heroSubtitle"></p>
                 <p class="description" id="heroDesc"></p>
                 <div class="cta-group" id="heroCta">
@@ -1028,6 +1055,9 @@
         <canvas id="particleCanvas"></canvas>
 
         <script>
+            // Keep the source HTML meaningful for crawlers, then rebuild the title with the existing animation.
+            document.getElementById("heroTitle").textContent = "";
+
             window.addEventListener("load", function () {
                 // Navigation buttons
                 document

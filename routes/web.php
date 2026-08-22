@@ -91,7 +91,13 @@ $serveLandingPage = function (Request $request) use ($isAllowedAppHost) {
 Route::get('/', $serveLandingPage);
 
 // Legacy public website entrypoint.
-Route::get('/welcome', $serveLandingPage);
+Route::get('/welcome', function (Request $request) use ($isAllowedAppHost) {
+    if (!$isAllowedAppHost($request)) {
+        abort(403);
+    }
+
+    return redirect('/', 301);
+});
 
 Route::get('/support/ai', function () {
     return view('support_ai', [

@@ -9,7 +9,7 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('home and legacy welcome routes serve the restored landing page', () => {
+test('home serves the restored landing page and legacy welcome permanently redirects', () => {
   const routes = readRepoFile('routes/web.php');
 
   assert.match(routes, /\$serveLandingPage = function \(Request \$request\) use \(\$isAllowedAppHost\)/);
@@ -18,7 +18,11 @@ test('home and legacy welcome routes serve the restored landing page', () => {
   assert.match(routes, /if \(!File::exists\(\$landingPagePath\)\) \{\s*abort\(404, 'Landing page not found'\);\s*\}/);
   assert.match(routes, /return response\(File::get\(\$landingPagePath\), 200\)/);
   assert.match(routes, /Route::get\('\/', \$serveLandingPage\);/);
-  assert.match(routes, /Route::get\('\/welcome', \$serveLandingPage\);/);
+  assert.match(
+    routes,
+    /Route::get\('\/welcome', function \(Request \$request\) use \(\$isAllowedAppHost\) \{[\s\S]*?if \(!\$isAllowedAppHost\(\$request\)\) \{\s*abort\(403\);\s*\}[\s\S]*?return redirect\('\/', 301\);[\s\S]*?\}\);/
+  );
+  assert.doesNotMatch(routes, /Route::get\('\/welcome', \$serveLandingPage\);/);
   assert.doesNotMatch(routes, /Route::get\('\/', \$redirectToLogin\);/);
 });
 
