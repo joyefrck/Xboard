@@ -25,9 +25,8 @@ class TrafficPackageService
     public function createFromOrder(Order $order, User $user, TrafficPackage $trafficPackage): UserTrafficPackage
     {
         $totalBytes = (int) ($trafficPackage->transfer_enable * self::BYTES_PER_GB);
-        $this->applyAccessForStandalonePackage($user, $trafficPackage);
 
-        return UserTrafficPackage::create([
+        $package = UserTrafficPackage::create([
             'user_id' => $user->id,
             'order_id' => $order->id,
             'plan_id' => null,
@@ -36,14 +35,16 @@ class TrafficPackageService
             'remaining_bytes' => $totalBytes,
             'status' => UserTrafficPackage::STATUS_ACTIVE,
         ]);
+
+        $this->syncAccessProfile($user);
+        return $package;
     }
 
     public function createFromLegacyPlanOrder(Order $order, User $user, Plan $plan): UserTrafficPackage
     {
         $totalBytes = (int) ($plan->transfer_enable * self::BYTES_PER_GB);
-        $this->applyAccessForLegacyPackage($user, $plan);
 
-        return UserTrafficPackage::create([
+        $package = UserTrafficPackage::create([
             'user_id' => $user->id,
             'order_id' => $order->id,
             'plan_id' => $plan->id,
@@ -52,24 +53,9 @@ class TrafficPackageService
             'remaining_bytes' => $totalBytes,
             'status' => UserTrafficPackage::STATUS_ACTIVE,
         ]);
-    }
 
-    public function applyAccessForStandalonePackage(User $user, TrafficPackage $trafficPackage): void
-    {
-        if (!$this->hasActivePlan($user)) {
-            $user->group_id = $trafficPackage->group_id;
-            $user->speed_limit = $trafficPackage->speed_limit;
-            $user->device_limit = $trafficPackage->device_limit;
-        }
-    }
-
-    public function applyAccessForLegacyPackage(User $user, Plan $plan): void
-    {
-        if (!$this->hasActivePlan($user)) {
-            $user->group_id = $plan->group_id;
-            $user->speed_limit = $plan->speed_limit;
-            $user->device_limit = $plan->device_limit;
-        }
+        $this->syncAccessProfile($user);
+        return $package;
     }
 
     public function hasActivePlan(User $user): bool
@@ -80,6 +66,11 @@ class TrafficPackageService
             && $user->plan_id !== null
             && $planTransferEnable > 0
             && ($user->expired_at === null || (int) $user->expired_at > time());
+    }
+
+    public function hasUsablePlanBalance(User $user): bool
+    {
+        return $this->getActivePlanRemainingBytes($user) > 0;
     }
 
     public function hasActivePackageBalance(int $userId): bool
@@ -114,6 +105,7 @@ class TrafficPackageService
         $planDownload = 0;
         $packageUpload = 0;
         $packageDownload = 0;
+        $planAvailable = 0;
 
         $user = User::where('id', $userId)
             ->lockForUpdate()
@@ -132,6 +124,10 @@ class TrafficPackageService
         }
 
         if ($remainingUpload <= 0 && $remainingDownload <= 0) {
+            if ($user) {
+                $this->syncAccessProfile($user, null, $planAvailable);
+            }
+
             return [
                 'package_upload' => $packageUpload,
                 'package_download' => $packageDownload,
@@ -140,7 +136,8 @@ class TrafficPackageService
             ];
         }
 
-        $packages = UserTrafficPackage::where('user_id', $userId)
+        $packages = UserTrafficPackage::with(['trafficPackage', 'plan'])
+            ->where('user_id', $userId)
             ->where('status', UserTrafficPackage::STATUS_ACTIVE)
             ->where('remaining_bytes', '>', 0)
             ->orderBy('id')
@@ -171,6 +168,10 @@ class TrafficPackageService
             $package->save();
         }
 
+        if ($user) {
+            $this->syncAccessProfile($user, $packages, $planAvailable);
+        }
+
         return [
             'package_upload' => $packageUpload,
             'package_download' => $packageDownload,
@@ -192,6 +193,61 @@ class TrafficPackageService
 
         $planUsedTraffic = (int) ($user->u + $user->d);
         return max(0, $planTransferEnable - $planUsedTraffic);
+    }
+
+    private function getFirstActivePackage(User $user, ?Collection $packages = null): ?UserTrafficPackage
+    {
+        if ($packages !== null) {
+            return $packages->first(fn(UserTrafficPackage $package): bool =>
+                $package->status === UserTrafficPackage::STATUS_ACTIVE
+                && (int) $package->remaining_bytes > 0
+            );
+        }
+
+        return UserTrafficPackage::with(['trafficPackage', 'plan'])
+            ->where('user_id', $user->id)
+            ->where('status', UserTrafficPackage::STATUS_ACTIVE)
+            ->where('remaining_bytes', '>', 0)
+            ->orderBy('id')
+            ->first();
+    }
+
+    public function syncAccessProfile(
+        User $user,
+        ?Collection $packages = null,
+        ?int $planRemainingBytes = null
+    ): void {
+        if ($user->banned) {
+            return;
+        }
+
+        $planRemainingBytes ??= $this->getActivePlanRemainingBytes($user);
+        $source = null;
+
+        if ($planRemainingBytes > 0 && $user->plan_id) {
+            $source = Plan::find($user->plan_id);
+        } else {
+            $package = $this->getFirstActivePackage($user, $packages);
+            $source = $package?->trafficPackage ?? $package?->plan;
+            $source ??= $user->plan_id ? Plan::find($user->plan_id) : null;
+        }
+
+        $attributes = $source ? [
+            'group_id' => $source->group_id,
+            'speed_limit' => $source->speed_limit,
+            'device_limit' => $source->device_limit,
+        ] : [
+            'group_id' => null,
+            'speed_limit' => null,
+            'device_limit' => null,
+        ];
+
+        $user->fill($attributes);
+        $dirtyAttributes = array_intersect_key($user->getDirty(), $attributes);
+        if ($dirtyAttributes) {
+            User::whereKey($user->getKey())->update($dirtyAttributes);
+            $user->syncOriginalAttributes(array_keys($dirtyAttributes));
+        }
     }
 
     public function getLatestActivePackage(User $user): ?array

@@ -49,6 +49,9 @@ class TrafficResetService
           'next_reset_at' => $nextResetTime ? $nextResetTime->timestamp : null,
         ]);
 
+        $user->refresh();
+        app(TrafficPackageService::class)->syncAccessProfile($user);
+
         $this->recordResetLog($user, [
           'reset_type' => $this->getResetTypeFromPlan($user->plan),
           'trigger_source' => $triggerSource,

@@ -48,19 +48,17 @@ class UserService
 
     public function isAvailable(User $user)
     {
-        if (!$user->banned && $user->id && app(TrafficPackageService::class)->hasActivePackageBalance($user->id)) {
-            return true;
+        $trafficPackageService = app(TrafficPackageService::class);
+        $available = !$user->banned && (
+            $trafficPackageService->hasUsablePlanBalance($user)
+            || ($user->id && $trafficPackageService->hasActivePackageBalance($user->id))
+        );
+
+        if ($available) {
+            $trafficPackageService->syncAccessProfile($user);
         }
 
-        if (
-            !$user->banned
-            && $user->plan_id
-            && $user->transfer_enable
-            && ($user->expired_at > time() || $user->expired_at === NULL)
-        ) {
-            return true;
-        }
-        return false;
+        return $available;
     }
 
     public function getAvailableUsers()

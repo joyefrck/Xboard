@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -66,11 +67,11 @@ test('traffic package schema, model, and service store independent package balan
   assert.match(service, /\$totalBytes\s*=\s*\(int\)\s*\(\$trafficPackage->transfer_enable \* self::BYTES_PER_GB\)/);
   assert.match(service, /'total_bytes'\s*=>\s*\$totalBytes/);
   assert.match(service, /'traffic_package_id'\s*=>\s*\$trafficPackage->id/);
-  assert.match(service, /function applyAccessForStandalonePackage\(User \$user, TrafficPackage \$trafficPackage\): void/);
+  assert.match(service, /function syncAccessProfile\(/);
   assert.match(service, /function hasActivePlan\(User \$user\): bool/);
-  assert.match(service, /!\$this->hasActivePlan\(\$user\)/);
-  assert.doesNotMatch(service, /applyAccessForStandalonePackage[\s\S]*\$user->plan_id\s*=\s*\$trafficPackage->id/);
-  assert.doesNotMatch(service, /applyAccessForStandalonePackage[\s\S]*\$user->transfer_enable\s*=/);
+  assert.match(service, /function hasUsablePlanBalance\(User \$user\): bool/);
+  assert.doesNotMatch(service, /syncAccessProfile[\s\S]*\$user->plan_id\s*=/);
+  assert.doesNotMatch(service, /syncAccessProfile[\s\S]*\$user->transfer_enable\s*=/);
   assert.match(service, /function consume\(int \$userId, int \$uploadBytes, int \$downloadBytes\): array/);
   assert.match(service, /orderBy\('id'\)/);
   assert.match(service, /'package_upload'/);
@@ -149,9 +150,40 @@ test('traffic fetch consumes active subscription traffic before package balance'
   assert.match(trafficPackageService, /function hasActivePlan\(User \$user\): bool[\s\S]*\(int\) \$user->expired_at > time\(\)/);
   assert.doesNotMatch(trafficPackageService, /\$user->expired_at === null \|\| \(int\) \$user->expired_at <= time\(\)/);
   assert.match(trafficPackageService, /\$planUsedTraffic\s*=\s*\(int\) \(\$user->u \+ \$user->d\)/);
-  assert.match(trafficPackageService, /\$packages = UserTrafficPackage::where\('user_id', \$userId\)/);
+  assert.match(trafficPackageService, /\$packages = UserTrafficPackage::with\(\['trafficPackage', 'plan'\]\)[\s\S]{0,80}->where\('user_id', \$userId\)/);
   assert.match(trafficPackageService, /'package_upload'\s*=>\s*\$packageUpload/);
   assert.match(trafficPackageService, /'plan_upload'\s*=>\s*\$planUpload/);
+});
+
+test('effective access follows the product currently funding traffic', () => {
+  const trafficPackageService = read('app/Services/TrafficPackageService.php');
+  const trafficResetService = read('app/Services/TrafficResetService.php');
+  const userService = read('app/Services/UserService.php');
+
+  assert.match(trafficPackageService, /function hasUsablePlanBalance\(User \$user\): bool/);
+  assert.match(trafficPackageService, /function syncAccessProfile\(\s*User \$user,/);
+  assert.match(trafficPackageService, /function getFirstActivePackage\(User \$user,/);
+  assert.match(trafficPackageService, /'group_id'\s*=>\s*\$source->group_id/);
+  assert.match(trafficPackageService, /'speed_limit'\s*=>\s*\$source->speed_limit/);
+  assert.match(trafficPackageService, /'device_limit'\s*=>\s*\$source->device_limit/);
+  assert.match(trafficPackageService, /\$dirtyAttributes\s*=\s*array_intersect_key\(\$user->getDirty\(\),\s*\$attributes\)/);
+  assert.match(trafficPackageService, /User::whereKey\(\$user->getKey\(\)\)->update\(\$dirtyAttributes\)/);
+  assert.doesNotMatch(trafficPackageService, /syncAccessProfile[\s\S]*\$user->save\(\)/);
+  assert.match(trafficPackageService, /syncAccessProfile\(\$user,\s*null,\s*\$planAvailable\)/);
+  assert.match(trafficPackageService, /syncAccessProfile\(\$user,\s*\$packages,\s*\$planAvailable\)/);
+  assert.match(trafficResetService, /TrafficPackageService::class\)->syncAccessProfile\(\$user\)/);
+  assert.match(userService, /hasUsablePlanBalance\(\$user\)/);
+  assert.match(userService, /syncAccessProfile\(\$user\)/);
+});
+
+test('effective access switches at runtime across plan and FIFO package boundaries', () => {
+  const result = spawnSync('php', ['tests/traffic-package-access-switching.php'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /traffic package access switching runtime test passed/);
 });
 
 test('traffic fetch uses per-user retryable transactions and avoids unnecessary package locks', () => {
@@ -162,9 +194,9 @@ test('traffic fetch uses per-user retryable transactions and avoids unnecessary 
   assert.match(job, /DB::transaction\([\s\S]{0,950}\},\s*3\);/);
   assert.doesNotMatch(job, /DB::transaction\(function \(\) \{[\s\S]{0,120}\$trafficPackageService = app\(TrafficPackageService::class\);[\s\S]{0,120}foreach \(\$this->data as \$uid => \$v\)/);
 
-  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,220}'plan_upload'\s*=>\s*\$planUpload/);
-  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,260}'plan_download'\s*=>\s*\$planDownload/);
-  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,360}\];[\s\S]{0,260}\$packages = UserTrafficPackage::where\('user_id', \$userId\)/);
+  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,420}'plan_upload'\s*=>\s*\$planUpload/);
+  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,460}'plan_download'\s*=>\s*\$planDownload/);
+  assert.match(trafficPackageService, /if \(\$remainingUpload <= 0 && \$remainingDownload <= 0\) \{[\s\S]{0,560}\];[\s\S]{0,120}\$packages = UserTrafficPackage::with\(\['trafficPackage', 'plan'\]\)/);
 });
 
 test('availability and subscription display account for traffic packages separately', () => {
