@@ -2,10 +2,16 @@
 !.gitignore
 !ElephantRoute/
 ElephantRoute/*
+!ElephantRoute/dashboard.blade.php
 !ElephantRoute/assets/
 ElephantRoute/assets/*
 !ElephantRoute/assets/elephant-route-dashboard.css
 !ElephantRoute/assets/elephant-route-dashboard.js
+!ElephantRoute/assets/elephant-route-dashboard-v2.css
+!ElephantRoute/assets/elephant-route-dashboard-v2.js
+!ElephantRoute/assets/elephant-route-pages-v2.css
+!ElephantRoute/assets/elephant-route-pages-v2.js
+!ElephantRoute/assets/client-logo.svg
 !ElephantRoute/assets/images/
 ElephantRoute/assets/images/*
 !ElephantRoute/assets/images/clash-mi.png

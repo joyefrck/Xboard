@@ -1,0 +1,1059 @@
+:root {
+  --er-pages-bg: #edf1f6;
+  --er-pages-text: #172036;
+  --er-pages-muted: #6b7280;
+  --er-pages-cyan: #00abbc;
+  --er-pages-blue: #4c66e7;
+  --er-pages-violet: #8759ec;
+  --er-pages-accent: var(--primary-color, #5b7cfa);
+  --er-pages-brand-gradient: linear-gradient(105deg, var(--er-pages-cyan), var(--er-pages-blue) 62%, var(--er-pages-violet));
+  --er-pages-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(247, 250, 255, 0.58));
+  --er-pages-glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.74));
+  --er-pages-line: rgba(72, 90, 132, 0.1);
+  --er-pages-line-strong: rgba(72, 90, 132, 0.15);
+  --er-pages-shadow: 0 18px 48px rgba(37, 54, 91, 0.09);
+  --er-pages-shadow-hover: 0 22px 54px rgba(37, 54, 91, 0.13);
+  --er-pages-radius: 24px;
+  --er-pages-radius-inner: 14px;
+}
+
+body[data-er-page] {
+  color: var(--er-pages-text);
+  background: var(--er-pages-bg) !important;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+body[data-er-page] article > section.flex-1 {
+  background: var(--er-pages-bg) !important;
+}
+
+body[data-er-page] section.cus-scroll-y {
+  box-sizing: border-box;
+  padding: clamp(16px, 2vw, 26px) !important;
+  color: var(--er-pages-text);
+  background:
+    radial-gradient(circle at 88% 3%, rgba(0, 171, 188, 0.1), transparent 30%),
+    radial-gradient(circle at 54% 94%, rgba(135, 89, 236, 0.07), transparent 32%),
+    linear-gradient(145deg, #edf1f6 0%, #f2f5f9 52%, #eaf0f6 100%) !important;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+body[data-er-page] section.cus-scroll-y,
+body[data-er-page] section.cus-scroll-y button,
+body[data-er-page] section.cus-scroll-y input,
+body[data-er-page] section.cus-scroll-y textarea,
+body[data-er-page] section.cus-scroll-y select {
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+body[data-er-page] section.cus-scroll-y > * {
+  position: relative;
+  z-index: 1;
+}
+
+body[data-er-page] section.cus-scroll-y > .n-card,
+body[data-er-page] section.cus-scroll-y > .n-data-table,
+body[data-er-page] section.cus-scroll-y > .n-list {
+  flex-shrink: 0;
+}
+
+body[data-er-page] section.cus-scroll-y h1,
+body[data-er-page] section.cus-scroll-y h2,
+body[data-er-page] section.cus-scroll-y h3,
+body[data-er-page] section.cus-scroll-y h4,
+body[data-er-page] section.cus-scroll-y h5,
+body[data-er-page] section.cus-scroll-y h6 {
+  color: var(--er-pages-text);
+  letter-spacing: -0.018em;
+}
+
+body[data-er-page] section.cus-scroll-y > div > h2,
+body[data-er-page="plan"] section.cus-scroll-y h2.text-3xl {
+  margin: 0 0 8px !important;
+  font-size: clamp(24px, 2.25vw, 30px) !important;
+  font-weight: 760 !important;
+  line-height: 1.25 !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-card {
+  --n-border-radius: var(--er-pages-radius) !important;
+  --n-color: rgba(255, 255, 255, 0.74) !important;
+  --n-color-embedded: rgba(248, 250, 253, 0.72) !important;
+  --n-action-color: rgba(246, 249, 253, 0.72) !important;
+  --n-border-color: var(--er-pages-line) !important;
+  --n-text-color: var(--er-pages-text) !important;
+  --n-title-text-color: var(--er-pages-text) !important;
+  overflow: hidden;
+  border: 1px solid var(--er-pages-line) !important;
+  border-radius: var(--er-pages-radius) !important;
+  background: var(--er-pages-glass) !important;
+  box-shadow: var(--er-pages-shadow) !important;
+  backdrop-filter: blur(20px) saturate(132%);
+  -webkit-backdrop-filter: blur(20px) saturate(132%);
+}
+
+body[data-er-page] section.cus-scroll-y .n-card.n-card--hoverable {
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+body[data-er-page] section.cus-scroll-y .n-card.n-card--hoverable:hover {
+  border-color: rgba(76, 102, 231, 0.18) !important;
+  box-shadow: var(--er-pages-shadow-hover) !important;
+  transform: translateY(-2px);
+}
+
+body[data-er-page] section.cus-scroll-y .n-card-header {
+  padding: 22px 24px 14px !important;
+  color: var(--er-pages-text);
+}
+
+body[data-er-page] section.cus-scroll-y .n-card-header__main {
+  color: var(--er-pages-text);
+  font-size: 16px !important;
+  font-weight: 760 !important;
+  line-height: 1.4;
+}
+
+body[data-er-page] section.cus-scroll-y .n-card__content {
+  padding: 18px 24px 24px !important;
+  color: var(--er-pages-text);
+  font-size: 14px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-card-header + .n-card__content {
+  padding-top: 0 !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-card__action {
+  padding: 16px 24px 22px !important;
+  border-top: 1px solid rgba(72, 90, 132, 0.075);
+  background: rgba(245, 248, 252, 0.58) !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-button,
+body[data-er-user-shell="true"] .n-modal .n-button {
+  --n-border-radius: 12px !important;
+  --n-padding: 0 14px !important;
+  min-height: 36px;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease, background-color 150ms ease;
+}
+
+body[data-er-page] section.cus-scroll-y .n-button--primary-type:not(.n-button--ghost),
+body[data-er-page] section.cus-scroll-y .n-button--info-type:not(.n-button--ghost) {
+  --n-color: transparent !important;
+  --n-color-hover: transparent !important;
+  --n-color-pressed: transparent !important;
+  --n-border: 0 !important;
+  --n-border-hover: 0 !important;
+  --n-border-pressed: 0 !important;
+  --n-text-color: #ffffff !important;
+  --n-text-color-hover: #ffffff !important;
+  --n-text-color-pressed: #ffffff !important;
+  border: 0 !important;
+  background: var(--er-pages-brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(76, 102, 231, 0.2);
+}
+
+body[data-er-page] section.cus-scroll-y .n-button--primary-type:not(.n-button--ghost):hover,
+body[data-er-page] section.cus-scroll-y .n-button--info-type:not(.n-button--ghost):hover {
+  filter: brightness(1.04) saturate(1.05);
+  transform: translateY(-1px);
+}
+
+body[data-er-page] section.cus-scroll-y .n-button--error-type:not(.n-button--ghost) {
+  --n-color: #ef4450 !important;
+  --n-color-hover: #e33844 !important;
+  --n-color-pressed: #d82f3a !important;
+  border: 0 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(239, 68, 80, 0.18);
+}
+
+body[data-er-page] section.cus-scroll-y .n-button--default-type,
+body[data-er-page] section.cus-scroll-y .n-button--tertiary-type,
+body[data-er-page] section.cus-scroll-y .n-button--ghost {
+  --n-color: rgba(255, 255, 255, 0.52) !important;
+  --n-color-hover: rgba(255, 255, 255, 0.78) !important;
+  --n-border: 1px solid var(--er-pages-line-strong) !important;
+  --n-border-hover: 1px solid rgba(76, 102, 231, 0.25) !important;
+  --n-text-color: var(--er-pages-text) !important;
+  --n-text-color-hover: var(--er-pages-blue) !important;
+  background: rgba(255, 255, 255, 0.52) !important;
+  color: var(--er-pages-text) !important;
+  box-shadow: 0 5px 14px rgba(37, 54, 91, 0.05);
+}
+
+body[data-er-page] section.cus-scroll-y .n-button:focus-visible,
+body[data-er-user-shell="true"] .n-modal .n-button:focus-visible,
+body[data-er-page] section.cus-scroll-y a:focus-visible {
+  outline: 3px solid rgba(76, 102, 231, 0.22) !important;
+  outline-offset: 3px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-input,
+body[data-er-page] section.cus-scroll-y .n-input-number,
+body[data-er-page] section.cus-scroll-y .n-base-selection,
+body[data-er-page] section.cus-scroll-y .n-date-picker {
+  --n-border-radius: var(--er-pages-radius-inner) !important;
+  --n-color: rgba(255, 255, 255, 0.58) !important;
+  --n-color-focus: rgba(255, 255, 255, 0.84) !important;
+  --n-border: 1px solid var(--er-pages-line) !important;
+  --n-border-hover: 1px solid rgba(76, 102, 231, 0.23) !important;
+  --n-border-focus: 1px solid rgba(76, 102, 231, 0.42) !important;
+  --n-box-shadow-focus: 0 0 0 3px rgba(76, 102, 231, 0.1) !important;
+  border-radius: var(--er-pages-radius-inner) !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-input {
+  min-height: 40px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-input__input-el,
+body[data-er-page] section.cus-scroll-y .n-input__textarea-el,
+body[data-er-page] section.cus-scroll-y .n-base-selection-label {
+  color: var(--er-pages-text) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-form-item-label,
+body[data-er-page] section.cus-scroll-y .n-form-item-label__text,
+body[data-er-page] section.cus-scroll-y label {
+  color: var(--er-pages-muted);
+  font-size: 14px !important;
+  font-weight: 520;
+}
+
+body[data-er-page] section.cus-scroll-y .n-alert {
+  --n-border-radius: 16px !important;
+  border: 1px solid rgba(76, 102, 231, 0.1) !important;
+  border-radius: 16px !important;
+  background: rgba(76, 102, 231, 0.065) !important;
+  color: var(--er-pages-muted);
+  font-size: 14px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-switch {
+  --n-rail-color-active: var(--er-pages-blue) !important;
+  --n-box-shadow-focus: 0 0 0 3px rgba(76, 102, 231, 0.14) !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-data-table {
+  --n-border-color: rgba(72, 90, 132, 0.085) !important;
+  --n-th-color: rgba(229, 236, 247, 0.72) !important;
+  --n-th-color-hover: rgba(222, 232, 246, 0.86) !important;
+  --n-td-color: rgba(255, 255, 255, 0.34) !important;
+  --n-td-color-hover: rgba(230, 238, 251, 0.58) !important;
+  --n-merged-border-color: rgba(72, 90, 132, 0.085) !important;
+  overflow: hidden;
+  border: 1px solid var(--er-pages-line) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page="order"] section.cus-scroll-y > .n-data-table,
+body[data-er-page="node"] section.cus-scroll-y > .n-list {
+  border-radius: var(--er-pages-radius) !important;
+  background: var(--er-pages-glass) !important;
+  box-shadow: var(--er-pages-shadow) !important;
+  backdrop-filter: blur(20px) saturate(132%);
+  -webkit-backdrop-filter: blur(20px) saturate(132%);
+}
+
+body[data-er-page] section.cus-scroll-y .n-data-table-th {
+  height: 48px;
+  color: #4d5870 !important;
+  background: rgba(226, 234, 247, 0.74) !important;
+  font-size: 14px !important;
+  font-weight: 720 !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-data-table-td {
+  min-height: 50px;
+  color: var(--er-pages-text) !important;
+  background: rgba(255, 255, 255, 0.26) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-data-table-tr:hover .n-data-table-td {
+  background: rgba(224, 234, 250, 0.58) !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-data-table-empty {
+  min-height: 160px;
+  color: var(--er-pages-muted);
+}
+
+body[data-er-page] section.cus-scroll-y .n-pagination {
+  padding-top: 12px;
+  font-size: 14px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-pagination-item,
+body[data-er-page] section.cus-scroll-y .n-pagination-prefix,
+body[data-er-page] section.cus-scroll-y .n-pagination-suffix {
+  border-radius: 10px !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page] section.cus-scroll-y .n-list {
+  --n-color: transparent !important;
+  --n-color-hover: rgba(226, 235, 249, 0.62) !important;
+  --n-border-color: rgba(72, 90, 132, 0.085) !important;
+  color: var(--er-pages-text);
+  background: transparent !important;
+  font-size: 14px;
+}
+
+body[data-er-page] section.cus-scroll-y .n-list-item {
+  margin: 6px 0;
+  padding: 14px 16px !important;
+  border: 1px solid transparent;
+  border-radius: var(--er-pages-radius-inner);
+  background: rgba(255, 255, 255, 0.34);
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+body[data-er-page] section.cus-scroll-y .n-list-item:hover {
+  border-color: rgba(76, 102, 231, 0.12);
+  background: rgba(233, 240, 252, 0.72) !important;
+  transform: translateX(2px);
+}
+
+body[data-er-page] section.cus-scroll-y .n-list-item__divider {
+  display: none;
+}
+
+/* Store */
+body[data-er-page="plan"] section.cus-scroll-y > div {
+  width: 100%;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y > div:has(.n-radio-group) {
+  z-index: 2;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-group {
+  display: inline-flex;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: 46px;
+  align-items: center;
+  overflow: visible;
+  isolation: isolate;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 4px;
+  border: 1px solid var(--er-pages-line);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: 0 7px 18px rgba(37, 54, 91, 0.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-button {
+  --n-button-border-radius: 11px !important;
+  height: 36px !important;
+  min-height: 36px;
+  border: 0 !important;
+  border-radius: 11px !important;
+  background: transparent !important;
+  color: var(--er-pages-muted);
+  font-size: 14px !important;
+  font-weight: 650;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-button::before,
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-button::after,
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-button__state-border {
+  display: none !important;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .n-radio-button.n-radio-button--checked {
+  background: var(--er-pages-brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(76, 102, 231, 0.18);
+}
+
+body[data-er-page="plan"] section.card-container {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px !important;
+  align-items: stretch;
+  margin-top: 24px !important;
+}
+
+body[data-er-page="plan"] section.card-container .card-item {
+  width: 100% !important;
+  min-width: 0;
+  max-width: 100%;
+}
+
+body[data-er-page="plan"] section.card-container .card-item .n-card {
+  height: 100%;
+}
+
+body[data-er-page="plan"] section.card-container .n-card-header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+body[data-er-page="plan"] section.card-container .n-card-header__extra {
+  flex: 0 0 auto;
+  color: var(--er-pages-text);
+}
+
+body[data-er-page="plan"] section.card-container .n-card-header__extra .text-3xl {
+  color: var(--er-pages-text);
+  font-size: 28px !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.025em;
+}
+
+body[data-er-page="plan"] section.card-container .n-card-header__extra .text-base {
+  color: var(--er-pages-muted) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .markdown-body {
+  color: #303a50;
+  background: transparent !important;
+  font-size: 14px;
+  line-height: 1.78;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+body[data-er-page="plan"] section.cus-scroll-y .markdown-body code {
+  padding: 2px 7px;
+  border: 1px solid rgba(76, 102, 231, 0.085);
+  border-radius: 8px;
+  background: rgba(76, 102, 231, 0.07);
+  color: #3449a3;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* Invitations and profile cards */
+body[data-er-page="invite"] section.cus-scroll-y > .n-card,
+body[data-er-page="profile"] section.cus-scroll-y > .n-card,
+body[data-er-page="ticket"] section.cus-scroll-y > .n-card,
+body[data-er-page="knowledge"] section.cus-scroll-y > .n-card {
+  margin-bottom: 18px;
+}
+
+body[data-er-page="invite"] section.cus-scroll-y .n-card:first-of-type .n-card__content,
+body[data-er-page="profile"] section.cus-scroll-y .n-card:first-of-type .n-card__content {
+  background:
+    radial-gradient(circle at 92% 16%, rgba(0, 171, 188, 0.1), transparent 34%),
+    radial-gradient(circle at 72% 86%, rgba(135, 89, 236, 0.06), transparent 38%);
+}
+
+body[data-er-page="invite"] section.cus-scroll-y .n-card .n-data-table,
+body[data-er-page="ticket"] section.cus-scroll-y .n-card .n-data-table {
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+
+body[data-er-page="invite"] section.cus-scroll-y .n-data-table-td:has(.n-button) > * {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+}
+
+body[data-er-page="invite"] section.cus-scroll-y .n-data-table-td:has(.n-button) .n-button {
+  min-width: 64px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Knowledge */
+body[data-er-page="knowledge"] section.cus-scroll-y .n-card .n-list {
+  padding: 2px 0;
+}
+
+body[data-er-page="knowledge"] section.cus-scroll-y .n-list-item {
+  min-height: 58px;
+}
+
+body[data-er-page="knowledge"] section.cus-scroll-y .n-list-item time,
+body[data-er-page="knowledge"] section.cus-scroll-y .n-list-item .text-gray-500,
+body[data-er-page="knowledge"] section.cus-scroll-y .n-list-item .text-gray-400 {
+  color: var(--er-pages-muted) !important;
+  font-size: 12px !important;
+}
+
+/* Orders and tickets */
+body[data-er-page="order"] section.cus-scroll-y > .n-data-table {
+  border: 1px solid var(--er-pages-line) !important;
+}
+
+body[data-er-page="ticket"] section.cus-scroll-y > .n-card {
+  min-height: 260px;
+}
+
+body[data-er-page="order"] section.cus-scroll-y .n-data-table-td:last-child,
+body[data-er-page="ticket"] section.cus-scroll-y .n-data-table-td:last-child {
+  white-space: nowrap;
+}
+
+body[data-er-page="order"] section.cus-scroll-y .n-data-table-td:last-child .n-button,
+body[data-er-page="ticket"] section.cus-scroll-y .n-data-table-td:last-child .n-button {
+  --n-padding: 0 14px !important;
+  min-width: 64px;
+  min-height: 36px;
+  padding: 0 14px !important;
+  line-height: 1.2;
+}
+
+body[data-er-page="order"] section.cus-scroll-y .n-data-table-td:last-child .n-button + .n-button,
+body[data-er-page="ticket"] section.cus-scroll-y .n-data-table-td:last-child .n-button + .n-button {
+  margin-left: 8px;
+}
+
+/* Profile */
+body[data-er-page="profile"] section.cus-scroll-y .n-card {
+  max-width: 100%;
+}
+
+body[data-er-page="profile"] section.cus-scroll-y .n-form-item {
+  margin-bottom: 16px;
+}
+
+body[data-er-page="profile"] section.cus-scroll-y .n-switch {
+  margin-left: 8px;
+}
+
+/* Nodes */
+body[data-er-page="node"] section.cus-scroll-y > .n-list {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--er-pages-line);
+}
+
+body[data-er-page="node"] section.cus-scroll-y > .n-list .n-list-item:first-child {
+  color: #4d5870;
+  background: rgba(226, 234, 247, 0.72);
+  font-weight: 720;
+}
+
+/* Account dropdown and shared modal mask */
+body[data-er-user-shell="true"] .n-dropdown-menu {
+  --n-border-radius: 16px !important;
+  --n-color: rgba(255, 255, 255, 0.9) !important;
+  --n-option-color-hover: rgba(226, 235, 249, 0.72) !important;
+  padding: 7px !important;
+  border: 1px solid var(--er-pages-line) !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 18px 42px rgba(37, 54, 91, 0.16) !important;
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+}
+
+body[data-er-user-shell="true"] .n-dropdown-option-body {
+  min-height: 38px;
+  border-radius: 11px !important;
+  color: var(--er-pages-text) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-user-shell="true"] .n-modal-mask {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  background: rgba(23, 32, 54, 0.34) !important;
+  backdrop-filter: blur(8px) saturate(118%);
+  -webkit-backdrop-filter: blur(8px) saturate(118%);
+}
+
+/* Shared business modals, including commission transfer and withdrawal */
+body[data-er-user-shell="true"] .n-card.n-modal {
+  --n-border-radius: 24px !important;
+  --n-color: rgba(250, 252, 255, 0.9) !important;
+  --n-border-color: rgba(147, 164, 203, 0.18) !important;
+  width: min(600px, calc(100vw - 32px)) !important;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid rgba(147, 164, 203, 0.18) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 94% 0%, rgba(0, 171, 188, 0.12), transparent 36%),
+    radial-gradient(circle at 4% 100%, rgba(135, 89, 236, 0.09), transparent 38%),
+    rgba(250, 252, 255, 0.9) !important;
+  box-shadow: 0 28px 72px rgba(23, 32, 54, 0.24) !important;
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-card-header {
+  padding: 22px 24px 14px !important;
+  color: var(--er-pages-text) !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-card-header__main {
+  color: var(--er-pages-text) !important;
+  font-size: 16px !important;
+  font-weight: 760 !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-card__content {
+  padding: 18px 24px 22px !important;
+  color: var(--er-pages-text) !important;
+  font-size: 14px;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-card__footer,
+body[data-er-user-shell="true"] .n-card.n-modal .n-card__action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 22px !important;
+  border-top: 1px solid var(--er-pages-line) !important;
+  background: rgba(245, 248, 252, 0.58) !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-input,
+body[data-er-user-shell="true"] .n-card.n-modal .n-input-number,
+body[data-er-user-shell="true"] .n-card.n-modal .n-base-selection {
+  --n-border-radius: 14px !important;
+  --n-color: rgba(255, 255, 255, 0.6) !important;
+  --n-color-focus: rgba(255, 255, 255, 0.86) !important;
+  --n-border: 1px solid var(--er-pages-line) !important;
+  --n-border-hover: 1px solid rgba(76, 102, 231, 0.24) !important;
+  --n-border-focus: 1px solid rgba(76, 102, 231, 0.42) !important;
+  --n-box-shadow-focus: 0 0 0 3px rgba(76, 102, 231, 0.1) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  font-size: 14px !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-alert {
+  border: 1px solid rgba(76, 102, 231, 0.1) !important;
+  border-radius: 14px !important;
+  background: rgba(76, 102, 231, 0.065) !important;
+  color: var(--er-pages-muted) !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-button--primary-type:not(.n-button--ghost),
+body[data-er-user-shell="true"] .n-card.n-modal .n-button--info-type:not(.n-button--ghost) {
+  --n-color: transparent !important;
+  --n-color-hover: transparent !important;
+  --n-color-pressed: transparent !important;
+  --n-border: 0 !important;
+  --n-text-color: #ffffff !important;
+  border: 0 !important;
+  background: var(--er-pages-brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 9px 20px rgba(76, 102, 231, 0.18);
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal .n-base-close {
+  top: 18px !important;
+  right: 18px !important;
+  border-radius: 10px !important;
+  color: var(--er-pages-muted) !important;
+}
+
+/* One-click subscription import */
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]),
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) {
+  --n-border-radius: 24px !important;
+  --n-color: rgba(250, 252, 255, 0.88) !important;
+  width: min(390px, calc(100vw - 32px)) !important;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid rgba(147, 164, 203, 0.2) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 92% 3%, rgba(0, 171, 188, 0.13), transparent 34%),
+    radial-gradient(circle at 12% 98%, rgba(135, 89, 236, 0.1), transparent 38%),
+    rgba(250, 252, 255, 0.88) !important;
+  box-shadow: 0 28px 72px rgba(23, 32, 54, 0.24) !important;
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-card__content,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-card__content {
+  padding: 12px !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list {
+  --n-color: transparent !important;
+  --n-color-hover: rgba(226, 235, 249, 0.72) !important;
+  --n-border-color: transparent !important;
+  background: transparent !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item {
+  margin: 3px 0;
+  padding: 0 !important;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.36);
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item:hover,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item:hover {
+  border-color: rgba(76, 102, 231, 0.12);
+  background: rgba(230, 238, 251, 0.78) !important;
+  transform: translateX(2px);
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__main > .flex,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__main > .flex {
+  min-height: 48px;
+  padding: 5px 9px !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 {
+  width: 40px !important;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  margin-right: 12px;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--er-pages-blue) !important;
+  box-shadow: none;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16 svg,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 svg {
+  color: var(--er-pages-blue) !important;
+  font-size: 22px !important;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16 img,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 img {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .text-gray-500,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .text-gray-500 {
+  color: var(--er-pages-text) !important;
+  font-size: 14px !important;
+  font-weight: 620;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__divider,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__divider {
+  display: none;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-button--primary-type,
+body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-button--primary-type {
+  --n-color: transparent !important;
+  --n-color-hover: transparent !important;
+  --n-color-pressed: transparent !important;
+  --n-border: 0 !important;
+  --n-text-color: #ffffff !important;
+  border: 0 !important;
+  background: var(--er-pages-brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(76, 102, 231, 0.2);
+}
+
+/* Dialog confirmations, including logout */
+body[data-er-user-shell="true"] .n-dialog.n-modal {
+  --n-border-radius: 24px !important;
+  --n-color: rgba(250, 252, 255, 0.9) !important;
+  --n-border: 1px solid rgba(147, 164, 203, 0.2) !important;
+  --n-padding: 22px 24px 24px !important;
+  width: min(420px, calc(100vw - 32px)) !important;
+  border: 1px solid rgba(147, 164, 203, 0.2) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 94% 0%, rgba(0, 171, 188, 0.12), transparent 36%),
+    radial-gradient(circle at 2% 100%, rgba(135, 89, 236, 0.09), transparent 38%),
+    rgba(250, 252, 255, 0.9) !important;
+  box-shadow: 0 28px 72px rgba(23, 32, 54, 0.24) !important;
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__title {
+  min-height: 40px;
+  color: var(--er-pages-text) !important;
+  font-size: 16px !important;
+  font-weight: 760 !important;
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__icon {
+  box-sizing: border-box;
+  display: inline-flex !important;
+  width: 40px !important;
+  height: 40px !important;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px !important;
+  padding: 0;
+  border-radius: 13px;
+  background: var(--er-pages-brand-gradient);
+  color: #ffffff !important;
+  line-height: 0;
+  box-shadow: 0 8px 18px rgba(76, 102, 231, 0.18);
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__icon > svg {
+  display: block;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Checkout and order detail keep the existing layout with light Aurora totals */
+body[data-er-page="checkout"] section.cus-scroll-y input[placeholder="有优惠券？"] {
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 0 14px !important;
+  border: 1px solid rgba(72, 90, 132, 0.2) !important;
+  border-radius: 12px;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: var(--er-pages-text) !important;
+  box-shadow: inset 0 1px 2px rgba(37, 54, 91, 0.035);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y input[placeholder="有优惠券？"]::placeholder {
+  color: #8a94a8 !important;
+  opacity: 1;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y input[placeholder="有优惠券？"]:focus {
+  border-color: rgba(0, 171, 188, 0.6) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 0 0 3px rgba(0, 171, 188, 0.1);
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 {
+  box-sizing: border-box;
+  border: 1px solid var(--er-pages-line) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 92% 6%, rgba(0, 171, 188, 0.1), transparent 34%),
+    radial-gradient(circle at 8% 94%, rgba(135, 89, 236, 0.075), transparent 38%),
+    var(--er-pages-glass-strong) !important;
+  color: var(--er-pages-text) !important;
+  box-shadow: var(--er-pages-shadow) !important;
+  backdrop-filter: blur(20px) saturate(132%);
+  -webkit-backdrop-filter: blur(20px) saturate(132%);
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800.text-white,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800.text-white {
+  color: var(--er-pages-text) !important;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-white:not(.n-button),
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-50,
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-100,
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-200,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-white:not(.n-button),
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-50,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-100,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-200 {
+  color: var(--er-pages-text) !important;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 [class~="color-#f8f9fa"],
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 [class~="color-#f8f9fa"] {
+  color: var(--er-pages-text) !important;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 [class~="color-#f8f9fa41"],
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 [class~="color-#f8f9fa41"] {
+  color: var(--er-pages-muted) !important;
+}
+
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-300,
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-400,
+body[data-er-page="checkout"] section.cus-scroll-y .bg-gray-800 .text-gray-500,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-300,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-400,
+body[data-er-page="order-detail"] section.cus-scroll-y .bg-gray-800 .text-gray-500 {
+  color: var(--er-pages-muted) !important;
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__content {
+  margin: 14px 0 20px !important;
+  color: var(--er-pages-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.65;
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__action {
+  gap: 10px;
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__action .n-button--default-type {
+  --n-color: rgba(255, 255, 255, 0.56) !important;
+  --n-border: 1px solid var(--er-pages-line-strong) !important;
+  --n-text-color: var(--er-pages-text) !important;
+  background: rgba(255, 255, 255, 0.56) !important;
+  color: var(--er-pages-text) !important;
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-dialog__action .n-button--info-type {
+  --n-color: transparent !important;
+  --n-border: 0 !important;
+  --n-text-color: #ffffff !important;
+  border: 0 !important;
+  background: var(--er-pages-brand-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(76, 102, 231, 0.18);
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal[confirm*="logout"] .n-dialog__action .n-button--info-type {
+  background: linear-gradient(105deg, #ff626c, #e93947) !important;
+  box-shadow: 0 8px 18px rgba(233, 57, 71, 0.2);
+}
+
+body[data-er-user-shell="true"] .n-dialog.n-modal .n-base-close {
+  top: 18px !important;
+  right: 18px !important;
+  border-radius: 10px !important;
+  color: var(--er-pages-muted) !important;
+}
+
+@media (max-width: 1024px) {
+  body[data-er-page] section.cus-scroll-y {
+    padding: 16px !important;
+  }
+
+  body[data-er-page="plan"] section.card-container {
+    gap: 14px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card-header {
+    padding: 20px 20px 13px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card__content {
+    padding: 16px 20px 20px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card__action {
+    padding: 15px 20px 20px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  body[data-er-page] section.cus-scroll-y {
+    padding: 14px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card,
+  body[data-er-page="order"] section.cus-scroll-y > .n-data-table,
+  body[data-er-page="node"] section.cus-scroll-y > .n-list {
+    border-radius: 20px !important;
+  }
+
+  body[data-er-page="plan"] section.card-container {
+    display: flex !important;
+    flex-direction: column;
+    margin-top: 18px !important;
+  }
+
+  body[data-er-page="plan"] section.card-container .card-item {
+    width: 100% !important;
+    flex: 1 1 auto;
+  }
+
+  body[data-er-page="plan"] section.card-container .n-card-header {
+    flex-wrap: wrap;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-data-table {
+    max-width: 100%;
+    overflow-x: auto;
+    border-radius: 16px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-data-table-wrapper,
+  body[data-er-page] section.cus-scroll-y .n-data-table-base-table {
+    min-width: max-content;
+  }
+
+  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]),
+  body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon),
+  body[data-er-user-shell="true"] .n-dialog.n-modal {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+    border-radius: 20px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  body[data-er-page] section.cus-scroll-y {
+    padding: 12px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card-header {
+    padding: 18px 17px 12px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card__content {
+    padding: 15px 17px 18px !important;
+  }
+
+  body[data-er-page] section.cus-scroll-y .n-card__action {
+    padding: 14px 17px 18px !important;
+  }
+
+  body[data-er-page="plan"] section.cus-scroll-y .n-radio-group {
+    width: 100%;
+  }
+
+  body[data-er-page="plan"] section.cus-scroll-y .n-radio-button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__main > .flex,
+  body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__main > .flex {
+    min-height: 46px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-er-page] *,
+  body[data-er-user-shell="true"] .n-modal *,
+  body[data-er-user-shell="true"] .n-dropdown-menu * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

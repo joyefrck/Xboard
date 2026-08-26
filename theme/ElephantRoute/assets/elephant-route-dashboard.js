@@ -80,6 +80,10 @@
     return DASHBOARD_ROUTES.indexOf(route) !== -1 || route.indexOf('/dashboard/') === 0;
   }
 
+  function isDashboardV2Mounted() {
+    return Boolean(document.getElementById('er-dashboard-v2'));
+  }
+
   function getDashboardThemePalette() {
     var color = window.settings && window.settings.theme ? window.settings.theme.color : 'default';
     return Object.prototype.hasOwnProperty.call(THEME_PALETTES, color) ? THEME_PALETTES[color] : THEME_PALETTES.default;
@@ -1350,6 +1354,11 @@
   }
 
   function applySubscribeActions() {
+    if (isDashboardV2Mounted()) {
+      removeSubscribeActions();
+      return true;
+    }
+
     if (!isDashboardRoute()) {
       removeSubscribeActions();
       return true;
@@ -1509,6 +1518,7 @@
   }
 
   function applyDashboardShortcutMenu() {
+    if (isDashboardV2Mounted()) return true;
     if (!isDashboardRoute()) return true;
 
     removeRenewShortcut();
@@ -1523,9 +1533,15 @@
       maybeAutoOpenDifySupport();
       normalizeTicketAppealWording();
       removeHiddenSidebarMenuItems();
-      removeDownloadEntry();
       var subscribeApplied = applySubscribeActions();
       var shortcutMenuApplied = applyDashboardShortcutMenu();
+      if (!isDashboardV2Mounted()) {
+        removeDownloadEntry();
+        subscribeApplied = applySubscribeActions();
+        shortcutMenuApplied = applyDashboardShortcutMenu();
+      } else {
+        removeSubscribeActions();
+      }
       hideUnsupportedSurgeOption();
       enhanceKaringSubscribeOption();
       enhanceClashMiSubscribeOption();

@@ -524,10 +524,10 @@ test('ElephantRoute dashboard shows stacked traffic package balance inside subsc
   assert.match(stylesheet, /@media \(max-width: 767px\)/);
 });
 
-test('ElephantRoute dashboard asset cache busting is updated for the other appeal type', () => {
+test('ElephantRoute dashboard asset cache busting covers appeal and client branding updates', () => {
   const blade = readRepoFile('theme/ElephantRoute/dashboard.blade.php');
 
   assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20260820appealTypeOther1/);
-  assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260708trafficPackagePlanJump1/);
+  assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260826clientLogoTypography1/);
   assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20260819appealType1/);
 });

@@ -30,6 +30,8 @@ frontend
 bun.lockb
 compose.yaml
 .scribe
+.superpowers/
+storage/app/app-downloads/
 
 # Exclude large release files
 public/download/ElephantNetwork-Android.apk

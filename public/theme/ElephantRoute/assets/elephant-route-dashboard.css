@@ -368,7 +368,8 @@ body.er-subscribe-direct-qr-active .er-subscribe-source-modal-hidden {
   width: auto !important;
   height: 40px !important;
   margin: 0 !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   object-fit: contain !important;
 }
 
