@@ -5,6 +5,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no" />
   <title>{{$title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/theme/{{$theme}}/assets/favicon.svg?v={{$version}}-er20260826brandLogo1">
+  <link rel="icon" type="image/png" sizes="32x32" href="/theme/{{$theme}}/assets/favicon-32x32.png?v={{$version}}-er20260826brandLogo1">
+  <link rel="icon" type="image/png" sizes="16x16" href="/theme/{{$theme}}/assets/favicon-16x16.png?v={{$version}}-er20260826brandLogo1">
+  <link rel="icon" href="/theme/{{$theme}}/assets/favicon.ico?v={{$version}}-er20260826brandLogo1" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/theme/{{$theme}}/assets/apple-touch-icon.png?v={{$version}}-er20260826brandLogo1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20260622inputColor1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20260826dashboardV2Aurora15">
@@ -72,7 +77,7 @@
   </script>
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
-  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260524fix1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20260819appealType1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20260826dashboardV2Aurora15"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20260826pagesV2Aurora9"></script>

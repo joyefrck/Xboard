@@ -11,7 +11,13 @@ ElephantRoute/assets/*
 !ElephantRoute/assets/elephant-route-dashboard-v2.js
 !ElephantRoute/assets/elephant-route-pages-v2.css
 !ElephantRoute/assets/elephant-route-pages-v2.js
+!ElephantRoute/assets/elephant-route-auth.js
 !ElephantRoute/assets/client-logo.svg
+!ElephantRoute/assets/favicon.svg
+!ElephantRoute/assets/favicon-32x32.png
+!ElephantRoute/assets/favicon-16x16.png
+!ElephantRoute/assets/apple-touch-icon.png
+!ElephantRoute/assets/favicon.ico
 !ElephantRoute/assets/images/
 ElephantRoute/assets/images/*
 !ElephantRoute/assets/images/clash-mi.png
