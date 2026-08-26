@@ -32,8 +32,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora16/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora16/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora17/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora17/);
   }
 });
 
@@ -98,7 +98,7 @@ test('Mobile drawer is generated from the same Aurora navigation contract as des
   assert.match(script, /logo\.src = '\/theme\/ElephantRoute\/assets\/client-logo\.svg'/);
   assert.match(styles, /\.n-drawer\.er-v2-mobile-drawer/);
   assert.match(styles, /\.er-v2-mobile-sidebar-link\.is-active/);
-  assert.match(styles, /\.er-v2-mobile-sidebar-appeal/);
+  assert.match(styles, /\.er-v2-mobile-sidebar-appeal \{[\s\S]*margin-bottom: 72px/);
 });
 
 test('Mobile dashboard locks horizontal movement while preserving vertical scrolling', () => {
