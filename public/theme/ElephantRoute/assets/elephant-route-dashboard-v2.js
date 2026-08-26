@@ -3,6 +3,7 @@
 
   var ROOT_ID = 'er-dashboard-v2';
   var SIDEBAR_ID = 'er-v2-sidebar';
+  var MOBILE_SIDEBAR_ID = 'er-v2-mobile-sidebar';
   var TOPBAR_TITLE_ID = 'er-v2-topbar-title';
   var ACCESS_TOKEN_STORAGE_KEY = 'VUE_NAIVE_ACCESS_TOKEN';
   var DOWNLOAD_PAGE_URL = '/download/index.html';
@@ -261,7 +262,12 @@
     hasPurchasableTrafficPackages: hasPurchasableTrafficPackages,
     hasUnfinishedOrders: hasUnfinishedOrders,
     buildSubscriptionViewModel: buildSubscriptionViewModel,
-    buildTelegramViewModel: buildTelegramViewModel
+    buildTelegramViewModel: buildTelegramViewModel,
+    getNavigationItems: function () {
+      return NAV_ITEMS.concat([{ route: '#/ticket', label: '问题申诉', iconName: 'appeal' }]).map(function (item) {
+        return Object.assign({}, item);
+      });
+    }
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = testApi;
@@ -512,6 +518,121 @@
     return sidebar;
   }
 
+  function createSidebarLink(item, className) {
+    var link = createElement('a', className);
+    link.href = item.route;
+    link.dataset.route = item.route.slice(1);
+    var icon = createElement('span', className + '-icon');
+    icon.innerHTML = solidIcon(item.iconName);
+    icon.setAttribute('aria-hidden', 'true');
+    link.appendChild(icon);
+    link.appendChild(createElement('span', className + '-label', item.label));
+    return link;
+  }
+
+  function buildMobileSidebar(drawer, nativeCloseButton) {
+    var sidebar = createElement('nav', 'er-v2-mobile-sidebar');
+    sidebar.id = MOBILE_SIDEBAR_ID;
+    sidebar.setAttribute('aria-label', '移动端用户中心主导航');
+
+    var brand = createElement('div', 'er-v2-mobile-sidebar-brand');
+    var logo = createElement('img', 'er-v2-mobile-sidebar-logo');
+    logo.src = '/theme/ElephantRoute/assets/client-logo.svg';
+    logo.alt = '';
+    brand.appendChild(logo);
+    brand.appendChild(createElement('strong', '', '大象网络'));
+
+    var closeButton = createElement('button', 'er-v2-mobile-sidebar-close');
+    closeButton.type = 'button';
+    closeButton.setAttribute('aria-label', '关闭菜单');
+    closeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.2 4.8 13 13-1.4 1.4-13-13 1.4-1.4Zm11.6 0 1.4 1.4-13 13-1.4-1.4 13-13Z"/></svg>';
+    closeButton.addEventListener('click', function () {
+      if (nativeCloseButton && typeof nativeCloseButton.click === 'function') nativeCloseButton.click();
+    });
+    brand.appendChild(closeButton);
+    sidebar.appendChild(brand);
+
+    var list = createElement('div', 'er-v2-mobile-sidebar-list');
+    NAV_ITEMS.forEach(function (item) {
+      var link = createSidebarLink(item, 'er-v2-mobile-sidebar-link');
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        navigate(item.route);
+        if (nativeCloseButton && typeof nativeCloseButton.click === 'function') nativeCloseButton.click();
+      });
+      list.appendChild(link);
+    });
+    sidebar.appendChild(list);
+
+    var appeal = createElement('a', 'er-v2-mobile-sidebar-appeal');
+    appeal.href = '#/ticket';
+    appeal.dataset.route = '/ticket';
+    var appealIcon = createElement('span', 'er-v2-mobile-sidebar-appeal-icon');
+    appealIcon.innerHTML = solidIcon('appeal');
+    appealIcon.setAttribute('aria-hidden', 'true');
+    var appealCopy = createElement('span', 'er-v2-mobile-sidebar-appeal-copy');
+    appealCopy.appendChild(createElement('strong', '', '问题申诉'));
+    appealCopy.appendChild(createElement('small', '', '提交后将在 3 小时内回复'));
+    appeal.appendChild(appealIcon);
+    appeal.appendChild(appealCopy);
+    appeal.addEventListener('click', function (event) {
+      event.preventDefault();
+      navigate('#/ticket');
+      if (nativeCloseButton && typeof nativeCloseButton.click === 'function') nativeCloseButton.click();
+    });
+    sidebar.appendChild(appeal);
+    return sidebar;
+  }
+
+  function restoreNativeMobileDrawer(drawer) {
+    drawer.classList.remove('er-v2-mobile-drawer');
+    var container = drawer.closest('.n-drawer-container');
+    if (container) container.classList.remove('er-v2-mobile-drawer-container');
+    drawer.querySelectorAll('[data-er-v2-mobile-native-hidden="true"]').forEach(function (node) {
+      delete node.dataset.erV2MobileNativeHidden;
+      node.removeAttribute('aria-hidden');
+    });
+    var content = drawer.querySelector('.er-v2-mobile-drawer-content');
+    if (content) content.classList.remove('er-v2-mobile-drawer-content');
+    var customSidebar = drawer.querySelector('#' + MOBILE_SIDEBAR_ID);
+    if (customSidebar) customSidebar.remove();
+  }
+
+  function ensureMobileDrawer() {
+    var isMobile = !global.matchMedia || global.matchMedia('(max-width: 767px)').matches;
+    var matched = false;
+    document.querySelectorAll('.n-drawer').forEach(function (drawer) {
+      var nativeMenu = drawer.querySelector('.n-menu.side-menu');
+      if (!nativeMenu) return;
+      if (!isMobile) {
+        restoreNativeMobileDrawer(drawer);
+        return;
+      }
+
+      matched = true;
+      var content = nativeMenu.parentElement;
+      var nativeHeader = nativeMenu.previousElementSibling;
+      var nativeCloseButton = nativeHeader ? nativeHeader.querySelector('button') : drawer.querySelector('button');
+      drawer.classList.add('er-v2-mobile-drawer');
+      var container = drawer.closest('.n-drawer-container');
+      if (container) container.classList.add('er-v2-mobile-drawer-container');
+      if (content) content.classList.add('er-v2-mobile-drawer-content');
+      if (nativeHeader) {
+        nativeHeader.dataset.erV2MobileNativeHidden = 'true';
+        nativeHeader.setAttribute('aria-hidden', 'true');
+      }
+      nativeMenu.dataset.erV2MobileNativeHidden = 'true';
+      nativeMenu.setAttribute('aria-hidden', 'true');
+
+      if (!drawer.querySelector('#' + MOBILE_SIDEBAR_ID)) {
+        var mobileSidebar = buildMobileSidebar(drawer, nativeCloseButton);
+        content.appendChild(mobileSidebar);
+      }
+    });
+    if (matched) updateSidebarActiveState();
+    return matched;
+  }
+
   function ensureSidebar() {
     var sider = document.querySelector('.n-layout-sider');
     if (!sider) return false;
@@ -534,15 +655,17 @@
   }
 
   function updateSidebarActiveState() {
-    var sidebar = document.getElementById(SIDEBAR_ID);
-    if (!sidebar) return;
     var route = getRoute();
-    sidebar.querySelectorAll('[data-route]').forEach(function (link) {
-      var target = link.dataset.route;
-      var active = route === target || (target !== '/dashboard' && route.indexOf(target + '/') === 0);
-      link.classList.toggle('is-active', active);
-      if (active) link.setAttribute('aria-current', 'page');
-      else link.removeAttribute('aria-current');
+    [SIDEBAR_ID, MOBILE_SIDEBAR_ID].forEach(function (sidebarId) {
+      var sidebar = document.getElementById(sidebarId);
+      if (!sidebar) return;
+      sidebar.querySelectorAll('[data-route]').forEach(function (link) {
+        var target = link.dataset.route;
+        var active = route === target || (target !== '/dashboard' && route.indexOf(target + '/') === 0);
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
     });
   }
 
@@ -1336,6 +1459,7 @@
     function retry() {
       state.retryTimer = null;
       ensureSidebar();
+      ensureMobileDrawer();
       if (isDashboardRoute()) {
         if (!mountDashboard()) state.retryTimer = global.setTimeout(retry, 180);
       } else {

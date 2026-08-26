@@ -32,8 +32,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora15/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora15/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora16/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora16/);
   }
 });
 
@@ -74,6 +74,40 @@ test('Dashboard 2.0 exposes deterministic official artifact and invitation helpe
     helpers.buildInviteLink('https://example.com:7443', 'ABCD1234'),
     'https://example.com:7443/app#/register?code=ABCD1234'
   );
+});
+
+test('Mobile drawer is generated from the same Aurora navigation contract as desktop', () => {
+  const helpers = require(path.join(repoRoot, 'theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
+  const script = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard-v2.js');
+  const styles = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard-v2.css');
+
+  assert.deepEqual(
+    helpers.getNavigationItems().map(({ route, label }) => ({ route, label })),
+    [
+      { route: '#/dashboard', label: '仪表盘' },
+      { route: '#/plan', label: '商店' },
+      { route: '#/invite', label: '邀请赚钱' },
+      { route: '#/knowledge', label: '操作说明' },
+      { route: '#/ticket', label: '问题申诉' }
+    ]
+  );
+  assert.match(script, /function ensureMobileDrawer\(\)/);
+  assert.match(script, /drawer\.querySelector\('\.n-menu\.side-menu'\)/);
+  assert.match(script, /nativeMenu\.dataset\.erV2MobileNativeHidden = 'true'/);
+  assert.match(script, /NAV_ITEMS\.forEach\(function \(item\)/);
+  assert.match(script, /logo\.src = '\/theme\/ElephantRoute\/assets\/client-logo\.svg'/);
+  assert.match(styles, /\.n-drawer\.er-v2-mobile-drawer/);
+  assert.match(styles, /\.er-v2-mobile-sidebar-link\.is-active/);
+  assert.match(styles, /\.er-v2-mobile-sidebar-appeal/);
+});
+
+test('Mobile dashboard locks horizontal movement while preserving vertical scrolling', () => {
+  const styles = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard-v2.css');
+
+  assert.match(styles, /\.er-v2-dashboard \{[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto/);
+  assert.match(styles, /@media \(max-width: 767px\) \{[\s\S]*body,[\s\S]*#app \{[\s\S]*overflow-x: hidden !important/);
+  assert.match(styles, /touch-action: pan-y pinch-zoom/);
+  assert.match(styles, /\.er-v2-dashboard \{[\s\S]*overflow-x: hidden !important;[\s\S]*overflow-y: auto !important/);
 });
 
 test('Dashboard 2.0 selects the latest three announcements deterministically', () => {
