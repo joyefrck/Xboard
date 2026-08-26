@@ -98,7 +98,10 @@ test('homepage publishes WebSite and Organization structured data', () => {
   assert.equal(data['@context'], 'https://schema.org');
   assert.deepEqual(data['@graph'].map((item) => item['@type']), ['WebSite', 'Organization']);
   assert.equal(data['@graph'][0].url, `${siteOrigin}/`);
-  assert.equal(data['@graph'][1].logo.url, `${siteOrigin}/landing/assets/elephant-route-logo.jpg`);
+  assert.equal(
+    data['@graph'][1].logo.url,
+    `${siteOrigin}/theme/ElephantRoute/assets/apple-touch-icon.png`
+  );
 });
 
 test('robots file advertises the production sitemap without blocking pages', () => {

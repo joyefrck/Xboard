@@ -78,7 +78,7 @@ test('homepage uses optimized images with explicit loading behavior', () => {
     assert.match(tag, /fetchpriority="low"/);
   }
 
-  const logoTag = imageTagFor(html, '/landing/assets/elephant-route-logo.jpg');
+  const logoTag = imageTagFor(html, '/theme/ElephantRoute/assets/client-logo.svg');
   assert.match(logoTag, /width="40"/);
   assert.match(logoTag, /height="40"/);
   assert.match(logoTag, /decoding="async"/);
