@@ -2643,6 +2643,8 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "total_traffic": "Total Traffic",
         "total_traffic_placeholder": "Please enter traffic",
         "plan_traffic": "Plan Traffic",
+        "traffic_package_section_title": "Independent Traffic Package",
+        "traffic_package_section_description": "Separate from plan traffic; does not change the plan or expiry",
         "current_traffic_package_remaining": "Current Traffic Package Balance",
         "traffic_package_product": "Traffic Package to Add",
         "traffic_package_product_placeholder": "Select a traffic package product",

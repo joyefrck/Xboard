@@ -2659,6 +2659,8 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "total_traffic": "流量",
         "total_traffic_placeholder": "请输入流量",
         "plan_traffic": "套餐流量",
+        "traffic_package_section_title": "独立流量包",
+        "traffic_package_section_description": "独立于套餐流量，不修改套餐及到期时间",
         "current_traffic_package_remaining": "当前流量包余额",
         "traffic_package_product": "增加流量包",
         "traffic_package_product_placeholder": "请选择流量包商品",

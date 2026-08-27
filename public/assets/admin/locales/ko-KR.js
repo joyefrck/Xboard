@@ -1935,6 +1935,8 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
         "total_traffic": "총 트래픽",
         "total_traffic_placeholder": "트래픽을 입력해주세요",
         "plan_traffic": "요금제 트래픽",
+        "traffic_package_section_title": "독립 트래픽 패키지",
+        "traffic_package_section_description": "요금제 트래픽과 별개이며 요금제 또는 만료 시간을 변경하지 않습니다",
         "current_traffic_package_remaining": "현재 트래픽 패키지 잔액",
         "traffic_package_product": "추가할 트래픽 패키지",
         "traffic_package_product_placeholder": "트래픽 패키지 상품을 선택하세요",
