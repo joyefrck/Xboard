@@ -32,7 +32,9 @@ class UserUpdate extends FormRequest
             'commission_balance' => 'numeric',
             'remarks' => 'nullable',
             'speed_limit' => 'nullable|integer',
-            'device_limit' => 'nullable|integer'
+            'device_limit' => 'nullable|integer',
+            'traffic_package_id' => 'nullable|required_with:traffic_package_add_gb|integer|exists:v2_traffic_packages,id',
+            'traffic_package_add_gb' => 'nullable|required_with:traffic_package_id|integer|min:1|max:8589934591'
         ];
     }
 
@@ -63,7 +65,14 @@ class UserUpdate extends FormRequest
             'commission_balance.integer' => '佣金格式不正确',
             'password.min' => '密码长度最小8位',
             'speed_limit.integer' => '限速格式不正确',
-            'device_limit.integer' => '设备数量格式不正确'
+            'device_limit.integer' => '设备数量格式不正确',
+            'traffic_package_id.required_with' => '请选择流量包并填写增加流量',
+            'traffic_package_id.integer' => '流量包格式不正确',
+            'traffic_package_id.exists' => '流量包不存在',
+            'traffic_package_add_gb.required_with' => '请选择流量包并填写增加流量',
+            'traffic_package_add_gb.integer' => '增加流量必须是大于 0 的整数 GB',
+            'traffic_package_add_gb.min' => '增加流量必须是大于 0 的整数 GB',
+            'traffic_package_add_gb.max' => '增加流量超出系统支持范围'
         ];
     }
 }

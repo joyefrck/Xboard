@@ -58,6 +58,31 @@ class TrafficPackageService
         return $package;
     }
 
+    public function grantByAdmin(
+        User $user,
+        TrafficPackage $trafficPackage,
+        int $amountGb
+    ): UserTrafficPackage {
+        $maxAmountGb = intdiv(PHP_INT_MAX, self::BYTES_PER_GB);
+        if ($amountGb < 1 || $amountGb > $maxAmountGb) {
+            throw new \InvalidArgumentException('Traffic package grant is outside the supported range.');
+        }
+
+        $totalBytes = $amountGb * self::BYTES_PER_GB;
+        $package = UserTrafficPackage::create([
+            'user_id' => $user->id,
+            'order_id' => null,
+            'plan_id' => null,
+            'traffic_package_id' => $trafficPackage->id,
+            'total_bytes' => $totalBytes,
+            'remaining_bytes' => $totalBytes,
+            'status' => UserTrafficPackage::STATUS_ACTIVE,
+        ]);
+
+        $this->syncAccessProfile($user);
+        return $package;
+    }
+
     public function hasActivePlan(User $user): bool
     {
         $planTransferEnable = (int) ($user->transfer_enable ?? 0);

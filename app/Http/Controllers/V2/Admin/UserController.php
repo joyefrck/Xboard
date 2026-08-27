@@ -8,9 +8,11 @@ use App\Http\Requests\Admin\UserSendMail;
 use App\Http\Requests\Admin\UserUpdate;
 use App\Jobs\SendEmailJob;
 use App\Models\Plan;
+use App\Models\TrafficPackage;
 use App\Models\User;
 use App\Models\UserTrafficPackage;
 use App\Services\AuthService;
+use App\Services\TrafficPackageService;
 use App\Services\UserService;
 use App\Traits\QueryOperators;
 use App\Utils\Helper;
@@ -300,10 +302,19 @@ class UserController extends Controller
     public function update(UserUpdate $request)
     {
         $params = $request->validated();
+        $trafficPackageId = $params['traffic_package_id'] ?? null;
+        $trafficPackageAddGb = $params['traffic_package_add_gb'] ?? null;
+        unset($params['traffic_package_id'], $params['traffic_package_add_gb']);
 
         $user = User::find($request->input('id'));
         if (!$user) {
             return $this->fail([400202, '用户不存在']);
+        }
+        $trafficPackage = $trafficPackageId !== null
+            ? TrafficPackage::find($trafficPackageId)
+            : null;
+        if ($trafficPackageId !== null && !$trafficPackage) {
+            return $this->fail([400202, '流量包不存在']);
         }
         if (isset($params['email'])) {
             if (User::where('email', $params['email'])->first() && $user->email !== $params['email']) {
@@ -344,8 +355,23 @@ class UserController extends Controller
         }
 
         try {
-            $user->update($params);
-        } catch (\Exception $e) {
+            DB::transaction(function () use (
+                $user,
+                $params,
+                $trafficPackage,
+                $trafficPackageAddGb
+            ): void {
+                $user->update($params);
+
+                if ($trafficPackage && $trafficPackageAddGb !== null) {
+                    app(TrafficPackageService::class)->grantByAdmin(
+                        $user->refresh(),
+                        $trafficPackage,
+                        (int) $trafficPackageAddGb
+                    );
+                }
+            });
+        } catch (\Throwable $e) {
             Log::error($e);
             return $this->fail([500, '保存失败']);
         }
