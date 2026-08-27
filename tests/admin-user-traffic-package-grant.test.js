@@ -51,6 +51,36 @@ test('admin user drawer separates plan traffic from package grants', () => {
   assert.match(asset, /edit\.form\.traffic_package_add_gb/);
   assert.match(asset, /Number\.isInteger/);
   assert.match(asset, /traffic_package_grant_pair_required/);
+
+  const userEditStart = asset.indexOf('function Ji(){');
+  const userEditEnd = asset.indexOf('function Hp(){', userEditStart);
+  assert.ok(userEditStart >= 0 && userEditEnd > userEditStart, 'user edit function exists');
+
+  const userEdit = asset.slice(userEditStart, userEditEnd);
+  const positions = {
+    plan: userEdit.indexOf('name:"plan_id"'),
+    expiry: userEdit.indexOf('name:"expired_at"'),
+    planTraffic: userEdit.indexOf('name:"transfer_enable"'),
+    section: userEdit.indexOf('edit.form.traffic_package_section_title'),
+    remaining: userEdit.indexOf('name:"traffic_package_remaining"'),
+    product: userEdit.indexOf('name:"traffic_package_id"'),
+    amount: userEdit.indexOf('name:"traffic_package_add_gb"'),
+    status: userEdit.indexOf('name:"banned"'),
+  };
+
+  Object.entries(positions).forEach(([name, position]) => {
+    assert.ok(position >= 0, `${name} control exists in user editor`);
+  });
+
+  assert.ok(positions.plan < positions.expiry, 'subscription precedes expiry');
+  assert.ok(positions.expiry < positions.planTraffic, 'expiry precedes plan traffic');
+  assert.ok(positions.planTraffic < positions.section, 'independent section follows plan traffic');
+  assert.ok(positions.section < positions.remaining, 'section heading precedes package balance');
+  assert.ok(positions.remaining < positions.product, 'package balance precedes product selector');
+  assert.ok(positions.product < positions.amount, 'product selector precedes grant amount');
+  assert.ok(positions.amount < positions.status, 'package section precedes account status');
+  assert.match(userEdit, /border-t/);
+  assert.match(userEdit, /edit\.form\.traffic_package_section_description/);
 });
 
 test('admin package grant copy exists in all bundled locales', () => {
@@ -61,6 +91,8 @@ test('admin package grant copy exists in all bundled locales', () => {
       '"traffic_package_product": "增加流量包"',
       '"traffic_package_add_gb": "增加流量"',
       '"traffic_package_grant_pair_required"',
+      '"traffic_package_section_title": "独立流量包"',
+      '"traffic_package_section_description": "独立于套餐流量，不修改套餐及到期时间"',
     ],
     'public/assets/admin/locales/en-US.js': [
       '"plan_traffic": "Plan Traffic"',
@@ -68,6 +100,8 @@ test('admin package grant copy exists in all bundled locales', () => {
       '"traffic_package_product": "Traffic Package to Add"',
       '"traffic_package_add_gb": "Traffic to Add"',
       '"traffic_package_grant_pair_required"',
+      '"traffic_package_section_title": "Independent Traffic Package"',
+      '"traffic_package_section_description": "Separate from plan traffic; does not change the plan or expiry"',
     ],
     'public/assets/admin/locales/ko-KR.js': [
       '"plan_traffic": "요금제 트래픽"',
@@ -75,6 +109,8 @@ test('admin package grant copy exists in all bundled locales', () => {
       '"traffic_package_product": "추가할 트래픽 패키지"',
       '"traffic_package_add_gb": "추가 트래픽"',
       '"traffic_package_grant_pair_required"',
+      '"traffic_package_section_title": "독립 트래픽 패키지"',
+      '"traffic_package_section_description": "요금제 트래픽과 별개이며 요금제 또는 만료 시간을 변경하지 않습니다"',
     ],
   };
 
