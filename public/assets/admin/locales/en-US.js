@@ -1949,6 +1949,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "columns": {
       "id": "Ticket ID",
       "subject": "Subject",
+      "username": "Username",
       "level": "Appeal Type",
       "status": "Status",
       "remarks": "Remarks",
@@ -1968,6 +1969,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     },
     "filter": {
       "placeholder": "Search {field}...",
+      "email_placeholder": "Search by username (user email)",
       "no_results": "No results found",
       "selected": "{count} selected",
       "clear": "Clear filters"

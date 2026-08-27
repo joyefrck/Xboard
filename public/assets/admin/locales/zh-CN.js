@@ -1941,6 +1941,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     "columns": {
       "id": "工单号",
       "subject": "主题",
+      "username": "用户名",
       "level": "申诉类型",
       "status": "状态",
       "remarks": "备注",
@@ -1960,6 +1961,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     },
     "filter": {
       "placeholder": "搜索{field}...",
+      "email_placeholder": "按用户名搜索（用户邮箱）",
       "no_results": "未找到结果",
       "selected": "已选择 {count} 项",
       "clear": "清除筛选"

@@ -1429,6 +1429,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     "columns": {
       "id": "티켓 번호",
       "subject": "제목",
+      "username": "사용자 이름",
       "level": "이의 신청 유형",
       "status": "상태",
       "remarks": "비고",
@@ -1448,6 +1449,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     },
     "filter": {
       "placeholder": "{field} 검색...",
+      "email_placeholder": "사용자 이름으로 검색 (사용자 이메일)",
       "no_results": "결과를 찾을 수 없습니다",
       "selected": "{count}개 선택됨",
       "clear": "필터 초기화"
