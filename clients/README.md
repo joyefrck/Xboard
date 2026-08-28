@@ -3,29 +3,39 @@
 This directory contains client application code that is separate from the main
 Xboard Laravel backend.
 
-## Active Android Client
+## Active Client
 
-`android-singbox/` is the current native Android VPN client.
+The active Android, Windows, and macOS client is the public GPLv3
+[ElephantNetwork](https://github.com/joyefrck/ElephantNetwork) fork based on
+FlClash. It is maintained in its own repository so upstream history and the
+corresponding source for every binary release remain available.
 
-- Stack: Kotlin, Jetpack Compose, Gradle, sing-box `libbox.aar`
-- Package name: `cn.moncn.sing_box_windows`
-- Build from this directory:
+`android-singbox/` is an inactive Android experiment and is not a production
+release source.
+
+## Archived ElephantRoute Client
+
+`elephant-route-deprecated/` is the frozen legacy Flutter client for Android,
+macOS, and Windows.
+
+- Last production version: 1.6.9
+- Android package name: `com.elephantroute`
+- Status: immutable archive; no feature development or bug fixes
+- Archive tag: `elephant-route-legacy-1.6.9-archive`
+
+The directory remains available for upgrade compatibility checks, historical
+builds, and migration evidence. Do not copy new client functionality into it.
+
+## Historical Android Experiment
+
+The native Android experiment can still be built for research from its own
+directory:
 
 ```bash
 cd clients/android-singbox
 ./gradlew assembleDebug
 ./gradlew assembleRelease
 ```
-
-## Deprecated ElephantRoute Client
-
-`elephant-route-deprecated/` is the legacy Flutter multi-platform client.
-
-- Platforms: Android, macOS, Windows
-- Package/project name: `elephant_network`
-- Android package name: `com.elephantroute`
-- Status: deprecated; keep for reference and historical builds unless a future
-  cleanup task explicitly removes it.
 
 ## Distribution Backend
 
