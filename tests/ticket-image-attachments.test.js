@@ -192,6 +192,11 @@ test('admin ticket UI uploads, lists and opens authenticated attachments', () =>
   assert.match(bundle, /attachments\.hint/);
   assert.match(bundle, /attachments\.add/);
   assert.match(bundle, /attachments\.open_failed/);
+  assert.match(bundle, /responseType:"arraybuffer"/);
+  assert.match(bundle, /xboardAdminPrepareTicketAttachmentWindow/);
+  assert.match(bundle, /new Blob\(\[a\],\{type:t\}\)/);
+  assert.match(bundle, /i\.src=r/);
+  assert.doesNotMatch(bundle, /t\.location\.href=i/);
   assert.match(
     bundle,
     /style:\{color:"#2563eb",fontSize:"14px",textDecoration:"underline",textUnderlineOffset:"3px"\}/
