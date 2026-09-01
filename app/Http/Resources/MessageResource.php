@@ -19,6 +19,7 @@ class MessageResource extends JsonResource
             "ticket_id" => $this['ticket_id'],
             "is_me" => $this['is_from_user'],
             "message"  => $this["message"],
+            "attachments" => TicketMessageAttachmentResource::collection($this->attachments),
             "created_at" => $this['created_at'],
             "updated_at" => $this['updated_at']
         ];

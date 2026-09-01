@@ -23,7 +23,7 @@
       // The interface remains light through the stylesheet when storage is unavailable.
     }
   </script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20260820appealTypeOther1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20260901ticketScrollbar1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>

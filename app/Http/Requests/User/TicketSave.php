@@ -18,7 +18,14 @@ class TicketSave extends FormRequest
         return [
             'subject' => 'required',
             'level' => ['required', 'integer', Rule::in(Ticket::MANUAL_TYPES)],
-            'message' => 'required'
+            'message' => 'required|string',
+            'attachments' => 'sometimes|array|max:3',
+            'attachments.*' => [
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:1024',
+            ],
         ];
     }
 
@@ -29,7 +36,13 @@ class TicketSave extends FormRequest
             'level.required' => __('Ticket appeal type cannot be empty'),
             'level.integer' => __('Incorrect ticket appeal type format'),
             'level.in' => __('Incorrect ticket appeal type format'),
-            'message.required' => __('Message cannot be empty')
+            'message.required' => __('Message cannot be empty'),
+            'attachments.array' => '图片附件格式不正确',
+            'attachments.max' => '每轮最多上传3张图片',
+            'attachments.*.file' => '无效的图片附件',
+            'attachments.*.image' => '附件必须是图片',
+            'attachments.*.mimes' => '图片仅支持 JPG、PNG、WEBP 格式',
+            'attachments.*.max' => '单张图片不能超过1MB',
         ];
     }
 }

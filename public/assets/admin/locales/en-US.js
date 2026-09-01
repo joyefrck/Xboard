@@ -1993,9 +1993,20 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "saving": "Saving...",
       "save_success": "Remark saved"
     },
+    "attachments": {
+      "add": "Add images",
+      "hint": "{{count}}/3 selected, max 1 MB each",
+      "remove": "Remove",
+      "too_many": "You can upload up to 3 images per message",
+      "invalid_type": "Only JPG, PNG, and WEBP images are supported",
+      "too_large": "Each image must be no larger than 1 MB",
+      "open_failed": "Failed to open attachment"
+    },
     "detail": {
       "no_messages": "No messages yet",
       "created_at": "Created at",
+      "sender_user": "User",
+      "sender_admin": "Administrator",
       "user_info": "User Info",
       "traffic_records": "Traffic Records",
       "order_records": "Order Records",

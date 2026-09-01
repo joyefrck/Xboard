@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * App\Models\TicketMessage
@@ -24,6 +25,7 @@ class TicketMessage extends Model
     protected $dateFormat = 'U';
     protected $guarded = ['id'];
     protected $casts = [
+        'is_admin' => 'boolean',
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp'
     ];
@@ -43,12 +45,18 @@ class TicketMessage extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TicketMessageAttachment::class, 'ticket_message_id', 'id')
+            ->orderBy('id');
+    }
+
     /**
      * 判断消息是否由工单发起人发送
      */
     public function getIsFromUserAttribute(): bool
     {
-        return $this->ticket->user_id === $this->user_id;
+        return !$this->is_admin;
     }
 
     /**
@@ -56,6 +64,6 @@ class TicketMessage extends Model
      */
     public function getIsFromAdminAttribute(): bool
     {
-        return $this->ticket->user_id !== $this->user_id;
+        return $this->is_admin;
     }
 }

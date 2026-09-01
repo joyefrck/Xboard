@@ -193,6 +193,7 @@ class AdminRoute
                 $router->post('/reply', [TicketController::class, 'reply']);
                 $router->post('/close', [TicketController::class, 'close']);
                 $router->post('/remarks', [TicketController::class, 'updateRemarks']);
+                $router->get('/attachment/{attachment}', [TicketController::class, 'attachment']);
             });
 
             // Coupon

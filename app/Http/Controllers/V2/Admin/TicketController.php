@@ -4,6 +4,8 @@ namespace App\Http\Controllers\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
+use App\Models\TicketMessageAttachment;
+use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
 use Illuminate\Http\Request;
 
@@ -49,7 +51,7 @@ class TicketController extends Controller
      */
     private function fetchTicketById(Request $request)
     {
-        $ticket = Ticket::with('messages', 'user')->find($request->input('id'));
+        $ticket = Ticket::with('messages.attachments', 'user')->find($request->input('id'));
 
         if (!$ticket) {
             return $this->fail([400202, '工单不存在']);
@@ -111,18 +113,40 @@ class TicketController extends Controller
     {
         $request->validate([
             'id' => 'required|numeric',
-            'message' => 'required|string'
+            'message' => 'required|string',
+            'attachments' => 'sometimes|array|max:3',
+            'attachments.*' => [
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:1024',
+            ],
         ], [
             'id.required' => '工单ID不能为空',
-            'message.required' => '消息不能为空'
+            'message.required' => '消息不能为空',
+            'attachments.max' => '每轮最多上传3张图片',
+            'attachments.*.image' => '附件必须是图片',
+            'attachments.*.mimes' => '图片仅支持 JPG、PNG、WEBP 格式',
+            'attachments.*.max' => '单张图片不能超过1MB',
         ]);
         $ticketService = new TicketService();
         $ticketService->replyByAdmin(
             $request->input('id'),
             $request->input('message'),
-            $request->user()->id
+            $request->user()->id,
+            $request->file('attachments', [])
         );
         return $this->success(true);
+    }
+
+    public function attachment(int $attachment)
+    {
+        $attachmentModel = TicketMessageAttachment::find($attachment);
+        if (!$attachmentModel) {
+            abort(404);
+        }
+
+        return (new TicketAttachmentService())->inlineResponse($attachmentModel);
     }
 
     public function updateRemarks(Request $request)
@@ -179,7 +203,7 @@ class TicketController extends Controller
         $ticket = Ticket::with([
             'user',
             'messages' => function ($query) {
-                $query->with(['user']); // 如果需要用户信息
+                $query->with(['user', 'attachments']); // 如果需要用户信息
             }
         ])->findOrFail($ticketId);
 

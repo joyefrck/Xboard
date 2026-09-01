@@ -1473,9 +1473,20 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "saving": "저장 중...",
       "save_success": "비고가 저장되었습니다"
     },
+    "attachments": {
+      "add": "이미지 추가",
+      "hint": "{{count}}/3개 선택됨, 파일당 최대 1MB",
+      "remove": "제거",
+      "too_many": "메시지당 이미지는 최대 3개까지 업로드할 수 있습니다",
+      "invalid_type": "JPG, PNG, WEBP 이미지만 지원됩니다",
+      "too_large": "이미지 한 개의 크기는 1MB 이하여야 합니다",
+      "open_failed": "첨부 파일을 열 수 없습니다"
+    },
     "detail": {
       "no_messages": "메시지가 없습니다",
       "created_at": "생성일",
+      "sender_user": "사용자",
+      "sender_admin": "관리자",
       "user_info": "사용자 정보",
       "traffic_records": "트래픽 기록",
       "order_records": "주문 기록",

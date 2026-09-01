@@ -8,7 +8,9 @@ use App\Http\Requests\User\TicketWithdraw;
 use App\Http\Resources\TicketResource;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
+use App\Models\TicketMessageAttachment;
 use App\Models\User;
+use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
 use App\Utils\Dict;
 use Illuminate\Http\Request;
@@ -22,12 +24,13 @@ class TicketController extends Controller
         if ($request->input('id')) {
             $ticket = Ticket::where('id', $request->input('id'))
                 ->where('user_id', $request->user()->id)
-                ->first()
-                ->load('message');
+                ->first();
             if (!$ticket) {
                 return $this->fail([400, __('Ticket does not exist')]);
             }
-            $ticket['message'] = TicketMessage::where('ticket_id', $ticket->id)->get();
+            $ticket['message'] = TicketMessage::with('attachments')
+                ->where('ticket_id', $ticket->id)
+                ->get();
             $ticket['message']->each(function ($message) use ($ticket) {
                 $message['is_me'] = ($message['user_id'] == $ticket->user_id);
             });
@@ -46,7 +49,8 @@ class TicketController extends Controller
             $request->user()->id,
             $request->input('subject'),
             $request->input('level'),
-            $request->input('message')
+            $request->input('message'),
+            $request->file('attachments', [])
         );
         HookManager::call('ticket.create.after', $ticket);
         return $this->success(true);
@@ -55,12 +59,24 @@ class TicketController extends Controller
 
     public function reply(Request $request)
     {
-        if (empty($request->input('id'))) {
-            return $this->fail([400, __('Invalid parameter')]);
-        }
-        if (empty($request->input('message'))) {
-            return $this->fail([400, __('Message cannot be empty')]);
-        }
+        $request->validate([
+            'id' => 'required|integer',
+            'message' => 'required|string',
+            'attachments' => 'sometimes|array|max:3',
+            'attachments.*' => [
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:1024',
+            ],
+        ], [
+            'id.required' => __('Invalid parameter'),
+            'message.required' => __('Message cannot be empty'),
+            'attachments.max' => '每轮最多上传3张图片',
+            'attachments.*.image' => '附件必须是图片',
+            'attachments.*.mimes' => '图片仅支持 JPG、PNG、WEBP 格式',
+            'attachments.*.max' => '单张图片不能超过1MB',
+        ]);
         $ticket = Ticket::where('id', $request->input('id'))
             ->where('user_id', $request->user()->id)
             ->first();
@@ -70,21 +86,34 @@ class TicketController extends Controller
         if ($ticket->status) {
             return $this->fail([400, __('The ticket is closed and cannot be replied')]);
         }
-        if ($request->user()->id == $this->getLastMessage($ticket->id)->user_id) {
-            return $this->fail(codeResponse: [400, __('Please wait for the technical enginneer to reply')]);
-        }
         $ticketService = new TicketService();
         if (
             !$ticketService->reply(
                 $ticket,
                 $request->input('message'),
-                $request->user()->id
+                $request->user()->id,
+                $request->file('attachments', [])
             )
         ) {
             return $this->fail([400, __('Ticket reply failed')]);
         }
         HookManager::call('ticket.reply.user.after', $ticket);
         return $this->success(true);
+    }
+
+    public function attachment(Request $request, int $attachment)
+    {
+        $attachmentModel = TicketMessageAttachment::whereKey($attachment)
+            ->whereHas('message.ticket', function ($query) use ($request) {
+                $query->where('user_id', $request->user()->id);
+            })
+            ->first();
+
+        if (!$attachmentModel) {
+            abort(404);
+        }
+
+        return (new TicketAttachmentService())->inlineResponse($attachmentModel);
     }
 
 
@@ -104,13 +133,6 @@ class TicketController extends Controller
             return $this->fail([500, __('Close failed')]);
         }
         return $this->success(true);
-    }
-
-    private function getLastMessage($ticketId)
-    {
-        return TicketMessage::where('ticket_id', $ticketId)
-            ->orderBy('id', 'DESC')
-            ->first();
     }
 
     public function withdraw(TicketWithdraw $request)

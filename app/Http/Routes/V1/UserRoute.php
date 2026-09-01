@@ -66,6 +66,7 @@ class UserRoute
             $router->post('/ticket/close', [TicketController::class, 'close']);
             $router->post('/ticket/save', [TicketController::class, 'save']);
             $router->get('/ticket/fetch', [TicketController::class, 'fetch']);
+            $router->get('/ticket/attachment/{attachment}', [TicketController::class, 'attachment']);
             $router->post('/ticket/withdraw', [TicketController::class, 'withdraw']);
             // Server
             $router->get('/server/fetch', [ServerController::class, 'fetch']);

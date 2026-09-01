@@ -1985,9 +1985,20 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "saving": "保存中...",
       "save_success": "备注已保存"
     },
+    "attachments": {
+      "add": "添加图片",
+      "hint": "已选 {{count}}/3，单张不超过 1MB",
+      "remove": "移除",
+      "too_many": "每轮最多上传 3 张图片",
+      "invalid_type": "图片仅支持 JPG、PNG、WEBP 格式",
+      "too_large": "单张图片不能超过 1MB",
+      "open_failed": "附件打开失败"
+    },
     "detail": {
       "no_messages": "暂无消息记录",
       "created_at": "创建于",
+      "sender_user": "用户",
+      "sender_admin": "管理员",
       "user_info": "用户信息",
       "traffic_records": "流量记录",
       "order_records": "订单记录",

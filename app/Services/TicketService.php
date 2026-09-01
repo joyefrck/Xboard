@@ -14,32 +14,35 @@ use App\Services\Plugin\HookManager;
 
 class TicketService
 {
-    public function reply($ticket, $message, $userId)
+    public function reply($ticket, $message, $userId, array $attachments = [])
     {
+        $attachmentService = new TicketAttachmentService();
+        $storedAttachments = [];
         try {
             DB::beginTransaction();
             $ticketMessage = TicketMessage::create([
                 'user_id' => $userId,
                 'ticket_id' => $ticket->id,
-                'message' => $message
+                'message' => $message,
+                'is_admin' => false
             ]);
-            if ($userId !== $ticket->user_id) {
-                $ticket->reply_status = Ticket::STATUS_OPENING;
-            } else {
-                $ticket->reply_status = Ticket::STATUS_CLOSED;
-            }
+            $storedAttachments = $attachmentService->storeForMessage($ticketMessage, $attachments);
+            $ticket->reply_status = Ticket::STATUS_CLOSED;
             if (!$ticketMessage || !$ticket->save()) {
                 throw new \Exception();
             }
             DB::commit();
             return $ticketMessage;
-        } catch (\Exception $e) {
-            DB::rollback();
+        } catch (\Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            $attachmentService->cleanupStoredFiles($storedAttachments);
             return false;
         }
     }
 
-    public function replyByAdmin($ticketId, $message, $userId): void
+    public function replyByAdmin($ticketId, $message, $userId, array $attachments = []): void
     {
         $ticket = Ticket::where('id', $ticketId)
             ->first();
@@ -47,27 +50,30 @@ class TicketService
             throw new ApiException('工单不存在');
         }
         $ticket->status = Ticket::STATUS_OPENING;
+        $attachmentService = new TicketAttachmentService();
+        $storedAttachments = [];
         try {
             DB::beginTransaction();
             $ticketMessage = TicketMessage::create([
                 'user_id' => $userId,
                 'ticket_id' => $ticket->id,
-                'message' => $message
+                'message' => $message,
+                'is_admin' => true
             ]);
-            if ($userId !== $ticket->user_id) {
-                $ticket->reply_status = Ticket::STATUS_OPENING;
-            } else {
-                $ticket->reply_status = Ticket::STATUS_CLOSED;
-            }
+            $storedAttachments = $attachmentService->storeForMessage($ticketMessage, $attachments);
+            $ticket->reply_status = Ticket::STATUS_OPENING;
             if (!$ticketMessage || !$ticket->save()) {
                 throw new ApiException('工单回复失败');
             }
             DB::commit();
-            HookManager::call('ticket.reply.admin.after', [$ticket, $ticketMessage]);
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            $attachmentService->cleanupStoredFiles($storedAttachments);
             throw $e;
         }
+        HookManager::call('ticket.reply.admin.after', [$ticket, $ticketMessage]);
         $this->sendEmailNotify($ticket, $ticketMessage);
     }
 
@@ -92,12 +98,13 @@ class TicketService
         ]);
     }
 
-    public function createTicket($userId, $subject, $level, $message)
+    public function createTicket($userId, $subject, $level, $message, array $attachments = [])
     {
+        $attachmentService = new TicketAttachmentService();
+        $storedAttachments = [];
         try {
             DB::beginTransaction();
             if (Ticket::where('status', 0)->where('user_id', $userId)->lockForUpdate()->first()) {
-                DB::rollBack();
                 throw new ApiException('存在未关闭的工单');
             }
             $ticket = Ticket::create([
@@ -111,16 +118,20 @@ class TicketService
             $ticketMessage = TicketMessage::create([
                 'user_id' => $userId,
                 'ticket_id' => $ticket->id,
-                'message' => $message
+                'message' => $message,
+                'is_admin' => false
             ]);
             if (!$ticketMessage) {
-                DB::rollBack();
                 throw new ApiException('工单消息创建失败');
             }
+            $storedAttachments = $attachmentService->storeForMessage($ticketMessage, $attachments);
             DB::commit();
             return $ticket;
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            $attachmentService->cleanupStoredFiles($storedAttachments);
             throw $e;
         }
     }
