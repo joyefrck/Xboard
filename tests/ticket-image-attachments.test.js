@@ -215,17 +215,17 @@ test('admin bundle module graph uses one cache-busted URL version', () => {
   const bundle = read('public/assets/admin/assets/index.js');
   const vendor = read('public/assets/admin/assets/vendor.js');
 
-  assert.match(view, /assets\/admin\/assets\/index\.js\?v=20260901-2/);
-  assert.match(bundle, /from"\.\/vendor\.js\?v=20260901-2";import"\.\/index\.js\?v=20260901-2"/);
-  assert.match(vendor, /from"\.\/index\.js\?v=20260901-2"/);
+  assert.match(view, /assets\/admin\/assets\/index\.js\?v=20260902-1/);
+  assert.match(bundle, /from"\.\/vendor\.js\?v=20260902-1";import"\.\/index\.js\?v=20260902-1"/);
+  assert.match(vendor, /from"\.\/index\.js\?v=20260902-1"/);
   assert.doesNotMatch(bundle, /from"\.\/vendor\.js";import"\.\/index\.js"/);
   assert.doesNotMatch(vendor, /from"\.\/index\.js"/);
 });
 
-test('admin ticket messages keep users right and administrators left with matching colors', () => {
+test('admin ticket messages keep administrators right and users left with matching colors', () => {
   const bundle = read('public/assets/admin/assets/index.js');
 
-  assert.match(bundle, /xboardAdminTicketMessageRowClass=s=>s\?"flex justify-start":"flex justify-end"/);
+  assert.match(bundle, /xboardAdminTicketMessageRowClass=s=>s\?"flex justify-end":"flex justify-start"/);
   assert.match(bundle, /xboardAdminTicketMessageBubbleStyle=s=>\(\{background:s\?"#EEF4FF":"#E8F8F5"/);
   assert.match(bundle, /border:s\?"1px solid #D8E5FF":"1px solid #BFE9DF"/);
   assert.match(bundle, /de\.is_from_admin\?t\("detail\.sender_admin"\):t\("detail\.sender_user"\)/);

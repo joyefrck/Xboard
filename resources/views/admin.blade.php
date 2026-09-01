@@ -14,7 +14,7 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=20260901-2"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=20260902-1"></script>
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css" />
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css">
   <script src="/assets/admin/locales/en-US.js"></script>
