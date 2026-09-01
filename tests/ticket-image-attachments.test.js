@@ -192,15 +192,34 @@ test('admin ticket UI uploads, lists and opens authenticated attachments', () =>
   assert.match(bundle, /attachments\.hint/);
   assert.match(bundle, /attachments\.add/);
   assert.match(bundle, /attachments\.open_failed/);
-  assert.match(bundle, /responseType:"arraybuffer"/);
-  assert.match(bundle, /xboardAdminPrepareTicketAttachmentWindow/);
-  assert.match(bundle, /new Blob\(\[a\],\{type:t\}\)/);
-  assert.match(bundle, /i\.src=r/);
+  assert.match(bundle, /xboardAdminShowTicketAttachment/);
+  assert.match(bundle, /fetch\(rm\(\)\+"\/"\+wa\+"\/ticket\/attachment\/"\+s/);
+  assert.match(bundle, /await [a-z]\.arrayBuffer\(\)/);
+  assert.match(bundle, /cache:"no-store"/);
+  assert.match(bundle, /document\.body\.appendChild\(n\)/);
+  assert.match(bundle, /new Blob\(\[[a-z]\],\{type:t\}\)/);
+  assert.doesNotMatch(bundle, /xboardAdminPrepareTicketAttachmentWindow/);
+  assert.doesNotMatch(
+    bundle,
+    /xboardAdminOpenTicketAttachment=async\(s,t,n\)=>\{const l=window\.open\("about:blank","_blank"\)/
+  );
   assert.doesNotMatch(bundle, /t\.location\.href=i/);
   assert.match(
     bundle,
     /style:\{color:"#2563eb",fontSize:"14px",textDecoration:"underline",textUnderlineOffset:"3px"\}/
   );
+});
+
+test('admin bundle module graph uses one cache-busted URL version', () => {
+  const view = read('resources/views/admin.blade.php');
+  const bundle = read('public/assets/admin/assets/index.js');
+  const vendor = read('public/assets/admin/assets/vendor.js');
+
+  assert.match(view, /assets\/admin\/assets\/index\.js\?v=20260901-2/);
+  assert.match(bundle, /from"\.\/vendor\.js\?v=20260901-2";import"\.\/index\.js\?v=20260901-2"/);
+  assert.match(vendor, /from"\.\/index\.js\?v=20260901-2"/);
+  assert.doesNotMatch(bundle, /from"\.\/vendor\.js";import"\.\/index\.js"/);
+  assert.doesNotMatch(vendor, /from"\.\/index\.js"/);
 });
 
 test('admin ticket messages keep users right and administrators left with matching colors', () => {
