@@ -32,6 +32,7 @@ compose.yaml
 .scribe
 .superpowers/
 storage/app/app-downloads/
+storage/app/ticket-attachments/
 
 # Exclude large release files
 public/download/ElephantNetwork-Android.apk

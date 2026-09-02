@@ -92,7 +92,8 @@ test('independent traffic package orders do not replace current subscription', (
   assert.doesNotMatch(orderService, /createTrafficPackageFromRequest[\s\S]{0,1200}setSpeedLimit\(\$plan->speed_limit\)/);
   assert.match(orderService, /\$order->period === Plan::PERIOD_ONETIME[\s\S]{0,120}\$order->type = Order::TYPE_TRAFFIC_PACKAGE/);
   assert.match(orderService, /\(string\) \$order->period === Plan::PERIOD_ONETIME => \$this->buyLegacyTrafficPackage\(\$order, \$plan\)/);
-  assert.match(orderService, /if \(\$newPeriod === Plan::PERIOD_ONETIME && \$couponCode\) \{[\s\S]{0,120}throw new ApiException/);
+  assert.doesNotMatch(orderService, /if \(\$newPeriod === Plan::PERIOD_ONETIME && \$couponCode\) \{[\s\S]{0,120}throw new ApiException/);
+  assert.match(orderService, /if \(\$couponCode\) \{[\s\S]{0,80}\$orderService->applyCoupon\(\$couponCode\);/);
   assert.doesNotMatch(orderService, /\(int\) \$order->type === Order::TYPE_TRAFFIC_PACKAGE \|\| \(string\) \$order->period === Order::PERIOD_TRAFFIC_PACKAGE => \$this->buyTrafficPackage/);
   assert.match(orderService, /\(int\) \$order->type !== Order::TYPE_TRAFFIC_PACKAGE/);
   assert.doesNotMatch(orderService, /Plan::PERIOD_ONETIME => \$this->buyByOneTime\(\$plan\)/);

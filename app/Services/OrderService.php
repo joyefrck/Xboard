@@ -59,10 +59,6 @@ class OrderService
         return DB::transaction(function () use ($user, $plan, $period, $couponCode, $userService) {
             $newPeriod = PlanService::getPeriodKey($period);
 
-            if ($newPeriod === Plan::PERIOD_ONETIME && $couponCode) {
-                throw new ApiException(__('Coupon failed'));
-            }
-
             $order = new Order([
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
