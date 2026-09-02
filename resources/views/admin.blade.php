@@ -48,6 +48,15 @@
     .xboard-admin-ticket-row-click {
       cursor: pointer;
     }
+    .rc-md-editor.xboard-knowledge-image-dragover {
+      outline: 2px dashed hsl(var(--primary));
+      outline-offset: 2px;
+    }
+    .rc-md-editor.xboard-knowledge-image-uploading .button-type-image {
+      cursor: wait;
+      opacity: 0.55;
+      pointer-events: none;
+    }
   </style>
 </head>
 
@@ -134,8 +143,13 @@
   </script>
   <script>
     (function () {
-      var KNOWLEDGE_IMAGE_MAX_SIDE = 2560;
-      var KNOWLEDGE_IMAGE_WEBP_QUALITY = 0.88;
+      var KNOWLEDGE_IMAGE_TARGET_BYTES = 1024 * 1024;
+      var KNOWLEDGE_IMAGE_WEBP_QUALITIES = [0.82, 0.74, 0.65];
+      var KNOWLEDGE_IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp";
+      var KNOWLEDGE_IMAGE_TYPES = KNOWLEDGE_IMAGE_ACCEPT.split(",");
+      var knowledgeUploadBusy = false;
+      var pendingImageContext = null;
+      var pendingImageSelection = null;
 
       function isKnowledgeRoute() {
         return /^#\/?(?:config\/)?knowledge(?:[\/?#]|$)/.test(window.location.hash || "");
@@ -161,22 +175,31 @@
         return token;
       }
 
-      function getEditableTarget(target) {
-        if (!(target instanceof Element)) return null;
-        if (target.matches("textarea, [contenteditable=\"true\"], [contenteditable=\"plaintext-only\"]")) {
-          return target;
-        }
-        return target.closest("textarea, [contenteditable=\"true\"], [contenteditable=\"plaintext-only\"]");
+      function getKnowledgeEditorContext(target) {
+        if (!isKnowledgeRoute() || !(target instanceof Element)) return null;
+
+        var editor = target.closest(".rc-md-editor");
+        if (!editor) return null;
+
+        var textarea = editor.querySelector(".sec-md textarea");
+        var imageButton = editor.querySelector(".button-type-image");
+        if (!(textarea instanceof HTMLTextAreaElement) || !imageButton) return null;
+
+        return {
+          editor: editor,
+          textarea: textarea,
+          imageButton: imageButton
+        };
       }
 
-      function getClipboardImages(event) {
+      function getClipboardFiles(event) {
         var items = event.clipboardData && event.clipboardData.items;
         if (!items) return [];
 
         var files = [];
         for (var index = 0; index < items.length; index += 1) {
           var item = items[index];
-          if (item.kind === "file" && /^image\//.test(item.type || "")) {
+          if (item.kind === "file") {
             var file = item.getAsFile();
             if (file) files.push(file);
           }
@@ -222,6 +245,7 @@
       }
 
       function insertMarkdown(target, savedSelection, markdown) {
+        if (!target || !target.isConnected) return false;
         restoreSelection(target, savedSelection);
 
         if (target instanceof HTMLTextAreaElement) {
@@ -230,21 +254,82 @@
           target.dispatchEvent(new Event("change", { bubbles: true }));
           savedSelection.start = target.selectionStart;
           savedSelection.end = target.selectionEnd;
-          return;
+          return true;
         }
 
         document.execCommand("insertText", false, markdown);
         target.dispatchEvent(new Event("input", { bubbles: true }));
         savedSelection.range = window.getSelection().getRangeAt(0).cloneRange();
+        return true;
       }
 
       function notifyUploadError(message) {
         window.alert(message || "图片上传失败，请稍后重试");
       }
 
+      function notifyKnowledgeUploadFailures(failedFiles) {
+        if (failedFiles.length === 0) return;
+
+        var lines = failedFiles.map(function (failure) {
+          return failure.name + "：" + failure.message;
+        });
+        notifyUploadError("以下图片未能插入：\n" + lines.join("\n"));
+      }
+
+      function isSupportedKnowledgeImage(file) {
+        return !!file && KNOWLEDGE_IMAGE_TYPES.indexOf(file.type || "") !== -1;
+      }
+
+      function createKnowledgeImagePicker() {
+        var knowledgeImageInput = document.createElement("input");
+        knowledgeImageInput.type = "file";
+        knowledgeImageInput.accept = KNOWLEDGE_IMAGE_ACCEPT;
+        knowledgeImageInput.multiple = true;
+        knowledgeImageInput.hidden = true;
+        knowledgeImageInput.setAttribute("aria-hidden", "true");
+        document.body.appendChild(knowledgeImageInput);
+        return knowledgeImageInput;
+      }
+
+      function setKnowledgeUploadState(context, uploading) {
+        if (!context || !context.editor || !context.imageButton) return;
+
+        context.editor.classList.toggle("xboard-knowledge-image-uploading", uploading);
+        context.editor.classList.remove("xboard-knowledge-image-dragover");
+        context.imageButton.setAttribute("aria-busy", uploading ? "true" : "false");
+
+        if (!context.imageButton.dataset.xboardOriginalTitle) {
+          context.imageButton.dataset.xboardOriginalTitle = context.imageButton.getAttribute("title") || "图片";
+        }
+        context.imageButton.setAttribute(
+          "title",
+          uploading ? "图片上传中…" : context.imageButton.dataset.xboardOriginalTitle
+        );
+      }
+
       function canvasToBlob(canvas, mimeType, quality) {
         return new Promise(function (resolve) {
           canvas.toBlob(resolve, mimeType, quality);
+        });
+      }
+
+      function encodeKnowledgeImage(canvas) {
+        var smallestBlob = null;
+
+        return KNOWLEDGE_IMAGE_WEBP_QUALITIES.reduce(function (chain, quality) {
+          return chain.then(function (targetBlob) {
+            if (targetBlob) return targetBlob;
+
+            return canvasToBlob(canvas, "image/webp", quality).then(function (blob) {
+              if (!blob) return null;
+              if (!smallestBlob || blob.size < smallestBlob.size) {
+                smallestBlob = blob;
+              }
+              return blob.size <= KNOWLEDGE_IMAGE_TARGET_BYTES ? blob : null;
+            });
+          });
+        }, Promise.resolve(null)).then(function (targetBlob) {
+          return targetBlob || smallestBlob;
         });
       }
 
@@ -258,13 +343,9 @@
         }
 
         return createImageBitmap(file).then(function (bitmap) {
-          var maxSide = Math.max(bitmap.width, bitmap.height);
-          var scale = maxSide > KNOWLEDGE_IMAGE_MAX_SIDE ? KNOWLEDGE_IMAGE_MAX_SIDE / maxSide : 1;
-          var width = Math.max(1, Math.round(bitmap.width * scale));
-          var height = Math.max(1, Math.round(bitmap.height * scale));
           var canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
 
           var context = canvas.getContext("2d");
           if (!context) {
@@ -272,12 +353,10 @@
             return file;
           }
 
-          context.imageSmoothingEnabled = true;
-          context.imageSmoothingQuality = "high";
-          context.drawImage(bitmap, 0, 0, width, height);
+          context.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
           if (typeof bitmap.close === "function") bitmap.close();
 
-          return canvasToBlob(canvas, "image/webp", KNOWLEDGE_IMAGE_WEBP_QUALITY).then(function (blob) {
+          return encodeKnowledgeImage(canvas).then(function (blob) {
             if (!blob || blob.size >= file.size) return file;
 
             var baseName = file.name ? file.name.replace(/\.[^.]+$/, "") : "image";
@@ -303,9 +382,11 @@
             },
             body: formData
           }).then(function (response) {
-            return response.json().then(function (result) {
+            return response.json().catch(function () {
+              return null;
+            }).then(function (result) {
               if (!response.ok || !result || !result.data || !result.data.url) {
-                throw new Error((result && result.message) || "图片上传失败");
+                throw new Error((result && result.message) || ("图片上传失败（HTTP " + response.status + "）"));
               }
               return result.data.url;
             });
@@ -313,29 +394,134 @@
         });
       }
 
-      document.addEventListener("paste", function (event) {
-        if (!isKnowledgeRoute()) return;
+      function queueKnowledgeImages(files, context, savedSelection) {
+        var selectedFiles = Array.from(files || []);
+        if (selectedFiles.length === 0 || !context || knowledgeUploadBusy) {
+          return Promise.resolve();
+        }
 
-        var target = getEditableTarget(event.target);
-        if (!target) return;
+        var acceptedFiles = [];
+        var failedFiles = [];
+        selectedFiles.forEach(function (file) {
+          if (isSupportedKnowledgeImage(file)) {
+            acceptedFiles.push(file);
+            return;
+          }
+          failedFiles.push({
+            name: file.name || "未命名文件",
+            message: "仅支持 jpg、jpeg、png、gif、webp 图片"
+          });
+        });
 
-        var files = getClipboardImages(event);
-        if (files.length === 0) return;
+        if (acceptedFiles.length === 0) {
+          notifyKnowledgeUploadFailures(failedFiles);
+          return Promise.resolve();
+        }
 
-        event.preventDefault();
-        var savedSelection = saveSelection(target);
+        knowledgeUploadBusy = true;
+        setKnowledgeUploadState(context, true);
+        var insertedCount = 0;
 
-        files.reduce(function (chain, file, index) {
+        return acceptedFiles.reduce(function (chain, file, index) {
           return chain.then(function () {
             return uploadKnowledgeImage(file).then(function (url) {
               var altText = file.name ? file.name.replace(/\.[^.]+$/, "") : "image";
-              var markdown = `![${altText}](${url})` + (index < files.length - 1 ? "\n" : "");
-              insertMarkdown(target, savedSelection, markdown);
+              var markdown = (insertedCount > 0 ? "\n" : "") + `![${altText}](${url})`;
+              if (!insertMarkdown(context.textarea, savedSelection, markdown)) {
+                throw new Error("编辑器已关闭，图片未插入");
+              }
+              insertedCount += 1;
+            }).catch(function (error) {
+              failedFiles.push({
+                name: file.name || ("图片 " + (index + 1)),
+                message: (error && error.message) || "图片上传失败"
+              });
             });
           });
-        }, Promise.resolve()).catch(function (error) {
-          notifyUploadError(error && error.message);
+        }, Promise.resolve()).then(function () {
+          notifyKnowledgeUploadFailures(failedFiles);
+        }).finally(function () {
+          knowledgeUploadBusy = false;
+          setKnowledgeUploadState(context, false);
         });
+      }
+
+      var knowledgeImageInput = createKnowledgeImagePicker();
+      knowledgeImageInput.addEventListener("change", function () {
+        var context = pendingImageContext;
+        var savedSelection = pendingImageSelection;
+        var files = Array.from(knowledgeImageInput.files || []);
+
+        pendingImageContext = null;
+        pendingImageSelection = null;
+        knowledgeImageInput.value = "";
+
+        if (!context || !savedSelection || files.length === 0) return;
+        queueKnowledgeImages(files, context, savedSelection);
+      });
+
+      document.addEventListener("click", function (event) {
+        if (!(event.target instanceof Element)) return;
+
+        var imageButton = event.target.closest(".button-type-image");
+        if (!imageButton) return;
+
+        var context = getKnowledgeEditorContext(imageButton);
+        if (!context) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (knowledgeUploadBusy) return;
+
+        pendingImageContext = context;
+        pendingImageSelection = saveSelection(context.textarea);
+        knowledgeImageInput.value = "";
+        knowledgeImageInput.click();
+      }, true);
+
+      document.addEventListener("paste", function (event) {
+        var context = getKnowledgeEditorContext(event.target);
+        if (!context || event.target !== context.textarea) return;
+
+        var files = getClipboardFiles(event);
+        if (files.length === 0) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        var savedSelection = saveSelection(context.textarea);
+        queueKnowledgeImages(files, context, savedSelection);
+      }, true);
+
+      document.addEventListener("dragover", function (event) {
+        var context = getKnowledgeEditorContext(event.target);
+        if (!context || !event.dataTransfer) return;
+
+        var types = event.dataTransfer.types || [];
+        if (Array.prototype.indexOf.call(types, "Files") === -1) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        context.editor.classList.add("xboard-knowledge-image-dragover");
+      }, true);
+
+      document.addEventListener("dragleave", function (event) {
+        var context = getKnowledgeEditorContext(event.target);
+        if (!context) return;
+        if (event.relatedTarget instanceof Node && context.editor.contains(event.relatedTarget)) return;
+
+        context.editor.classList.remove("xboard-knowledge-image-dragover");
+      }, true);
+
+      document.addEventListener("drop", function (event) {
+        var context = getKnowledgeEditorContext(event.target);
+        if (!context || !event.dataTransfer || event.dataTransfer.files.length === 0) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        context.editor.classList.remove("xboard-knowledge-image-dragover");
+        var savedSelection = saveSelection(context.textarea);
+        var files = Array.from(event.dataTransfer.files);
+        queueKnowledgeImages(files, context, savedSelection);
       }, true);
     })();
   </script>
