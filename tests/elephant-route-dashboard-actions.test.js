@@ -421,11 +421,79 @@ test('ElephantRoute user bundle supports every configured theme color option', (
   }
 });
 
-test('ElephantRoute user bundle hides user-facing rate columns', () => {
+test('ElephantRoute node status shows regions, Chinese status labels, and rates', () => {
   const bundle = readRepoFile('theme/ElephantRoute/assets/umi.js');
+  const stylesheet = readRepoFile('theme/ElephantRoute/assets/elephant-route-pages-v2.css');
+  const nodeResource = readRepoFile('app/Http/Resources/NodeResource.php');
+  const nodeStart = bundle.indexOf('function getElephantNodeRegion');
+  const nodeEnd = bundle.indexOf('jFe=Object.freeze', nodeStart);
 
-  assert.doesNotMatch(bundle, /X\("div",\$Fe,\[nt\(pe\(r\.\$t\("倍率"\)\)/);
-  assert.doesNotMatch(bundle, /default:ve\(\(\)=>\[nt\(pe\(m\.rate\)\+" x ",1\)\]\),_:2\},1024\)/);
+  assert.notEqual(nodeStart, -1, 'node region classifier exists');
+  assert.notEqual(nodeEnd, -1, 'node page module boundary exists');
+
+  const nodeSection = bundle.slice(nodeStart, nodeEnd);
+  assert.match(nodeSection, /国家\/地区[\s\S]{0,2500}名称[\s\S]{0,2500}状态[\s\S]{0,2500}倍率[\s\S]{0,2500}标签/);
+  assert.match(nodeSection, /getElephantNodeRegion\(m\.name\)/);
+  assert.match(nodeSection, /role:"img"/);
+  assert.match(nodeSection, /m\.is_online\?"在线":"离线"/);
+  assert.doesNotMatch(nodeSection, /m\.is_online\?"bg-blue-500":"bg-red-500"/);
+  assert.match(nodeSection, /TFe=\{class:"er-node-row"\}/);
+  assert.match(nodeSection, /AFe=\{class:"er-node-region"\},nodeNameHeader=\{class:"er-node-name"\},RFe=\{class:"er-node-meta"\}/);
+  assert.match(nodeSection, /EFe=\{class:"er-node-status"\},\$Fe=\{class:"er-node-rate"\},IFe=\{class:"er-node-tags"\}/);
+  assert.match(nodeSection, /OFe=\{class:"er-node-row"\},MFe=\{class:"er-node-name"\},zFe=\{class:"er-node-meta"\}/);
+  assert.match(nodeSection, /LFe=\{class:"er-node-status"\},FFe=\{class:"er-node-rate"\},DFe=\{class:"er-node-tags"\}/);
+  assert.match(stylesheet, /body\[data-er-page="node"\][\s\S]*?\.er-node-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(150px, 1fr\) minmax\(260px, 2fr\) minmax\(348px, 1\.2fr\)/);
+  assert.match(stylesheet, /\.er-node-meta\s*\{[\s\S]*?grid-template-columns:\s*88px 88px minmax\(140px, 1fr\)/);
+  assert.match(stylesheet, /\.er-node-status,[\s\S]*?\.er-node-rate,[\s\S]*?\.er-node-tags\s*\{[\s\S]*?white-space:\s*nowrap/);
+
+  const classifierSource = nodeSection.slice(0, nodeSection.indexOf('const TFe'));
+  const classifyRegion = Function(`${classifierSource}; return getElephantNodeRegion;`)();
+  for (const [nodeName, expected] of [
+    ['硅谷-高峰专线01', { name: '美国', flag: '🇺🇸' }],
+    ['美国-住宅IP09', { name: '美国', flag: '🇺🇸' }],
+    ['日本-住宅IP02', { name: '日本', flag: '🇯🇵' }],
+    ['东京-高峰专线01', { name: '日本', flag: '🇯🇵' }],
+    ['香港-优化路线', { name: '中国香港', flag: '🇭🇰' }],
+    ['台湾-优化路线', { name: '中国台湾', flag: '🇹🇼' }],
+    ['韩国-优化路线01', { name: '韩国', flag: '🇰🇷' }],
+    ['新加坡-住宅IP01', { name: '新加坡', flag: '🇸🇬' }],
+    ['泰国-优化路线', { name: '泰国', flag: '🇹🇭' }],
+    ['马来西亚-优化路线', { name: '马来西亚', flag: '🇲🇾' }],
+    ['德国-优化路线', { name: '德国', flag: '🇩🇪' }],
+    ['英国-优化路线', { name: '英国', flag: '🇬🇧' }],
+    ['土耳其-优化路线', { name: '土耳其', flag: '🇹🇷' }],
+    ['印度-优化路线', { name: '印度', flag: '🇮🇳' }],
+    ['印度尼西亚-优化路线', { name: '印度尼西亚', flag: '🇮🇩' }],
+    ['上海-优化路线', { name: '中国', flag: '🇨🇳' }],
+    ['未命名节点', { name: '其他', flag: '🌐' }]
+  ]) {
+    assert.deepEqual(classifyRegion(nodeName), expected);
+  }
+
+  for (const [name, flag] of [
+    ['美国', '🇺🇸'],
+    ['日本', '🇯🇵'],
+    ['中国香港', '🇭🇰'],
+    ['中国澳门', '🇲🇴'],
+    ['中国台湾', '🇹🇼'],
+    ['韩国', '🇰🇷'],
+    ['新加坡', '🇸🇬'],
+    ['泰国', '🇹🇭'],
+    ['马来西亚', '🇲🇾'],
+    ['印度尼西亚', '🇮🇩'],
+    ['德国', '🇩🇪'],
+    ['英国', '🇬🇧'],
+    ['土耳其', '🇹🇷'],
+    ['印度', '🇮🇳'],
+    ['中国', '🇨🇳']
+  ]) {
+    assert.match(nodeSection, new RegExp(`${name}","${flag}`));
+  }
+  assert.match(nodeSection, /name:"其他",flag:"🌐"/);
+
+  assert.match(bundle, /X\("div",\$Fe,\[nt\(pe\(r\.\$t\("倍率"\)\)/);
+  assert.match(bundle, /default:ve\(\(\)=>\[nt\(pe\(m\.rate\)\+" x ",1\)\]\),_:2\},1024\)/);
+  assert.match(nodeResource, /'rate'\s*=>\s*\$this\['rate'\]/);
   assert.doesNotMatch(bundle, /\{title:t\("扣费倍率"\),key:"server_rate"/);
   assert.doesNotMatch(bundle, /default:\(\)=>t\("公式：\(实际上行 \+ 实际下行\) x 扣费倍率 = 扣除流量"\)/);
   assert.match(bundle, /"\/src\/views\/traffic\/route\.ts":TR/);
@@ -524,10 +592,11 @@ test('ElephantRoute dashboard shows stacked traffic package balance inside subsc
   assert.match(stylesheet, /@media \(max-width: 767px\)/);
 });
 
-test('ElephantRoute dashboard asset cache busting covers ticket bubbles and client branding updates', () => {
+test('ElephantRoute dashboard asset cache busting covers balanced node columns and client branding updates', () => {
   const blade = readRepoFile('theme/ElephantRoute/dashboard.blade.php');
 
-  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20260901ticketScrollbar1/);
+  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20260902nodeBalancedColumns1/);
+  assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20260902nodeBalancedColumns1/);
   assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260826clientLogoTypography1/);
   assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20260819appealType1/);
 });

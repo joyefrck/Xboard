@@ -548,6 +548,7 @@ body[data-er-page="profile"] section.cus-scroll-y .n-switch {
 /* Nodes */
 body[data-er-page="node"] section.cus-scroll-y > .n-list {
   box-sizing: border-box;
+  overflow-x: auto !important;
   padding: 10px 12px;
   border: 1px solid var(--er-pages-line);
 }
@@ -556,6 +557,51 @@ body[data-er-page="node"] section.cus-scroll-y > .n-list .n-list-item:first-chil
   color: #4d5870;
   background: rgba(226, 234, 247, 0.72);
   font-weight: 720;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-row {
+  display: grid !important;
+  grid-template-columns: minmax(150px, 1fr) minmax(260px, 2fr) minmax(348px, 1.2fr);
+  align-items: center;
+  min-width: 790px;
+  column-gap: 16px;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-region {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-meta {
+  display: grid !important;
+  grid-template-columns: 88px 88px minmax(140px, 1fr);
+  align-items: center;
+  min-width: 348px;
+  text-align: center;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-status,
+body[data-er-page="node"] section.cus-scroll-y .er-node-rate,
+body[data-er-page="node"] section.cus-scroll-y .er-node-tags {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body[data-er-page="node"] section.cus-scroll-y .er-node-tags > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
 }
 
 /* Account dropdown and shared modal mask */
