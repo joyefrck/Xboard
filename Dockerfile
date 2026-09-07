@@ -40,5 +40,11 @@ ENV ENABLE_WEB=true \
     ENABLE_HORIZON=true \
     ENABLE_REDIS=false 
 
+# The upstream image tag is mutable and may provide an /entrypoint.sh that
+# recursively chowns /www and /data. Both paths are bind mounts in production;
+# use the stable PHP entrypoint so application startup cannot rewrite the host
+# repository or the standalone Redis data directory.
+ENTRYPOINT ["docker-php-entrypoint"]
+
 EXPOSE 7001
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -2,7 +2,6 @@ services:
   web:
     image: ghcr.io/cedar2025/xboard:new
     volumes:
-      - ./.docker/.data/redis/:/data/
       - ./:/www/
     environment:
       - docker=true
@@ -19,7 +18,6 @@ services:
   horizon:
     image: ghcr.io/cedar2025/xboard:new
     volumes:
-      - ./.docker/.data/redis/:/data/
       - ./:/www/
     restart: always
     networks:
