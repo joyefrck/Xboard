@@ -38,6 +38,12 @@ test('database-backed services retain the external 1Panel network', () => {
   );
 });
 
+test('application services use the image published by this repository', () => {
+  for (const service of ['web', 'horizon']) {
+    assert.match(serviceBlock(service), /image: ghcr\.io\/joyefrck\/xboard:new/);
+  }
+});
+
 test('application containers cannot take ownership of the Redis data bind mount', () => {
   for (const service of ['web', 'horizon']) {
     assert.doesNotMatch(serviceBlock(service), /\.docker\/\.data\/redis\/?:\/data\/?/);

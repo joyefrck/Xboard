@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/cedar2025/xboard:new
+    image: ghcr.io/joyefrck/xboard:new
     volumes:
       - ./:/www/
     environment:
@@ -16,7 +16,7 @@ services:
       - default
       - 1panel-network
   horizon:
-    image: ghcr.io/cedar2025/xboard:new
+    image: ghcr.io/joyefrck/xboard:new
     volumes:
       - ./:/www/
     restart: always
