@@ -27,7 +27,9 @@ test('version update only persists version-level editable fields', () => {
   assert.match(controller, /'id'\s*=>\s*'required\|integer\|exists:v2_app_versions,id'/);
   assert.match(controller, /'version'\s*=>\s*'required\|string\|max:32'/);
   assert.match(controller, /'release_notes'\s*=>\s*'nullable\|string\|max:20000'/);
-  assert.match(controller, /'artifact'\s*=>\s*'nullable\|file\|max:2097152'/);
+  assert.match(controller, /'download_url'\s*=>\s*'required\|string\|url\|max:2048'/);
+  assert.match(controller, /'file_size_mb'\s*=>\s*'nullable\|numeric\|min:0'/);
+  assert.match(controller, /'sha256'\s*=>\s*\['nullable',\s*'string'/);
 
   [
     'app_id',
@@ -43,10 +45,9 @@ test('version update only persists version-level editable fields', () => {
     assert.match(controller, new RegExp(`'${field}'\\s*=>\\s*'prohibited'`));
   });
 
-  assert.match(
-    controller,
-    /\$storage->updateVersion\(\s*\$version,\s*\$attributes,\s*\$request->file\('artifact'\)/
-  );
+  assert.match(controller, /normalizeExternalVersionData\(\$data,\s*\$version->app,\s*\$version->platform\)/);
+  assert.match(controller, /\$version->update\(\$attributes\)/);
+  assert.doesNotMatch(controller, /\$request->file\('artifact'\)/);
 });
 
 test('package create endpoint cannot be reused to mutate an existing version', () => {
@@ -62,18 +63,11 @@ test('package create endpoint cannot be reused to mutate an existing version', (
   assert.match(saveVersion, /AppVersion::create\(\$data\)/);
 });
 
-test('artifact replacement stages the new file and serializes the database switch', () => {
-  const storage = readRepoFile('app/Services/AppArtifactStorage.php');
+test('deleting a legacy version still cleans up its stored artifact', () => {
+  const controller = readRepoFile('app/Http/Controllers/V2/Admin/AppPackageController.php');
 
-  assert.match(storage, /public function updateVersion\(/);
-  assert.match(storage, /\$storedFile\s*=\s*\$this->writeUploadedFile\(/);
-  assert.match(storage, /DB::transaction\(/);
-  assert.match(storage, /AppVersion::query\(\)[\s\S]*lockForUpdate\(\)/);
-  assert.match(storage, /AppArtifact::query\(\)[\s\S]*lockForUpdate\(\)/);
-  assert.match(storage, /\$artifact->update\(\$storedFile\)/);
-  assert.match(storage, /AppArtifact::create\(/);
-  assert.match(storage, /\$this->deleteStoredFile\(\$storedFile\['disk'\],\s*\$storedFile\['path'\]\)/);
-  assert.match(storage, /Failed to delete replaced app artifact/);
+  assert.match(controller, /public function drop\(Request \$request, AppArtifactStorage \$storage\)/);
+  assert.match(controller, /if \(\$version->artifact\) \{[\s\S]*\$storage->deleteFile\(\$version->artifact\)/);
 });
 
 test('admin version rows open a modal editor before publish and delete actions', () => {
@@ -84,11 +78,13 @@ test('admin version rows open a modal editor before publish and delete actions',
   assert.match(page, /name="id"/);
   assert.match(page, /name="version"/);
   assert.match(page, /name="release_notes"/);
-  assert.match(page, /name="artifact"/);
+  assert.match(page, /name="download_url"/);
+  assert.match(page, /name="file_size_mb"/);
+  assert.match(page, /name="sha256"/);
   assert.match(page, /id="version-edit-app-type"/);
   assert.match(page, /应用类型/);
-  assert.match(page, /当前安装包/);
-  assert.match(page, /选择新安装包将替换并删除旧文件/);
+  assert.match(page, /当前下载链接/);
+  assert.doesNotMatch(page, /累计下载次数|下载次数/);
   assert.match(
     page,
     /String\(scope \|\| "download_only"\) === "official_update"[\s\S]*大象官方 App（支持自动更新）[\s\S]*第三方 App（仅供下载）/
@@ -98,7 +94,7 @@ test('admin version rows open a modal editor before publish and delete actions',
     /versionEditAppType\.textContent = formatDistributionScope\([\s\S]*version\.app && version\.app\.distribution_scope/
   );
   assert.match(page, /function openVersionEditor\(version\)/);
-  assert.match(page, /uploadRequest\("\/versions\/update"/);
+  assert.match(page, /request\("\/versions\/update"/);
   assert.match(page, /openVersionEditor\(version\)/);
 
   const editAction = page.indexOf('actionButton("编辑"');

@@ -11,9 +11,6 @@
       color: #0f172a;
       background: #f8fafc;
     }
-    .verification-modal[aria-hidden="true"] {
-      display: none;
-    }
   </style>
 </head>
 <body class="min-h-screen">
@@ -29,7 +26,7 @@
     <section class="mb-10">
       <h1 class="text-4xl font-semibold tracking-tight md:text-5xl">软件下载</h1>
       <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-        登录后完成安全验证即可下载客户端。安装包由后端私有存储提供，链接短期有效。
+        点击下载按钮将在新标签页打开后台配置的安装包链接。
       </p>
     </section>
 
@@ -37,47 +34,12 @@
     <div id="download-grid" class="hidden space-y-10"></div>
   </main>
 
-  <div
-    id="download-verification-modal"
-    class="verification-modal fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
-    aria-hidden="true"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="download-verification-title"
-  >
-    <div class="w-full max-w-[520px] rounded-lg bg-white p-5 shadow-2xl">
-      <div class="mb-4 flex items-start justify-between gap-4">
-        <h2 id="download-verification-title" class="text-xl font-medium text-slate-800">下载安全验证</h2>
-        <button type="button" id="download-verification-close" class="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="关闭验证">
-          <span aria-hidden="true">X</span>
-        </button>
-      </div>
-      <div class="rounded-sm border border-slate-200 bg-slate-50 px-4 py-6">
-        <div id="download-turnstile" class="flex min-h-[70px] justify-center"></div>
-        <p id="download-verification-status" class="mt-4 text-center text-sm text-slate-500">
-          完成 Cloudflare 安全校验后将生成短期下载链接。
-        </p>
-      </div>
-    </div>
-  </div>
-
   <script>
     (function () {
-      var TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      var TURNSTILE_TIMEOUT_MS = 30000;
       var platforms = [];
-      var selectedArtifactId = null;
-      var turnstileConfig = { enabled: true, site_key: "" };
-      var turnstileWidgetId = null;
-      var turnstileScriptPromise = null;
-      var lastFocusedElement = null;
 
       var gridEl = document.getElementById("download-grid");
       var statusEl = document.getElementById("download-status");
-      var modalEl = document.getElementById("download-verification-modal");
-      var closeEl = document.getElementById("download-verification-close");
-      var widgetEl = document.getElementById("download-turnstile");
-      var verificationStatusEl = document.getElementById("download-verification-status");
 
       var platformLabels = {
         android: "Android",
@@ -86,29 +48,6 @@
         ios: "iOS",
         linux: "Linux"
       };
-
-      function getStoredToken() {
-        var direct = localStorage.getItem("VUE_NAIVE_ACCESS_TOKEN");
-        if (!direct) {
-          return "";
-        }
-        try {
-          var parsed = JSON.parse(direct);
-          if (parsed && parsed.expire && parsed.expire <= Date.now()) {
-            return "";
-          }
-          return parsed && parsed.value ? parsed.value : direct;
-        } catch (e) {
-          return direct;
-        }
-      }
-
-      function redirectToLogin() {
-        alert("请先登录后下载");
-        var downloadPath = "/download/index.html";
-        var appRedirect = "/dashboard?download_redirect=" + encodeURIComponent(downloadPath);
-        window.location.href = "/app#/login?redirect=" + encodeURIComponent(appRedirect);
-      }
 
       function setStatus(message, tone) {
         statusEl.textContent = message;
@@ -119,17 +58,6 @@
         );
         statusEl.classList.remove("hidden");
         gridEl.classList.add("hidden");
-      }
-
-      function setVerificationStatus(message, tone) {
-        verificationStatusEl.textContent = message;
-        verificationStatusEl.className = "mt-4 text-center text-sm " + (
-          tone === "error"
-            ? "text-rose-500"
-            : tone === "success"
-              ? "text-emerald-600"
-              : "text-slate-500"
-        );
       }
 
       function formatBytes(bytes) {
@@ -196,7 +124,7 @@
               card.querySelector("p.line-clamp-3").textContent = pkg.release_notes || app.description || "适用于 " + (platformLabels[pkg.platform] || pkg.platform) + " 的安装包。";
               card.querySelector(".text-xs span").textContent = formatBytes(pkg.file_size);
               card.querySelector(".download-button").addEventListener("click", function () {
-                beginDownload(pkg.artifact_id);
+                window.open(pkg.download_url, "_blank", "noopener,noreferrer");
               });
               cards.appendChild(card);
               renderedCount += 1;
@@ -221,7 +149,6 @@
           var payload = await response.json();
           var data = payload && payload.data ? payload.data : {};
           platforms = data.platforms || [];
-          turnstileConfig = data.turnstile || turnstileConfig;
           if (!platforms.length) {
             setStatus("暂无可下载安装包。");
             return;
@@ -231,145 +158,6 @@
           setStatus("安装包加载失败，请稍后重试。", "error");
         }
       }
-
-      function beginDownload(artifactId) {
-        if (!getStoredToken()) {
-          redirectToLogin();
-          return;
-        }
-        selectedArtifactId = artifactId;
-        if (!turnstileConfig.enabled) {
-          prepareDownload("");
-          return;
-        }
-        openModal();
-      }
-
-      function openModal() {
-        lastFocusedElement = document.activeElement;
-        modalEl.setAttribute("aria-hidden", "false");
-        document.body.classList.add("overflow-hidden");
-        setVerificationStatus("正在加载 Cloudflare 安全校验...");
-        ensureTurnstile().catch(function () {
-          setVerificationStatus("验证组件加载失败，请检查下载验证配置或稍后重试。", "error");
-        });
-      }
-
-      function closeModal() {
-        modalEl.setAttribute("aria-hidden", "true");
-        document.body.classList.remove("overflow-hidden");
-        if (lastFocusedElement && lastFocusedElement.focus) {
-          lastFocusedElement.focus();
-        }
-      }
-
-      function loadTurnstileScript() {
-        if (window.turnstile && window.turnstile.render) {
-          return Promise.resolve();
-        }
-        if (turnstileScriptPromise) {
-          return turnstileScriptPromise;
-        }
-        turnstileScriptPromise = new Promise(function (resolve, reject) {
-          var script = document.createElement("script");
-          var timer = window.setTimeout(function () {
-            reject(new Error("Turnstile script timeout"));
-          }, TURNSTILE_TIMEOUT_MS);
-          script.async = true;
-          script.defer = true;
-          script.src = TURNSTILE_SCRIPT_SRC;
-          script.onload = function () {
-            window.clearTimeout(timer);
-            window.turnstile && window.turnstile.render ? resolve() : reject(new Error("Turnstile unavailable"));
-          };
-          script.onerror = function () {
-            window.clearTimeout(timer);
-            reject(new Error("Turnstile script failed"));
-          };
-          document.head.appendChild(script);
-        });
-        return turnstileScriptPromise;
-      }
-
-      async function ensureTurnstile() {
-        if (!turnstileConfig.site_key) {
-          throw new Error("Turnstile site key missing");
-        }
-        await loadTurnstileScript();
-        widgetEl.innerHTML = "";
-        setVerificationStatus("完成 Cloudflare 安全校验后将生成短期下载链接。");
-        if (turnstileWidgetId !== null && window.turnstile.reset) {
-          window.turnstile.reset(turnstileWidgetId);
-          return;
-        }
-        turnstileWidgetId = window.turnstile.render(widgetEl, {
-          sitekey: turnstileConfig.site_key,
-          theme: "auto",
-          callback: prepareDownload,
-          "expired-callback": function () {
-            setVerificationStatus("验证已过期，请重新检测。");
-          },
-          "error-callback": function () {
-            setVerificationStatus("验证加载失败，请刷新页面重试。", "error");
-          }
-        });
-      }
-
-      async function prepareDownload(turnstileToken) {
-        var token = getStoredToken();
-        if (!token) {
-          closeModal();
-          redirectToLogin();
-          return;
-        }
-        setVerificationStatus("验证通过，正在生成下载链接...");
-        try {
-          var response = await fetch("/api/v1/user/app-downloads/" + selectedArtifactId + "/prepare", {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              Authorization: token
-            },
-            body: JSON.stringify({ turnstile_token: turnstileToken })
-          });
-          var payload = await response.json().catch(function () {
-            return {};
-          });
-          if (response.status === 401 || response.status === 403) {
-            closeModal();
-            redirectToLogin();
-            return;
-          }
-          if (response.status === 429) {
-            setVerificationStatus((payload && payload.message) || "下载请求过于频繁，请稍后重试。", "error");
-            return;
-          }
-          if (!response.ok || !payload.data || !payload.data.download_url) {
-            throw new Error(payload.message || "下载链接生成失败");
-          }
-          setVerificationStatus("下载链接已生成，正在开始下载。", "success");
-          closeModal();
-          window.location.href = payload.data.download_url;
-        } catch (e) {
-          setVerificationStatus(e.message || "下载链接生成失败，请重试。", "error");
-          if (window.turnstile && turnstileWidgetId !== null) {
-            window.turnstile.reset(turnstileWidgetId);
-          }
-        }
-      }
-
-      closeEl.addEventListener("click", closeModal);
-      modalEl.addEventListener("click", function (event) {
-        if (event.target === modalEl) {
-          closeModal();
-        }
-      });
-      document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape" && modalEl.getAttribute("aria-hidden") === "false") {
-          closeModal();
-        }
-      });
 
       loadPackages();
     })();

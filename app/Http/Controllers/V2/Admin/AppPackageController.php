@@ -2,12 +2,9 @@
 
 namespace App\Http\Controllers\V2\Admin;
 
-use App\Helpers\ResponseEnum;
 use App\Http\Controllers\Controller;
-use App\Models\AppDownloadLog;
 use App\Models\AppVersion;
 use App\Models\DistributionApp;
-use App\Services\AppDownloadVerificationService;
 use App\Services\AppArtifactStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,36 +13,6 @@ use InvalidArgumentException;
 
 class AppPackageController extends Controller
 {
-    public function settings(AppDownloadVerificationService $verification)
-    {
-        $settings = $verification->settings();
-
-        return $this->success([
-            'app_download_turnstile_enable' => $settings['enabled'],
-            'app_download_turnstile_site_key' => admin_setting('app_download_turnstile_site_key', ''),
-            'app_download_turnstile_secret_key' => admin_setting('app_download_turnstile_secret_key', ''),
-            'effective_turnstile_site_key' => $settings['site_key'],
-            'uses_global_turnstile_fallback' => $settings['uses_global_fallback'],
-        ]);
-    }
-
-    public function saveSettings(Request $request)
-    {
-        $data = $request->validate([
-            'app_download_turnstile_enable' => 'nullable|boolean',
-            'app_download_turnstile_site_key' => 'nullable|string|max:255',
-            'app_download_turnstile_secret_key' => 'nullable|string|max:255',
-        ]);
-
-        admin_setting([
-            'app_download_turnstile_enable' => (int) ($data['app_download_turnstile_enable'] ?? 0),
-            'app_download_turnstile_site_key' => $data['app_download_turnstile_site_key'] ?? '',
-            'app_download_turnstile_secret_key' => $data['app_download_turnstile_secret_key'] ?? '',
-        ]);
-
-        return $this->success(true);
-    }
-
     public function apps(Request $request)
     {
         $apps = DistributionApp::query()
@@ -179,10 +146,7 @@ class AppPackageController extends Controller
     public function versions(Request $request)
     {
         $versions = AppVersion::query()
-            ->with([
-                'app',
-                'artifact' => fn ($query) => $query->withCount('downloadLogs'),
-            ])
+            ->with('app')
             ->whereNotNull('app_id')
             ->when($request->input('app_id'), fn ($query, $appId) => $query->where('app_id', $appId))
             ->when($request->input('platform'), fn ($query, $platform) => $query->where('platform', strtolower($platform)))
@@ -195,7 +159,7 @@ class AppPackageController extends Controller
         return $this->paginate($versions);
     }
 
-    public function saveVersion(Request $request, AppArtifactStorage $storage)
+    public function saveVersion(Request $request)
     {
         $request->merge([
             'arch' => $request->input('arch') ?: null,
@@ -216,9 +180,10 @@ class AppPackageController extends Controller
             'is_force' => 'nullable|boolean',
             'is_enabled' => 'nullable|boolean',
             'published_at' => 'nullable|integer|min:0',
-            'artifact' => 'nullable|file|max:2097152',
+            'download_url' => 'required|string|url|max:2048',
+            'file_size_mb' => 'nullable|numeric|min:0',
+            'sha256' => ['nullable', 'string', 'regex:/^[a-fA-F0-9]{64}$/'],
         ]);
-        unset($data['artifact']);
 
         $data['platform'] = strtolower($data['platform']);
         $data['channel'] = strtolower($data['channel'] ?? 'stable');
@@ -227,7 +192,6 @@ class AppPackageController extends Controller
         $data['is_force'] = (bool) ($data['is_force'] ?? false);
         $data['is_enabled'] = (bool) ($data['is_enabled'] ?? false);
         $data['published_at'] = $data['published_at'] ?? ($data['is_enabled'] ? time() : null);
-        $data['download_url'] = '';
 
         $app = DistributionApp::findOrFail($data['app_id']);
         if ($app->isOfficialUpdate()) {
@@ -239,14 +203,9 @@ class AppPackageController extends Controller
             return $this->fail([400, '第三方应用不能使用大象官方保留标识']);
         }
 
-        if (!$request->hasFile('artifact')) {
-            return $this->fail([400, '创建版本必须上传安装包']);
-        }
-
         try {
+            $data = $this->normalizeExternalVersionData($data, $app, $data['platform']);
             $version = AppVersion::create($data);
-
-            $storage->store($version->load('artifact'), $request->file('artifact'), $request->user()?->id);
         } catch (InvalidArgumentException $e) {
             return $this->fail([400, $e->getMessage()]);
         } catch (\Throwable $e) {
@@ -254,16 +213,18 @@ class AppPackageController extends Controller
             return $this->fail([500, '保存失败，请检查应用、平台、渠道、架构和构建号是否重复']);
         }
 
-        return $this->success($version->load(['app', 'artifact']));
+        return $this->success($version->load('app'));
     }
 
-    public function updateVersion(Request $request, AppArtifactStorage $storage)
+    public function updateVersion(Request $request)
     {
         $data = $request->validate([
             'id' => 'required|integer|exists:v2_app_versions,id',
             'version' => 'required|string|max:32',
             'release_notes' => 'nullable|string|max:20000',
-            'artifact' => 'nullable|file|max:2097152',
+            'download_url' => 'required|string|url|max:2048',
+            'file_size_mb' => 'nullable|numeric|min:0',
+            'sha256' => ['nullable', 'string', 'regex:/^[a-fA-F0-9]{64}$/'],
             'app_id' => 'prohibited',
             'platform' => 'prohibited',
             'channel' => 'prohibited',
@@ -275,19 +236,12 @@ class AppPackageController extends Controller
             'published_at' => 'prohibited',
         ]);
 
-        $version = AppVersion::findOrFail($data['id']);
-        $attributes = [
-            'version' => $data['version'],
-            'release_notes' => $data['release_notes'] ?? null,
-        ];
+        $version = AppVersion::with('app')->findOrFail($data['id']);
 
         try {
-            $storage->updateVersion(
-                $version,
-                $attributes,
-                $request->file('artifact'),
-                $request->user()?->id
-            );
+            $attributes = $this->normalizeExternalVersionData($data, $version->app, $version->platform);
+            unset($attributes['id']);
+            $version->update($attributes);
         } catch (InvalidArgumentException $e) {
             return $this->fail([400, $e->getMessage()]);
         } catch (\Throwable $e) {
@@ -301,9 +255,16 @@ class AppPackageController extends Controller
     public function publish(Request $request)
     {
         $request->validate(['id' => 'required|integer|exists:v2_app_versions,id']);
-        $version = AppVersion::with('artifact')->findOrFail($request->input('id'));
-        if (!$version->artifact) {
-            return $this->fail([400, '发布前必须上传安装包']);
+        $version = AppVersion::with('app')->findOrFail($request->input('id'));
+        try {
+            $this->assertExternalVersionMetadata(
+                (string) $version->download_url,
+                $version->sha256,
+                $version->app,
+                $version->platform
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->fail([400, $e->getMessage()]);
         }
 
         $version->update([
@@ -338,15 +299,47 @@ class AppPackageController extends Controller
         return $this->success(true);
     }
 
-    public function logs(Request $request)
-    {
-        $logs = AppDownloadLog::query()
-            ->with(['app', 'version', 'artifact'])
-            ->when($request->input('app_id'), fn ($query, $appId) => $query->where('app_id', $appId))
-            ->when($request->input('artifact_id'), fn ($query, $artifactId) => $query->where('app_artifact_id', $artifactId))
-            ->orderByDesc('downloaded_at')
-            ->paginate((int) $request->input('per_page', 20));
+    private function normalizeExternalVersionData(
+        array $data,
+        DistributionApp $app,
+        string $platform
+    ): array {
+        $downloadUrl = trim((string) $data['download_url']);
+        $sha256 = strtolower(trim((string) ($data['sha256'] ?? '')));
+        $sha256 = $sha256 !== '' ? $sha256 : null;
 
-        return $this->paginate($logs);
+        $this->assertExternalVersionMetadata($downloadUrl, $sha256, $app, $platform);
+
+        $fileSizeMb = $data['file_size_mb'] ?? null;
+        $data['download_url'] = $downloadUrl;
+        $data['file_size'] = $fileSizeMb === null || $fileSizeMb === ''
+            ? null
+            : (int) round((float) $fileSizeMb * 1024 * 1024);
+        $data['sha256'] = $sha256;
+        unset($data['file_size_mb']);
+
+        return $data;
+    }
+
+    private function assertExternalVersionMetadata(
+        string $downloadUrl,
+        ?string $sha256,
+        DistributionApp $app,
+        string $platform
+    ): void {
+        $parts = parse_url($downloadUrl);
+        if (!is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])) {
+            throw new InvalidArgumentException('下载链接必须是完整的 HTTPS 地址');
+        }
+
+        if ($sha256 !== null && !preg_match('/^[a-f0-9]{64}$/', $sha256)) {
+            throw new InvalidArgumentException('SHA256 必须是 64 位十六进制字符串');
+        }
+
+        if ($app->isOfficialUpdate() && strtolower($platform) === 'macos' && $sha256 === null) {
+            throw new InvalidArgumentException('macOS 官方更新必须填写有效的 SHA256');
+        }
     }
 }

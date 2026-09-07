@@ -9,19 +9,20 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('guest app update endpoint scopes updates by app key and signed artifact URL', () => {
+test('guest app update endpoint scopes updates by app key and returns the direct external URL', () => {
   const controller = readRepoFile('app/Http/Controllers/V1/Guest/AppUpdateController.php');
+  const version = readRepoFile('app/Models/AppVersion.php');
 
   assert.match(controller, /use App\\Models\\DistributionApp;/);
-  assert.match(controller, /use Illuminate\\Support\\Facades\\URL;/);
   assert.match(controller, /'app_key'\s*=>\s*'nullable\|string\|max:64'/);
   assert.match(controller, /DistributionApp::where\('app_key',\s*\$appKey\)/);
   assert.match(controller, /->where\('is_active',\s*true\)/);
   assert.match(controller, /->where\('app_id',\s*\$app->id\)/);
-  assert.match(controller, /whereHas\('artifact'\)/);
-  assert.match(controller, /URL::temporarySignedRoute\(\s*'app-downloads\.download'/);
-  assert.match(controller, /'artifact'\s*=>\s*\$latest->artifact->id/);
-  assert.match(controller, /false\s*\);/);
+  assert.match(controller, /whereNotNull\('download_url'\)/);
+  assert.doesNotMatch(controller, /whereHas\('artifact'\)/);
+  assert.match(controller, /\$latestPayload\s*=\s*\$latest->toClientArray\(\)/);
+  assert.match(version, /'download_url'\s*=>\s*\$this->download_url/);
+  assert.doesNotMatch(controller, /temporarySignedRoute|app-downloads\.download|download_handle/);
 });
 
 test('guest app update endpoint compares normalized app versions before build numbers', () => {

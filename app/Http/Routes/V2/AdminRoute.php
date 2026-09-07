@@ -171,8 +171,6 @@ class AdminRoute
             $router->group([
                 'prefix' => 'app-package'
             ], function ($router) {
-                $router->get('/settings', [AppPackageController::class, 'settings']);
-                $router->post('/settings', [AppPackageController::class, 'saveSettings']);
                 $router->get('/apps', [AppPackageController::class, 'apps']);
                 $router->post('/apps/save', [AppPackageController::class, 'saveApp']);
                 $router->post('/apps/drop', [AppPackageController::class, 'dropApp']);
@@ -182,7 +180,6 @@ class AdminRoute
                 $router->post('/versions/publish', [AppPackageController::class, 'publish']);
                 $router->post('/versions/disable', [AppPackageController::class, 'disable']);
                 $router->post('/versions/drop', [AppPackageController::class, 'drop']);
-                $router->get('/logs', [AppPackageController::class, 'logs']);
             });
 
             // Ticket

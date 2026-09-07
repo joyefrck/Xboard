@@ -107,31 +107,6 @@
       cursor: not-allowed;
       opacity: 0.65;
     }
-    .upload-progress {
-      display: none;
-      margin-top: 14px;
-    }
-    .upload-progress.show {
-      display: block;
-    }
-    .upload-progress-track {
-      overflow: hidden;
-      height: 10px;
-      border-radius: 999px;
-      background: #e2e8f0;
-    }
-    .upload-progress-bar {
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: #0f172a;
-      transition: width 180ms ease;
-    }
-    .upload-progress-text {
-      margin-top: 6px;
-      color: #475569;
-      font-size: 13px;
-    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -239,7 +214,7 @@
   <header>
     <div>
       <h1>App 下载管理</h1>
-      <p class="muted">管理应用、安装包发布、下架和删除。</p>
+      <p class="muted">管理应用、下载链接发布、下架和删除。</p>
     </div>
     <a class="link-button" href="/{{ $secure_path }}">返回后台</a>
   </header>
@@ -248,23 +223,9 @@
 
   <main class="grid">
     <section class="card">
-      <h2>下载验证</h2>
-      <p class="muted">独立于系统安全里的启用验证码，只用于安装包下载。</p>
-      <form id="download-settings-form">
-        <label class="field-inline"><input style="width:auto;margin:0" type="checkbox" name="app_download_turnstile_enable"> 启用下载 Turnstile 验证</label>
-        <label>下载 Turnstile Site Key<input name="app_download_turnstile_site_key" placeholder="1x00000000000000000000AA"></label>
-        <label>下载 Turnstile Secret Key<input name="app_download_turnstile_secret_key" placeholder="1x0000000000000000000000000000000AA"></label>
-        <p class="muted" id="download-settings-hint" style="margin-top:10px"></p>
-        <div class="row" style="margin-top:14px">
-          <button class="primary" type="submit">保存下载验证</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <h2>发布安装包</h2>
-      <p class="muted">先选择安装包，系统会自动识别应用名称和平台，提交后会自动创建或复用应用并发布版本。</p>
-      <form id="package-form" enctype="multipart/form-data">
+      <h2>发布下载链接</h2>
+      <p class="muted">填写第三方 HTTPS 下载链接，提交后会自动创建或复用应用并发布版本。</p>
+      <form id="package-form">
         <input type="hidden" name="app_id">
         <input type="hidden" name="channel" value="stable">
         <input type="hidden" name="arch">
@@ -272,7 +233,9 @@
         <input type="hidden" name="min_supported_build" value="0">
         <input type="hidden" name="is_force" value="0">
         <input type="hidden" name="is_enabled" value="1">
-        <label>安装包<input type="file" name="artifact" required></label>
+        <label>下载链接<input name="download_url" type="url" required maxlength="2048" placeholder="https://file.example.com/d?id=example"></label>
+        <label>安装包大小（MB，可选）<input name="file_size_mb" type="number" min="0" step="0.01" placeholder="例如 85.5"></label>
+        <label>SHA256（macOS 官方更新必填）<input name="sha256" maxlength="64" pattern="[a-fA-F0-9]{64}" placeholder="64 位十六进制校验值"></label>
         <label>应用类型
           <select name="distribution_scope" required>
             <option value="download_only" selected>第三方 App（仅供下载）</option>
@@ -294,14 +257,8 @@
         </label>
         <label>描述 / 发布说明<textarea name="release_notes" placeholder="用于公开下载页展示"></textarea></label>
         <div class="row" style="margin-top:14px">
-          <button class="primary" type="submit">发布安装包</button>
+          <button class="primary" type="submit">发布下载链接</button>
           <button type="button" id="reset-package">清空</button>
-        </div>
-        <div class="upload-progress" id="upload-progress">
-          <div class="upload-progress-track">
-            <div class="upload-progress-bar" id="upload-progress-bar"></div>
-          </div>
-          <div class="upload-progress-text" id="upload-progress-text">等待上传</div>
         </div>
       </form>
     </section>
@@ -323,8 +280,7 @@
               <th>应用</th>
               <th>版本号</th>
               <th>平台</th>
-              <th>安装包</th>
-              <th>下载次数</th>
+              <th>下载链接</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
@@ -354,23 +310,19 @@
       <div class="locked-fields">
         <div><strong>应用 / 平台：</strong><span id="version-edit-identity">-</span></div>
         <div><strong>应用类型：</strong><span id="version-edit-app-type">-</span></div>
-        <div><strong>当前安装包：</strong><span id="version-edit-current-artifact">-</span></div>
+        <div><strong>当前下载链接：</strong><span id="version-edit-current-url">-</span></div>
       </div>
-      <form id="version-edit-form" enctype="multipart/form-data">
+      <form id="version-edit-form">
         <input type="hidden" name="id">
         <label>版本号<input name="version" required maxlength="32"></label>
         <label>发布说明<textarea name="release_notes" maxlength="20000" placeholder="用于公开下载页展示"></textarea></label>
-        <label>新安装包（可选）<input type="file" name="artifact"></label>
-        <p class="muted">未选择文件时只更新版本号和发布说明；选择新安装包将替换并删除旧文件，累计下载次数保持不变。</p>
+        <label>下载链接<input name="download_url" type="url" required maxlength="2048"></label>
+        <label>安装包大小（MB，可选）<input name="file_size_mb" type="number" min="0" step="0.01"></label>
+        <label>SHA256（macOS 官方更新必填）<input name="sha256" maxlength="64" pattern="[a-fA-F0-9]{64}"></label>
+        <p class="muted">修改后会立即更新公开下载信息。</p>
         <div class="row" style="margin-top:14px">
           <button class="primary" type="submit">保存修改</button>
           <button type="button" id="version-edit-cancel">取消</button>
-        </div>
-        <div class="upload-progress" id="version-edit-progress">
-          <div class="upload-progress-track">
-            <div class="upload-progress-bar" id="version-edit-progress-bar"></div>
-          </div>
-          <div class="upload-progress-text" id="version-edit-progress-text">等待保存</div>
         </div>
       </form>
     </div>
@@ -384,27 +336,17 @@
       var versions = [];
       var statusEl = document.getElementById("status");
       var packageForm = document.getElementById("package-form");
-      var downloadSettingsForm = document.getElementById("download-settings-form");
-      var downloadSettingsHint = document.getElementById("download-settings-hint");
-      var appInput = packageForm.querySelector('[name="app_id"]');
-      var artifactInput = packageForm.querySelector('[name="artifact"]');
       var packageSubmitButton = packageForm.querySelector('button[type="submit"]');
       var resetPackageButton = document.getElementById("reset-package");
-      var uploadProgress = document.getElementById("upload-progress");
-      var uploadProgressBar = document.getElementById("upload-progress-bar");
-      var uploadProgressText = document.getElementById("upload-progress-text");
       var versionRows = document.getElementById("version-rows");
       var versionEditModal = document.getElementById("version-edit-modal");
       var versionEditForm = document.getElementById("version-edit-form");
       var versionEditIdentity = document.getElementById("version-edit-identity");
       var versionEditAppType = document.getElementById("version-edit-app-type");
-      var versionEditCurrentArtifact = document.getElementById("version-edit-current-artifact");
+      var versionEditCurrentUrl = document.getElementById("version-edit-current-url");
       var versionEditClose = document.getElementById("version-edit-close");
       var versionEditCancel = document.getElementById("version-edit-cancel");
       var versionEditSubmit = versionEditForm.querySelector('button[type="submit"]');
-      var versionEditProgress = document.getElementById("version-edit-progress");
-      var versionEditProgressBar = document.getElementById("version-edit-progress-bar");
-      var versionEditProgressText = document.getElementById("version-edit-progress-text");
       var versionEditBusy = false;
 
       function token() {
@@ -431,20 +373,7 @@
       function setPackageBusy(busy) {
         packageSubmitButton.disabled = busy;
         resetPackageButton.disabled = busy;
-        packageSubmitButton.textContent = busy ? "上传中..." : "发布安装包";
-      }
-
-      function updateUploadProgress(percent, message) {
-        var normalized = Math.max(0, Math.min(100, Math.round(percent)));
-        uploadProgress.className = "upload-progress show";
-        uploadProgressBar.style.width = normalized + "%";
-        uploadProgressText.textContent = message || ("正在上传 " + normalized + "%");
-      }
-
-      function resetUploadProgress() {
-        uploadProgress.className = "upload-progress";
-        uploadProgressBar.style.width = "0%";
-        uploadProgressText.textContent = "等待上传";
+        packageSubmitButton.textContent = busy ? "发布中..." : "发布下载链接";
       }
 
       function setVersionEditBusy(busy) {
@@ -452,21 +381,7 @@
         versionEditSubmit.disabled = busy;
         versionEditClose.disabled = busy;
         versionEditCancel.disabled = busy;
-        versionEditForm.querySelector('[name="artifact"]').disabled = busy;
         versionEditSubmit.textContent = busy ? "保存中..." : "保存修改";
-      }
-
-      function updateVersionEditProgress(percent, message) {
-        var normalized = Math.max(0, Math.min(100, Math.round(percent)));
-        versionEditProgress.className = "upload-progress show";
-        versionEditProgressBar.style.width = normalized + "%";
-        versionEditProgressText.textContent = message || ("正在上传 " + normalized + "%");
-      }
-
-      function resetVersionEditProgress() {
-        versionEditProgress.className = "upload-progress";
-        versionEditProgressBar.style.width = "0%";
-        versionEditProgressText.textContent = "等待保存";
       }
 
       async function request(path, options) {
@@ -479,52 +394,6 @@
           throw new Error(payload.message || "请求失败");
         }
         return payload;
-      }
-
-      function uploadRequest(path, data, onProgress) {
-        return new Promise(function (resolve, reject) {
-          var xhr = new XMLHttpRequest();
-          xhr.open("POST", apiBase + path);
-          xhr.setRequestHeader("Accept", "application/json");
-          xhr.setRequestHeader("Authorization", token());
-
-          xhr.upload.onprogress = function (event) {
-            if (!event.lengthComputable) {
-              onProgress(null);
-              return;
-            }
-            onProgress(event.loaded / event.total * 100);
-          };
-
-          xhr.onload = function () {
-            var payload;
-            try {
-              payload = JSON.parse(xhr.responseText || "{}");
-            } catch (e) {
-              if (xhr.status === 413) {
-                reject(new Error("安装包超过服务器上传大小限制，请调整网关上传限制后重试"));
-                return;
-              }
-              reject(new Error("服务器返回了非 JSON 响应，HTTP " + xhr.status));
-              return;
-            }
-            if (xhr.status < 200 || xhr.status >= 300 || payload.status === "fail") {
-              reject(new Error(payload.message || "上传失败"));
-              return;
-            }
-            resolve(payload);
-          };
-
-          xhr.onerror = function () {
-            reject(new Error("上传失败，请检查网络后重试"));
-          };
-
-          xhr.onabort = function () {
-            reject(new Error("上传已取消"));
-          };
-
-          xhr.send(data);
-        });
       }
 
       function formDataToObject(form) {
@@ -562,38 +431,6 @@
         syncAppIdentityControls();
       }
 
-      function stripKnownExtension(filename) {
-        return String(filename || "")
-          .replace(/\.(tar\.gz|tar\.xz|tar\.bz2)$/i, "")
-          .replace(/\.[^.]+$/i, "");
-      }
-
-      function detectPlatform(filename) {
-        var lower = String(filename || "").toLowerCase();
-        if (/\.(apk|aab)$/i.test(lower) || /(^|[^a-z])android([^a-z]|$)/i.test(lower)) {
-          return "android";
-        }
-        if (/\.(dmg|pkg)$/i.test(lower) || /(^|[^a-z])(macos|mac|darwin|osx)([^a-z]|$)/i.test(lower)) {
-          return "macos";
-        }
-        if (/\.(exe|msi|msix|appx)$/i.test(lower) || /(^|[^a-z])(windows|win32|win64|win)([^a-z]|$)/i.test(lower)) {
-          return "windows";
-        }
-        if (/\.ipa$/i.test(lower) || /(^|[^a-z])ios([^a-z]|$)/i.test(lower)) {
-          return "ios";
-        }
-        if (/\.(appimage|deb|rpm)$/i.test(lower) || /(^|[^a-z])linux([^a-z]|$)/i.test(lower)) {
-          return "linux";
-        }
-        return "";
-      }
-
-      function inferVersion(filename) {
-        var base = stripKnownExtension(filename);
-        var match = base.match(/(?:^|[-_\s])v?(\d+(?:\.\d+){1,4}(?:[+-][a-z0-9._-]+)?)(?=$|[-_\s])/i);
-        return match ? match[1] : "";
-      }
-
       function slugifyAppKey(value) {
         return String(value || "")
           .trim()
@@ -617,13 +454,6 @@
           windows: "大象网络官方App桌面版",
           macos: "大象网络官方App桌面版"
         }[String(platform || "").toLowerCase()] || "";
-      }
-
-      function inferAppKey(filename, appName, platform, distributionScope) {
-        if (distributionScope === "official_update") {
-          return officialAppKeyForPlatform(platform);
-        }
-        return slugifyAppKey(appName);
       }
 
       function syncAppIdentityControls() {
@@ -654,56 +484,8 @@
         }
       }
 
-      function titleCase(words) {
-        return words.map(function (word) {
-          if (!word) {
-            return "";
-          }
-          if (/^[A-Z0-9]+$/.test(word)) {
-            return word;
-          }
-          return word.charAt(0).toUpperCase() + word.slice(1);
-        }).join(" ");
-      }
-
-      function inferAppName(filename) {
-        var base = stripKnownExtension(filename)
-          .replace(/[_-]+/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        var parts = base.split(" ").filter(Boolean);
-        var ignored = [
-          "android", "windows", "window", "win", "win32", "win64", "macos", "mac", "darwin", "osx", "ios", "linux",
-          "setup", "installer", "install", "client", "desktop", "release", "stable", "beta",
-          "x64", "x86", "x86_64", "amd64", "arm64", "aarch64", "armv7", "universal", "universal2",
-          "signed", "unsigned"
-        ];
-        var kept = [];
-        for (var i = 0; i < parts.length; i += 1) {
-          var part = parts[i];
-          var lower = part.toLowerCase();
-          if (ignored.indexOf(lower) !== -1) {
-            continue;
-          }
-          if (/^v?\d+(\.\d+){1,4}([+-].*)?$/i.test(part) || /^\d{6,}$/.test(part)) {
-            continue;
-          }
-          kept.push(part);
-        }
-        return titleCase(kept.length ? kept : parts).trim();
-      }
-
-      function hasLegacyDecimalSpacing(existingName, inferredName) {
-        var existing = String(existingName || "").trim();
-        var inferred = String(inferredName || "").trim();
-        return !!existing && !!inferred && existing !== inferred && inferred.replace(/\./g, " ") === existing;
-      }
-
       function displayAppName(version) {
-        var appName = version && version.app ? version.app.name : "";
-        var artifactName = version && version.artifact ? version.artifact.original_name : "";
-        var inferredName = artifactName ? inferAppName(artifactName) : "";
-        return hasLegacyDecimalSpacing(appName, inferredName) ? inferredName : appName;
+        return version && version.app ? version.app.name : "";
       }
 
       function escapeHtml(value) {
@@ -733,14 +515,6 @@
           + (buildNumber ? "<br><span class=\"muted\">Build " + escapeHtml(buildNumber) + "</span>" : "");
       }
 
-      function formatFileSize(bytes) {
-        if (!bytes) {
-          return "未知大小";
-        }
-        var megabytes = Number(bytes) / 1024 / 1024;
-        return (Math.round(megabytes * 10) / 10) + " MB";
-      }
-
       function formatDistributionScope(scope) {
         return String(scope || "download_only") === "official_update"
           ? "大象官方 App（支持自动更新）"
@@ -748,11 +522,15 @@
       }
 
       function openVersionEditor(version) {
-        var artifact = version.artifact;
         versionEditForm.reset();
         versionEditForm.querySelector('[name="id"]').value = version.id;
         versionEditForm.querySelector('[name="version"]').value = version.version || "";
         versionEditForm.querySelector('[name="release_notes"]').value = version.release_notes || "";
+        versionEditForm.querySelector('[name="download_url"]').value = version.download_url || "";
+        versionEditForm.querySelector('[name="file_size_mb"]').value = version.file_size
+          ? Math.round(Number(version.file_size) / 1024 / 1024 * 100) / 100
+          : "";
+        versionEditForm.querySelector('[name="sha256"]').value = version.sha256 || "";
         versionEditIdentity.textContent = (displayAppName(version)
           || (version.app && version.app.app_key)
           || "-")
@@ -760,10 +538,7 @@
         versionEditAppType.textContent = formatDistributionScope(
           version.app && version.app.distribution_scope
         );
-        versionEditCurrentArtifact.textContent = artifact
-          ? artifact.original_name + "（" + formatFileSize(artifact.file_size) + "）"
-          : "未上传";
-        resetVersionEditProgress();
+        versionEditCurrentUrl.textContent = version.download_url || "未配置";
         setVersionEditBusy(false);
         versionEditModal.setAttribute("aria-hidden", "false");
         document.body.style.overflow = "hidden";
@@ -777,67 +552,12 @@
         versionEditModal.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
         versionEditForm.reset();
-        resetVersionEditProgress();
-      }
-
-      function findExistingAppByGuess(name, distributionScope) {
-        var normalized = String(name || "").trim().toLowerCase();
-        var compact = normalized.replace(/[^a-z0-9]+/g, "");
-        return apps.find(function (app) {
-          var appName = String(app.name || "").trim().toLowerCase();
-          var appKey = String(app.app_key || "").trim().toLowerCase();
-          var appScope = String(app.distribution_scope || "download_only");
-          return appScope === distributionScope
-            && (appName === normalized
-              || appKey === normalized.replace(/\s+/g, "-")
-              || appName.replace(/[^a-z0-9]+/g, "") === compact
-              || appKey.replace(/[^a-z0-9]+/g, "") === compact);
-        });
-      }
-
-      function autofillPackageFromArtifact() {
-        var file = artifactInput.files && artifactInput.files[0];
-        if (!file) {
-          return;
-        }
-        var guessedName = inferAppName(file.name);
-        var guessedPlatform = detectPlatform(file.name);
-        var guessedVersion = inferVersion(file.name);
-        var distributionScope = packageForm.querySelector('[name="distribution_scope"]').value;
-        var inferredAppKey = inferAppKey(file.name, guessedName, guessedPlatform, distributionScope);
-        var existingApp = findExistingAppByKey(inferredAppKey, distributionScope)
-          || findExistingAppByGuess(guessedName, distributionScope);
-        if (guessedPlatform) {
-          packageForm.querySelector('[name="platform"]').value = guessedPlatform;
-        }
-        packageForm.querySelector('[name="app_id"]').value = existingApp ? existingApp.id : "";
-        packageForm.querySelector('[name="app_name"]').value = existingApp && !hasLegacyDecimalSpacing(existingApp.name, guessedName)
-          ? existingApp.name
-          : guessedName;
-        packageForm.querySelector('[name="app_key"]').value = existingApp
-          ? existingApp.app_key
-          : inferredAppKey;
-        if (guessedVersion) {
-          packageForm.querySelector('[name="version"]').value = guessedVersion;
-        }
-        syncAppIdentityControls();
       }
 
       async function loadApps() {
         var payload = await request("/apps");
         apps = payload.data || [];
         setPackageDefaults(false);
-      }
-
-      async function loadDownloadSettings() {
-        var payload = await request("/settings");
-        var settings = payload.data || {};
-        downloadSettingsForm.querySelector('[name="app_download_turnstile_enable"]').checked = !!settings.app_download_turnstile_enable;
-        downloadSettingsForm.querySelector('[name="app_download_turnstile_site_key"]').value = settings.app_download_turnstile_site_key || "";
-        downloadSettingsForm.querySelector('[name="app_download_turnstile_secret_key"]').value = settings.app_download_turnstile_secret_key || "";
-        downloadSettingsHint.textContent = settings.uses_global_turnstile_fallback
-          ? "当前未填写下载专用 key 时，会临时回退使用系统安全页里的全局 Turnstile key。"
-          : "当前下载页使用下载专用 Turnstile key。";
       }
 
       async function loadVersions() {
@@ -849,10 +569,8 @@
       function renderVersions() {
         versionRows.innerHTML = "";
         versions.forEach(function (version) {
-          var artifact = version.artifact;
           var row = document.createElement("tr");
           row.innerHTML = [
-            "<td></td>",
             "<td></td>",
             "<td></td>",
             "<td></td>",
@@ -863,12 +581,27 @@
           row.children[0].innerHTML = formatAppIdentity(version);
           row.children[1].innerHTML = formatVersionLabel(version);
           row.children[2].textContent = version.platform;
-          row.children[3].innerHTML = artifact
-            ? artifact.original_name + "<br><span class=\"muted\">" + Math.round(artifact.file_size / 1024 / 1024 * 10) / 10 + " MB</span>"
-            : '<span class="badge off">未上传</span>';
-          var downloadCount = artifact ? Number(artifact.download_logs_count || 0) : 0;
-          row.children[4].textContent = downloadCount.toLocaleString("zh-CN");
-          row.children[5].innerHTML = version.is_enabled
+          if (version.download_url) {
+            var downloadLink = document.createElement("a");
+            downloadLink.href = version.download_url;
+            downloadLink.target = "_blank";
+            downloadLink.rel = "noopener noreferrer";
+            downloadLink.textContent = version.download_url.length > 48
+              ? version.download_url.slice(0, 45) + "..."
+              : version.download_url;
+            downloadLink.title = version.download_url;
+            row.children[3].appendChild(downloadLink);
+            if (version.file_size) {
+              var size = document.createElement("span");
+              size.className = "muted";
+              size.textContent = " " + (Math.round(Number(version.file_size) / 1024 / 1024 * 10) / 10) + " MB";
+              row.children[3].appendChild(document.createElement("br"));
+              row.children[3].appendChild(size);
+            }
+          } else {
+            row.children[3].innerHTML = '<span class="badge off">未配置</span>';
+          }
+          row.children[4].innerHTML = version.is_enabled
             ? '<span class="badge ok">published</span>'
             : '<span class="badge off">disabled</span>';
 
@@ -880,7 +613,7 @@
             actions.appendChild(actionButton("上架", function () { mutate("/versions/publish", { id: version.id }); }, "primary"));
           }
           actions.appendChild(actionButton("删除", function () {
-            if (confirm("确认删除该版本和安装包文件？")) {
+            if (confirm("确认删除该版本？关联的历史本地文件也会一并清理。")) {
               mutate("/versions/drop", { id: version.id });
             }
           }, "danger"));
@@ -910,51 +643,33 @@
       }
 
       async function refreshAll() {
-        await loadDownloadSettings();
         await loadApps();
         await loadVersions();
       }
 
-      downloadSettingsForm.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        try {
-          await mutate("/settings", formDataToObject(downloadSettingsForm));
-          await loadDownloadSettings();
-        } catch (e) {
-          showStatus(e.message, false);
-        }
-      });
-
       versionEditForm.addEventListener("submit", async function (event) {
         event.preventDefault();
-        var replacementInput = versionEditForm.querySelector('[name="artifact"]');
-        var replacementFile = replacementInput.files && replacementInput.files[0];
-        if (replacementFile && !confirm("保存后将立即切换到新安装包并删除旧文件，确认继续？")) {
-          return;
-        }
-
         setVersionEditBusy(true);
-        updateVersionEditProgress(0, replacementFile ? "准备上传新安装包..." : "正在保存版本信息...");
         try {
-          var data = new FormData(versionEditForm);
-          await uploadRequest("/versions/update", data, function (percent) {
-            if (percent === null) {
-              updateVersionEditProgress(5, replacementFile ? "正在上传新安装包..." : "正在保存...");
-              return;
-            }
-            var capped = percent >= 100 ? 99 : percent;
-            updateVersionEditProgress(capped, replacementFile
-              ? "正在上传 " + Math.round(capped) + "%"
-              : "正在保存...");
+          var editPayload = {
+            id: versionEditForm.querySelector('[name="id"]').value,
+            version: versionEditForm.querySelector('[name="version"]').value,
+            release_notes: versionEditForm.querySelector('[name="release_notes"]').value,
+            download_url: versionEditForm.querySelector('[name="download_url"]').value,
+            file_size_mb: versionEditForm.querySelector('[name="file_size_mb"]').value,
+            sha256: versionEditForm.querySelector('[name="sha256"]').value
+          };
+          await request("/versions/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(editPayload)
           });
-          updateVersionEditProgress(100, replacementFile ? "安装包已替换" : "版本信息已更新");
           setVersionEditBusy(false);
           closeVersionEditor();
-          showStatus(replacementFile ? "版本和安装包已更新" : "版本信息已更新", true);
+          showStatus("版本信息已更新", true);
           await loadVersions();
         } catch (e) {
           showStatus(e.message, false);
-          updateVersionEditProgress(0, e.message);
         } finally {
           setVersionEditBusy(false);
         }
@@ -987,17 +702,12 @@
         });
       }
 
-      artifactInput.addEventListener("change", function () {
-        resetUploadProgress();
-        autofillPackageFromArtifact();
-      });
       packageForm.querySelector('[name="distribution_scope"]').addEventListener("change", syncAppIdentityControls);
       packageForm.querySelector('[name="platform"]').addEventListener("change", syncAppIdentityControls);
 
       packageForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         setPackageBusy(true);
-        updateUploadProgress(0, "准备发布安装包...");
         try {
           setPackageDefaults(false);
           var appName = packageForm.querySelector('[name="app_name"]').value.trim();
@@ -1032,30 +742,33 @@
             body: JSON.stringify(appPayload)
           });
           var app = appResponse.data || {};
-          updateUploadProgress(1, "应用信息已保存，开始上传安装包...");
-
-          var data = new FormData(packageForm);
-          data.set("app_id", app.id);
-          data.delete("id");
-          data.delete("app_name");
-          data.delete("app_key");
-          await uploadRequest("/versions/save", data, function (percent) {
-            if (percent === null) {
-              updateUploadProgress(5, "正在上传安装包...");
-              return;
-            }
-            var capped = percent >= 100 ? 99 : percent;
-            updateUploadProgress(capped, "正在上传 " + Math.round(capped) + "%");
+          var data = {
+            app_id: app.id,
+            platform: packageForm.querySelector('[name="platform"]').value,
+            channel: packageForm.querySelector('[name="channel"]').value,
+            arch: packageForm.querySelector('[name="arch"]').value,
+            version: packageForm.querySelector('[name="version"]').value,
+            build_number: packageForm.querySelector('[name="build_number"]').value,
+            min_supported_build: packageForm.querySelector('[name="min_supported_build"]').value,
+            release_notes: packageForm.querySelector('[name="release_notes"]').value,
+            is_force: packageForm.querySelector('[name="is_force"]').value,
+            is_enabled: packageForm.querySelector('[name="is_enabled"]').value,
+            download_url: packageForm.querySelector('[name="download_url"]').value,
+            file_size_mb: packageForm.querySelector('[name="file_size_mb"]').value,
+            sha256: packageForm.querySelector('[name="sha256"]').value
+          };
+          await request("/versions/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
           });
-          updateUploadProgress(100, "上传完成，版本已发布");
-          showStatus("安装包已发布", true);
+          showStatus("下载链接已发布", true);
           packageForm.reset();
           setPackageDefaults(true);
           syncAppIdentityControls();
           await refreshAll();
         } catch (e) {
           showStatus(e.message, false);
-          updateUploadProgress(0, e.message);
         } finally {
           setPackageBusy(false);
         }
@@ -1064,7 +777,6 @@
       resetPackageButton.addEventListener("click", function () {
         packageForm.reset();
         packageForm.querySelector('[name="app_id"]').value = "";
-        resetUploadProgress();
         setPackageDefaults(true);
         syncAppIdentityControls();
       });

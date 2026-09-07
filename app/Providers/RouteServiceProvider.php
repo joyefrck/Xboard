@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 
@@ -33,28 +32,6 @@ class RouteServiceProvider extends ServiceProvider
 
         RateLimiter::for('send-email', function () {
             return Limit::perSecond(8)->by('smtp');
-        });
-
-        RateLimiter::for('app-download-prepare', function (Request $request) {
-            $artifact = $request->route('artifact') ?: 'unknown';
-            if (is_object($artifact) && method_exists($artifact, 'getKey')) {
-                $artifact = $artifact->getKey();
-            }
-
-            $identity = $request->user()?->id
-                ? 'user:' . $request->user()?->id
-                : 'ip:' . $request->ip();
-
-            return Limit::perMinute(60)
-                ->by($identity . '|artifact:' . $artifact)
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'status' => 'fail',
-                        'message' => '下载请求过于频繁，请稍后重试。',
-                        'data' => null,
-                        'error' => null,
-                    ], 429, $headers);
-                });
         });
 
         parent::boot();

@@ -33,7 +33,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
   ]) {
     const view = readRepoFile(viewPath);
     assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora17/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260826dashboardV2Aurora17/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260907directDownloads1/);
+    assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
 
@@ -309,9 +310,9 @@ test('Dashboard 2.0 source contains the agreed navigation, data, modal, and fall
   assert.match(script, /--er-v2-accent/);
   assert.match(script, /KARING_APP_STORE_URL = 'https:\/\/apps\.apple\.com\/us\/app\/karing\/id6472431552'/);
   assert.match(script, /OFFICIAL_APP_KEYS = \{\s*android: 'elephant-route-android',\s*windows: 'elephant-route-desktop',\s*macos: 'elephant-route-desktop'/);
-  assert.match(script, /\/api\/v1\/user\/app-downloads\/.*\/prepare/);
+  assert.match(script, /global\.open\(artifact\.download_url, '_blank', 'noopener,noreferrer'\)/);
   assert.match(script, /VUE_NAIVE_ACCESS_TOKEN/);
-  assert.match(script, /turnstile\.render/);
+  assert.doesNotMatch(script, /\/api\/v1\/user\/app-downloads|\/prepare|turnstile\.render|请先登录后下载/);
   assert.match(script, /navigator\.clipboard\.writeText/);
   assert.match(script, /document\.execCommand\('copy'\)/);
   assert.match(script, /\/api\/v1\/user\/invite\/save/);

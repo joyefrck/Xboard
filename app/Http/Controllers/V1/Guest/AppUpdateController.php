@@ -7,7 +7,6 @@ use App\Models\AppVersion;
 use App\Models\DistributionApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\URL;
 
 class AppUpdateController extends Controller
 {
@@ -45,12 +44,14 @@ class AppUpdateController extends Controller
             }
         }
 
-        $query = AppVersion::with(['app', 'artifact'])
+        $query = AppVersion::with('app')
             ->where('platform', $platform)
             ->where('channel', $channel)
             ->where('is_enabled', true)
             ->whereNotNull('published_at')
-            ->whereHas('artifact')
+            ->whereNotNull('download_url')
+            ->where('download_url', '<>', '')
+            ->where('download_url', 'like', 'https://%')
             ->whereHas('app', function ($query) {
                 $query->where('distribution_scope', DistributionApp::SCOPE_OFFICIAL_UPDATE)
                     ->where('is_active', true);
@@ -67,7 +68,8 @@ class AppUpdateController extends Controller
             $query->where('app_id', $app->id);
         }
 
-        $candidates = $query->get();
+        $candidates = $query->get()
+            ->filter(fn (AppVersion $version) => $version->hasSecureDownloadUrl());
         $latest = Collection::make($candidates)->sort(function (AppVersion $left, AppVersion $right) {
             return $this->compareVersions($right->version, $left->version)
                 ?: ($right->build_number <=> $left->build_number)
@@ -89,15 +91,6 @@ class AppUpdateController extends Controller
             : $latest->build_number > $currentBuild;
         $force = $hasUpdate && ($latest->is_force || $currentBuild < $latest->min_supported_build);
         $latestPayload = $latest->toClientArray();
-        $latestPayload['download_url'] = URL::temporarySignedRoute(
-            'app-downloads.download',
-            now()->addMinutes(30),
-            [
-                'artifact' => $latest->artifact->id,
-                'source' => 'app_update',
-            ],
-            false
-        );
 
         return $this->success([
             'has_update' => $hasUpdate,

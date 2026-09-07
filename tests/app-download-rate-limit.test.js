@@ -9,96 +9,42 @@ function readRepoFile(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('app download prepare route uses named rate limiter', () => {
-  const route = readRepoFile('app/Http/Routes/V1/UserRoute.php');
-
-  assert.match(route, /\/app-downloads\/\{artifact\}\/prepare/);
-  assert.match(route, /->middleware\('throttle:app-download-prepare'\)/);
-  assert.doesNotMatch(route, /->middleware\('throttle:10,1'\)/);
-});
-
-test('app download links use relative signed URLs to avoid insecure redirects', () => {
-  const userController = readRepoFile('app/Http/Controllers/V1/User/AppDownloadController.php');
+test('app downloads no longer expose an authenticated prepare route or limiter', () => {
+  const userRoute = readRepoFile('app/Http/Routes/V1/UserRoute.php');
   const guestRoute = readRepoFile('app/Http/Routes/V1/GuestRoute.php');
-
-  assert.match(userController, /temporarySignedRoute\([\s\S]*false\s*\)/);
-  assert.match(guestRoute, /'signed:relative'/);
-  assert.doesNotMatch(guestRoute, /->middleware\(\['signed', 'throttle:30,1'\]\)/);
-});
-
-test('app download signed URL TTL is configurable and shared with the response contract', () => {
-  const configPath = path.join(repoRoot, 'config/app_downloads.php');
-  const userController = readRepoFile('app/Http/Controllers/V1/User/AppDownloadController.php');
-  const envExample = readRepoFile('.env.example');
-
-  assert.equal(fs.existsSync(configPath), true, 'app download config should exist');
-  const config = fs.readFileSync(configPath, 'utf8');
-
-  assert.match(config, /signed_url_ttl_seconds/);
-  assert.match(config, /env\('APP_DOWNLOAD_SIGNED_URL_TTL_SECONDS',\s*1800\)/);
-  assert.match(envExample, /APP_DOWNLOAD_SIGNED_URL_TTL_SECONDS=1800/);
-  assert.match(userController, /\$expiresIn\s*=\s*max\(60,\s*\(int\)\s*config\('app_downloads\.signed_url_ttl_seconds',\s*1800\)\)/);
-  assert.match(userController, /now\(\)->addSeconds\(\$expiresIn\)/);
-  assert.match(userController, /'expires_in'\s*=>\s*\$expiresIn/);
-  assert.doesNotMatch(userController, /now\(\)->addSeconds\(180\)/);
-  assert.doesNotMatch(userController, /'expires_in'\s*=>\s*180/);
-});
-
-test('app download prepare limiter is scoped by user and artifact', () => {
   const provider = readRepoFile('app/Providers/RouteServiceProvider.php');
 
-  assert.match(provider, /RateLimiter::for\('app-download-prepare'/);
-  assert.match(provider, /Limit::perMinute\(60\)/);
-  assert.match(provider, /request->user\(\)\?->id/);
-  assert.match(provider, /request->route\('artifact'\)/);
-  assert.match(provider, /下载请求过于频繁，请稍后重试。/);
+  assert.doesNotMatch(userRoute, /app-downloads|app-download-prepare/);
+  assert.doesNotMatch(guestRoute, /app-downloads\/\{artifact\}\/download|signed:relative/);
+  assert.doesNotMatch(provider, /app-download-prepare|下载请求过于频繁/);
 });
 
-test('download page handles prepare 429 without resetting turnstile', () => {
+test('download-specific verification files and configuration are removed', () => {
+  for (const relativePath of [
+    'app/Http/Controllers/V1/User/AppDownloadController.php',
+    'app/Services/AppDownloadVerificationService.php',
+    'config/app_downloads.php',
+  ]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relativePath)), false, `${relativePath} should be removed`);
+  }
+
+  const envExample = readRepoFile('.env.example');
+  assert.doesNotMatch(envExample, /APP_DOWNLOAD_SIGNED_URL_TTL_SECONDS/);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'app/Models/AppDownloadLog.php')), false);
+});
+
+test('public download page opens configured URLs directly without login or verification', () => {
   const page = readRepoFile('public/download/index.html');
 
-  assert.match(page, /response\.status === 429/);
-  assert.match(page, /下载请求过于频繁，请稍后重试。/);
-
-  const branchStart = page.indexOf('response.status === 429');
-  const nextFailureBranch = page.indexOf('if (!response.ok', branchStart);
-  assert.notEqual(branchStart, -1);
-  assert.notEqual(nextFailureBranch, -1);
-
-  const rateLimitBranch = page.slice(branchStart, nextFailureBranch);
-  assert.match(rateLimitBranch, /setVerificationStatus/);
-  assert.match(rateLimitBranch, /return/);
-  assert.doesNotMatch(rateLimitBranch, /turnstile\.reset/);
+  assert.match(page, /window\.open\(pkg\.download_url, "_blank", "noopener,noreferrer"\)/);
+  assert.doesNotMatch(page, /\/api\/v1\/user\/app-downloads|\/prepare|turnstile|请先登录后下载/);
+  assert.doesNotMatch(page, /response\.status === 429|下载请求过于频繁/);
 });
 
-test('android apk downloads use package archive mime even when stored mime is zip', () => {
-  const storage = readRepoFile('app/Services/AppArtifactStorage.php');
+test('guest downloads return configured URLs without redirects or logging', () => {
   const guestController = readRepoFile('app/Http/Controllers/V1/Guest/AppDownloadController.php');
 
-  assert.match(storage, /application\/vnd\.android\.package-archive/);
-  assert.match(storage, /downloadMimeType\(AppArtifact \$artifact\)/);
-  assert.match(storage, /strtolower\(\$artifact->extension/);
-  assert.match(guestController, /\$storage->downloadMimeType\(\$artifact\)/);
-  assert.doesNotMatch(guestController, /\['Content-Type' => \$artifact->mime_type \?: 'application\/octet-stream'\]/);
-});
-
-test('app download returns a clear error when the stored file is missing', () => {
-  const storage = readRepoFile('app/Services/AppArtifactStorage.php');
-  const guestController = readRepoFile('app/Http/Controllers/V1/Guest/AppDownloadController.php');
-
-  assert.match(storage, /public function exists\(AppArtifact \$artifact\): bool/);
-  assert.match(guestController, /use Illuminate\\Support\\Facades\\Log;/);
-  assert.match(guestController, /\$downloadPath\s*=\s*\$storage->absolutePath\(\$artifact\);/);
-  assert.match(guestController, /!\$storage->exists\(\$artifact\)/);
-  assert.match(guestController, /App download artifact file missing/);
-  assert.match(guestController, /安装包文件不存在，请联系管理员修复文件绑定/);
-
-  const missingFileCheck = guestController.indexOf('$storage->exists($artifact)');
-  const downloadLogCreate = guestController.indexOf('AppDownloadLog::create');
-  const responseDownload = guestController.indexOf('response()->download');
-  assert.ok(missingFileCheck !== -1, 'missing file check should exist');
-  assert.ok(downloadLogCreate !== -1, 'download log creation should exist');
-  assert.ok(responseDownload !== -1, 'download response should exist');
-  assert.ok(missingFileCheck < downloadLogCreate, 'missing file check should happen before logging a download');
-  assert.ok(missingFileCheck < responseDownload, 'missing file check should happen before streaming the file');
+  assert.match(guestController, /'download_url'\s*=>\s*\$version->download_url/);
+  assert.doesNotMatch(guestController, /AppDownloadLog|redirect\(\)->away|response\(\)->download/);
+  assert.doesNotMatch(guestController, /function download\(/);
 });

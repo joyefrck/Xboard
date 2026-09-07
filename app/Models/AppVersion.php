@@ -37,6 +37,15 @@ class AppVersion extends Model
         return (bool) $this->is_enabled && !empty($this->published_at);
     }
 
+    public function hasSecureDownloadUrl(): bool
+    {
+        $parts = parse_url((string) $this->download_url);
+
+        return is_array($parts)
+            && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+            && !empty($parts['host']);
+    }
+
     public function toClientArray(): array
     {
         return [
@@ -49,8 +58,8 @@ class AppVersion extends Model
             'build_number' => $this->build_number,
             'min_supported_build' => $this->min_supported_build,
             'download_url' => $this->download_url,
-            'file_size' => $this->artifact?->file_size ?? $this->file_size,
-            'sha256' => $this->artifact?->sha256 ?? $this->sha256,
+            'file_size' => $this->file_size,
+            'sha256' => $this->sha256,
             'release_notes' => $this->release_notes,
             'is_force' => $this->is_force,
             'published_at' => $this->published_at,

@@ -79,25 +79,10 @@
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20260819appealType1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20260826dashboardV2Aurora17"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20260907directDownloads1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20260826pagesV2Aurora9"></script>
   <script>
     (function() {
-      function handleDownloadRedirect() {
-        const hash = window.location.hash || '';
-        const queryStart = hash.indexOf('?');
-        if (queryStart === -1) return;
-
-        const query = new URLSearchParams(hash.slice(queryStart + 1));
-        const target = query.get('download_redirect');
-        if (!target) return;
-
-        const decodedTarget = decodeURIComponent(target);
-        if (!decodedTarget.startsWith('/download/')) return;
-
-        window.location.replace(decodedTarget);
-      }
-
       function insertLoginLogo() {
         // Auth pages are handled by elephant-route-auth.js.
         return;
@@ -178,7 +163,6 @@
 
       // Use a combination of MutationObserver and setInterval for robustness
       const observer = new MutationObserver((mutations) => {
-        handleDownloadRedirect();
         insertLoginLogo();
         insertSidebarLogo();
         makeLogoClickable();
@@ -191,17 +175,14 @@
 
       // Periodic check in case MutationObserver misses it (common in some frameworks)
       setInterval(() => {
-          handleDownloadRedirect();
           insertLoginLogo();
           insertSidebarLogo();
           makeLogoClickable();
       }, 1000);
 
       // Initial try
-      handleDownloadRedirect();
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            handleDownloadRedirect();
             insertLoginLogo();
             insertSidebarLogo();
         });

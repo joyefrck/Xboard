@@ -42,8 +42,5 @@ class GuestRoute
         });
 
         $router->get('/app-downloads', [AppDownloadController::class, 'index']);
-        $router->get('/app-downloads/{artifact}/download', [AppDownloadController::class, 'download'])
-            ->middleware(['signed:relative', 'throttle:30,1'])
-            ->name('app-downloads.download');
     }
 }
