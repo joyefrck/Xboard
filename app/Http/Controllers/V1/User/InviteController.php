@@ -6,6 +6,7 @@ use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ComissionLogResource;
 use App\Http\Resources\InviteCodeResource;
+use App\Http\Resources\InviteRegistrationResource;
 use App\Models\CommissionLog;
 use App\Models\InviteCode;
 use App\Models\Order;
@@ -31,6 +32,7 @@ class InviteController extends Controller
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 10;
         $builder = CommissionLog::where('invite_user_id', $request->user()->id)
+            ->with('user:id,email')
             ->where('get_amount', '>', 0)
             ->orderBy('created_at', 'DESC');
         $total = $builder->count();
@@ -39,6 +41,22 @@ class InviteController extends Controller
         return response([
             'data' => ComissionLogResource::collection($details),
             'total' => $total
+        ]);
+    }
+
+    public function registrations(Request $request)
+    {
+        $current = $request->input('current') ? $request->input('current') : 1;
+        $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 10;
+        $builder = User::where('invite_user_id', $request->user()->id)
+            ->select(['id', 'email', 'created_at'])
+            ->orderBy('created_at', 'DESC');
+        $total = $builder->count();
+        $registrations = $builder->forPage($current, $pageSize)
+            ->get();
+        return response([
+            'data' => InviteRegistrationResource::collection($registrations),
+            'total' => $total,
         ]);
     }
 

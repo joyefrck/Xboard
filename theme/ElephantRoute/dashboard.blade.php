@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20260622inputColor1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20260826dashboardV2Aurora17">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20260902nodeBalancedColumns1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20260908inviteCardsAutoHeight1">
   <script>
     try {
       localStorage.setItem('vueuse-color-scheme', 'light');
@@ -23,7 +23,7 @@
       // The interface remains light through the stylesheet when storage is unavailable.
     }
   </script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20260902nodeBalancedColumns1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20260908inviteRecords1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>

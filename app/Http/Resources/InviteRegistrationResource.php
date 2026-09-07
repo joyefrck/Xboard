@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ComissionLogResource extends JsonResource
+class InviteRegistrationResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -15,11 +15,7 @@ class ComissionLogResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this['id'],
-            'email' => $this->user?->email,
-            'order_amount' => $this['order_amount'],
-            'trade_no' => $this['trade_no'],
-            'get_amount' => $this['get_amount'],
+            'email' => $this['email'],
             'created_at' => $this['created_at'],
         ];
     }

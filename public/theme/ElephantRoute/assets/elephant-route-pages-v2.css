@@ -454,11 +454,37 @@ body[data-er-page="plan"] section.cus-scroll-y .markdown-body code {
 }
 
 /* Invitations and profile cards */
+body[data-er-page="invite"] section.cus-scroll-y {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  align-items: stretch;
+  gap: 18px;
+}
+
 body[data-er-page="invite"] section.cus-scroll-y > .n-card,
 body[data-er-page="profile"] section.cus-scroll-y > .n-card,
 body[data-er-page="ticket"] section.cus-scroll-y > .n-card,
 body[data-er-page="knowledge"] section.cus-scroll-y > .n-card {
   margin-bottom: 18px;
+}
+
+body[data-er-page="invite"] section.cus-scroll-y > .n-card {
+  height: auto !important;
+  min-width: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0;
+}
+
+body[data-er-page="invite"] .er-invite-commission-card,
+body[data-er-page="invite"] .er-invite-stats-card {
+  align-self: stretch;
+}
+
+body[data-er-page="invite"] .er-invite-codes-card,
+body[data-er-page="invite"] .er-invite-records-card {
+  grid-column: 1 / -1;
 }
 
 body[data-er-page="invite"] section.cus-scroll-y .n-card:first-of-type .n-card__content,
@@ -486,6 +512,51 @@ body[data-er-page="invite"] section.cus-scroll-y .n-data-table-td:has(.n-button)
   min-width: 64px;
   flex: 0 0 auto;
   margin-left: auto;
+}
+
+body[data-er-page="invite"] .er-invite-record-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(76, 102, 231, 0.1);
+  border-radius: 14px;
+  background: rgba(238, 243, 255, 0.72);
+}
+
+body[data-er-page="invite"] .er-invite-record-tab {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--er-pages-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+body[data-er-page="invite"] .er-invite-record-tab:hover {
+  color: #3449a3;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+body[data-er-page="invite"] .er-invite-record-tab.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #08a9bd 0%, #7651ee 100%);
+  box-shadow: 0 8px 18px rgba(91, 78, 218, 0.2);
+}
+
+body[data-er-page="invite"] .er-invite-record-tab:focus-visible {
+  outline: 2px solid rgba(64, 92, 224, 0.5);
+  outline-offset: 2px;
 }
 
 /* Knowledge */
@@ -1018,6 +1089,15 @@ body[data-er-user-shell="true"] .n-dialog.n-modal .n-base-close {
 @media (max-width: 767px) {
   body[data-er-page] section.cus-scroll-y {
     padding: 14px !important;
+  }
+
+  body[data-er-page="invite"] section.cus-scroll-y {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-er-page="invite"] .er-invite-codes-card,
+  body[data-er-page="invite"] .er-invite-records-card {
+    grid-column: auto;
   }
 
   body[data-er-page] section.cus-scroll-y .n-card,
