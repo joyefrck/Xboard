@@ -217,7 +217,85 @@ git add app/Http/Controllers/V1/Guest/AppUpdateController.php tests/android-app-
 git commit -m "fix: compare builds for equal app versions"
 ```
 
-### Task 4: Verify the complete backend change
+### Task 4: Edit existing release build numbers
+
+**Files:**
+- Modify: `tests/admin-app-download-edit.test.js`
+- Modify: `resources/views/admin_app_downloads.blade.php`
+- Modify: `app/Http/Controllers/V2/Admin/AppPackageController.php`
+
+- [ ] **Step 1: Write the failing edit contract test**
+
+Require the edit form to render, prefill, and submit `build_number`, while the
+controller accepts only a positive integer for that field:
+
+```js
+assert.match(page, /版本号<input name="version"/);
+assert.match(page, /构建号<input name="build_number" type="number" min="1"/);
+assert.match(page, /\[name="build_number"\]'.*version\.build_number/);
+assert.match(page, /build_number:\s*versionEditForm\.querySelector/);
+assert.match(controller, /'build_number'\s*=>\s*'required\|integer\|min:1'/);
+assert.doesNotMatch(updateVersion, /'build_number'\s*=>\s*'prohibited'/);
+```
+
+- [ ] **Step 2: Run the focused test and confirm failure**
+
+```bash
+node --test tests/admin-app-download-edit.test.js
+```
+
+Expected: the build-field assertions fail and the old prohibited-field
+assertion no longer matches the desired contract.
+
+- [ ] **Step 3: Add and prefill the edit build field**
+
+Add the visible field after version:
+
+```html
+<label>构建号<input name="build_number" type="number" min="1" step="1" required></label>
+```
+
+Populate it in `openVersionEditor`:
+
+```js
+versionEditForm.querySelector('[name="build_number"]').value = version.build_number || "";
+```
+
+Include it in `editPayload`:
+
+```js
+build_number: versionEditForm.querySelector('[name="build_number"]').value,
+```
+
+- [ ] **Step 4: Permit the backend edit safely**
+
+Change the `updateVersion` validation rule to:
+
+```php
+'build_number' => 'required|integer|min:1',
+```
+
+Keep `app_id`, `platform`, `channel`, `arch`, `min_supported_build`, `is_force`,
+`is_enabled`, and `published_at` prohibited. The existing official-version
+validation and `$version->update($attributes)` will apply the new build value.
+
+- [ ] **Step 5: Run the focused test and PHP syntax check**
+
+```bash
+node --test tests/admin-app-download-edit.test.js
+php -l app/Http/Controllers/V2/Admin/AppPackageController.php
+```
+
+Expected: all edit tests pass and PHP reports no syntax errors.
+
+- [ ] **Step 6: Commit the edit contract**
+
+```bash
+git add tests/admin-app-download-edit.test.js resources/views/admin_app_downloads.blade.php app/Http/Controllers/V2/Admin/AppPackageController.php
+git commit -m "fix: edit app release build numbers"
+```
+
+### Task 5: Verify the complete backend change
 
 **Files:**
 - Verify: all modified files
@@ -259,4 +337,4 @@ Expected: no whitespace errors; only the known unrelated `storage/app/public/kno
 
 - [ ] **Step 5: Record the production follow-up without performing it**
 
-Report that source verification is complete but production remains unchanged. The production Windows row `2026.09.08`/`1788801302` must be disabled and replaced with the actual `2.0.6` version/build before the already-released client stops prompting.
+Report that source verification is complete but production remains unchanged. After deployment, edit the production Windows row `2026.09.08`/`1788801302` so both fields match the actual `2.0.6` installer before the already-released client stops prompting.
