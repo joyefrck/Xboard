@@ -316,6 +316,7 @@
       <form id="version-edit-form">
         <input type="hidden" name="id">
         <label>版本号<input name="version" required maxlength="32"></label>
+        <label>构建号<input name="build_number" type="number" min="1" step="1" required></label>
         <label>发布说明<textarea name="release_notes" maxlength="20000" placeholder="用于公开下载页展示"></textarea></label>
         <label>下载链接<input name="download_url" type="url" required maxlength="2048"></label>
         <label>安装包大小（MB，可选）<input name="file_size_mb" type="number" min="0" step="0.01"></label>
@@ -556,6 +557,7 @@
         versionEditForm.reset();
         versionEditForm.querySelector('[name="id"]').value = version.id;
         versionEditForm.querySelector('[name="version"]').value = version.version || "";
+        versionEditForm.querySelector('[name="build_number"]').value = version.build_number || "";
         versionEditForm.querySelector('[name="release_notes"]').value = version.release_notes || "";
         versionEditForm.querySelector('[name="download_url"]').value = version.download_url || "";
         versionEditForm.querySelector('[name="file_size_mb"]').value = version.file_size
@@ -685,6 +687,7 @@
           var editPayload = {
             id: versionEditForm.querySelector('[name="id"]').value,
             version: versionEditForm.querySelector('[name="version"]').value,
+            build_number: versionEditForm.querySelector('[name="build_number"]').value,
             release_notes: versionEditForm.querySelector('[name="release_notes"]').value,
             download_url: versionEditForm.querySelector('[name="download_url"]').value,
             file_size_mb: versionEditForm.querySelector('[name="file_size_mb"]').value,

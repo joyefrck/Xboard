@@ -222,6 +222,7 @@ class AppPackageController extends Controller
         $data = $request->validate([
             'id' => 'required|integer|exists:v2_app_versions,id',
             'version' => 'required|string|max:32',
+            'build_number' => 'required|integer|min:1',
             'release_notes' => 'nullable|string|max:20000',
             'download_url' => 'required|string|url|max:2048',
             'file_size_mb' => 'nullable|numeric|min:0',
@@ -230,7 +231,6 @@ class AppPackageController extends Controller
             'platform' => 'prohibited',
             'channel' => 'prohibited',
             'arch' => 'prohibited',
-            'build_number' => 'prohibited',
             'min_supported_build' => 'prohibited',
             'is_force' => 'prohibited',
             'is_enabled' => 'prohibited',
