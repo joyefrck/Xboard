@@ -204,6 +204,7 @@ class AppPackageController extends Controller
         }
 
         try {
+            $this->assertOfficialVersionMetadata($data, $app);
             $data = $this->normalizeExternalVersionData($data, $app, $data['platform']);
             $version = AppVersion::create($data);
         } catch (InvalidArgumentException $e) {
@@ -239,6 +240,7 @@ class AppPackageController extends Controller
         $version = AppVersion::with('app')->findOrFail($data['id']);
 
         try {
+            $this->assertOfficialVersionMetadata($data, $version->app);
             $attributes = $this->normalizeExternalVersionData($data, $version->app, $version->platform);
             unset($attributes['id']);
             $version->update($attributes);
@@ -297,6 +299,23 @@ class AppPackageController extends Controller
         $version->delete();
 
         return $this->success(true);
+    }
+
+    private function assertOfficialVersionMetadata(array $data, DistributionApp $app): void
+    {
+        if (!$app->isOfficialUpdate()) {
+            return;
+        }
+
+        $version = trim((string) ($data['version'] ?? ''));
+        $isSemantic = preg_match('/^v?\d+\.\d+\.\d+(?:[+-][a-z0-9][a-z0-9._-]*)?$/i', $version) === 1;
+        $isCalendarVersion = preg_match('/^v?20\d{2}\.\d{2}\.\d{2}(?:[+-]|$)/i', $version) === 1;
+
+        if (!$isSemantic || $isCalendarVersion) {
+            throw new InvalidArgumentException(
+                '官方 App 版本号必须与安装包一致，例如 2.0.6，不能使用发布日期'
+            );
+        }
     }
 
     private function normalizeExternalVersionData(

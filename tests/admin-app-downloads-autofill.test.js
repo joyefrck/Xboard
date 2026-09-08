@@ -62,6 +62,18 @@ test('admin app download publish form exposes app identity and version fields', 
   assert.doesNotMatch(page, /<input type="hidden" name="version"/);
 });
 
+test('official app publishing requires explicit package version metadata', () => {
+  const page = readRepoFile('resources/views/admin_app_downloads.blade.php');
+
+  assert.match(page, /<label>构建号<input name="build_number" type="number"/);
+  assert.doesNotMatch(page, /<input type="hidden" name="build_number">/);
+  assert.match(page, /function syncReleaseMetadataControls\(\)/);
+  assert.match(page, /scopeInput\.value === "official_update"/);
+  assert.match(page, /versionInput\.dataset\.generatedDefault/);
+  assert.match(page, /buildInput\.dataset\.generatedDefault/);
+  assert.match(page, /版本号和构建号必须与安装包一致/);
+});
+
 test('admin app package save uses app key as primary software identity', () => {
   const controller = readRepoFile('app/Http/Controllers/V2/Admin/AppPackageController.php');
 

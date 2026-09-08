@@ -66,6 +66,18 @@ test('admin creates and edits external link versions without uploaded files', ()
   assert.match(controller, /macOS 官方更新必须填写有效的 SHA256/);
 });
 
+test('official app versions reject calendar metadata at the server boundary', () => {
+  const controller = readRepoFile(
+    'app/Http/Controllers/V2/Admin/AppPackageController.php'
+  );
+
+  assert.match(controller, /assertOfficialVersionMetadata\(\$data,\s*\$app\)/);
+  assert.match(controller, /private function assertOfficialVersionMetadata\(/);
+  assert.match(controller, /\^v\?\\d\+\\\.\\d\+\\\.\\d\+/);
+  assert.match(controller, /\^v\?20\\d\{2\}\\\.\\d\{2\}\\\.\\d\{2\}/);
+  assert.match(controller, /官方 App 版本号必须与安装包一致/);
+});
+
 test('public downloads expose configured external links directly', () => {
   const guest = readRepoFile('app/Http/Controllers/V1/Guest/AppDownloadController.php');
   const update = readRepoFile('app/Http/Controllers/V1/Guest/AppUpdateController.php');

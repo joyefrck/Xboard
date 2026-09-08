@@ -229,7 +229,6 @@
         <input type="hidden" name="app_id">
         <input type="hidden" name="channel" value="stable">
         <input type="hidden" name="arch">
-        <input type="hidden" name="build_number">
         <input type="hidden" name="min_supported_build" value="0">
         <input type="hidden" name="is_force" value="0">
         <input type="hidden" name="is_enabled" value="1">
@@ -246,6 +245,8 @@
         <label>应用标识<input name="app_key" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="例如 elephant-route-android"></label>
         <p class="muted">第三方 App 的名称和标识可自行维护，同一个软件的后续版本必须保持一致，且不能使用大象官方保留标识；官方 App 会按平台自动锁定名称和标识，Android 名称固定为“大象网络官方App安卓版”，Windows/macOS 共用 elephant-route-desktop，名称固定为“大象网络官方App桌面版”。</p>
         <label>版本号<input name="version" required placeholder="例如 1.1.0"></label>
+        <label>构建号<input name="build_number" type="number" min="1" step="1" required placeholder="例如 20006"></label>
+        <p class="muted" id="release-metadata-help">第三方 App 可使用系统生成的目录版本；大象官方 App 的版本号和构建号必须与安装包一致。</p>
         <label>平台
           <select name="platform" required>
             <option value="android">Android</option>
@@ -414,20 +415,50 @@
         return now.getFullYear() + "." + month + "." + day;
       }
 
+      function applyGeneratedReleaseMetadata() {
+        var versionInput = packageForm.querySelector('[name="version"]');
+        var buildInput = packageForm.querySelector('[name="build_number"]');
+        versionInput.value = defaultVersion();
+        buildInput.value = Math.floor(Date.now() / 1000);
+        versionInput.dataset.generatedDefault = "1";
+        buildInput.dataset.generatedDefault = "1";
+      }
+
+      function syncReleaseMetadataControls() {
+        var scopeInput = packageForm.querySelector('[name="distribution_scope"]');
+        var versionInput = packageForm.querySelector('[name="version"]');
+        var buildInput = packageForm.querySelector('[name="build_number"]');
+        var isOfficial = scopeInput.value === "official_update";
+
+        if (isOfficial) {
+          if (versionInput.dataset.generatedDefault === "1") {
+            versionInput.value = "";
+          }
+          if (buildInput.dataset.generatedDefault === "1") {
+            buildInput.value = "";
+          }
+          versionInput.dataset.generatedDefault = "0";
+          buildInput.dataset.generatedDefault = "0";
+        } else if (!versionInput.value && !buildInput.value) {
+          applyGeneratedReleaseMetadata();
+        }
+      }
+
       function setPackageDefaults(force) {
         if (force) {
           packageForm.querySelector('[name="app_id"]').value = "";
           packageForm.querySelector('[name="app_key"]').value = "";
+          packageForm.querySelector('[name="version"]').dataset.generatedDefault = "0";
+          packageForm.querySelector('[name="build_number"]').dataset.generatedDefault = "0";
         }
-        if (force || !packageForm.querySelector('[name="build_number"]').value) {
+        if (force || !packageForm.querySelector('[name="channel"]').value) {
           packageForm.querySelector('[name="channel"]').value = "stable";
           packageForm.querySelector('[name="arch"]').value = "";
-          packageForm.querySelector('[name="version"]').value = defaultVersion();
-          packageForm.querySelector('[name="build_number"]').value = Math.floor(Date.now() / 1000);
           packageForm.querySelector('[name="min_supported_build"]').value = 0;
           packageForm.querySelector('[name="is_force"]').value = 0;
           packageForm.querySelector('[name="is_enabled"]').value = 1;
         }
+        syncReleaseMetadataControls();
         syncAppIdentityControls();
       }
 
@@ -702,8 +733,17 @@
         });
       }
 
-      packageForm.querySelector('[name="distribution_scope"]').addEventListener("change", syncAppIdentityControls);
+      packageForm.querySelector('[name="distribution_scope"]').addEventListener("change", function () {
+        syncAppIdentityControls();
+        syncReleaseMetadataControls();
+      });
       packageForm.querySelector('[name="platform"]').addEventListener("change", syncAppIdentityControls);
+      packageForm.querySelector('[name="version"]').addEventListener("input", function (event) {
+        event.target.dataset.generatedDefault = "0";
+      });
+      packageForm.querySelector('[name="build_number"]').addEventListener("input", function (event) {
+        event.target.dataset.generatedDefault = "0";
+      });
 
       packageForm.addEventListener("submit", async function (event) {
         event.preventDefault();
