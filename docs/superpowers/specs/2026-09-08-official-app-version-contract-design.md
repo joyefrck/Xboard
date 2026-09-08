@@ -47,10 +47,17 @@ timestamp build defaults remain available. Switching between scope or platform
 must resynchronize identity and version-field guidance without overwriting
 operator-entered official metadata.
 
+The published-version editor will show both `version` and `build_number`,
+prefilled from the selected row. Both fields are editable so an operator can
+repair inconsistent historical metadata without deleting and recreating the
+release. Identity, platform, channel, architecture, force-update state, and
+publication state remain locked.
+
 ## Server Validation
 
-`AppPackageController::saveVersion` remains the authoritative write boundary.
-For an official-update application it will require:
+`AppPackageController::saveVersion` and `AppPackageController::updateVersion`
+remain the authoritative write boundaries. For an official-update application
+they will require:
 
 - `version` in numeric semantic form with exactly three components, accepting an
   optional leading `v` and optional prerelease/build suffix;
@@ -60,6 +67,8 @@ For an official-update application it will require:
 Download-only applications retain the current permissive version string rule.
 Validation errors will use a Chinese operator-facing message explaining that
 the official version must match the package version, for example `2.0.6`.
+The update endpoint will accept `build_number` as a required positive integer
+while continuing to prohibit changes to app identity and release-state fields.
 
 ## Update Selection
 
@@ -80,9 +89,10 @@ write boundary is what protects already-released clients.
 ## Existing Production Record
 
 The current Windows row advertising `2026.09.08` must be corrected separately.
-The clean repair is to disable it and create a replacement whose version and
-build match the `2.0.6` installer. Editing only its version stops the immediate
-loop, but leaves an inaccurate timestamp build in release and telemetry data.
+After this change, the operator can edit the existing row and replace both its
+version and build with the values from the `2.0.6` installer. This stops the
+immediate loop without leaving an inaccurate timestamp build in release and
+telemetry data.
 
 ## Tests
 
@@ -91,6 +101,9 @@ Focused tests will cover:
 - official releases reject a date-style version and accept `2.0.6`;
 - download-only releases retain the existing flexible version behavior;
 - the admin form does not apply calendar/timestamp defaults to official Apps;
+- the edit form prefills and submits both version and build number;
+- the edit endpoint accepts a positive build number but continues to reject app
+  identity and release-state changes;
 - `2.0.6` does not consider an equal-version/equal-build release an update;
 - equal semantic versions use build number as the tiebreaker;
 - a lower semantic version is not promoted by a larger build number;
@@ -104,4 +117,6 @@ Focused tests will cover:
 - A client reporting the same version and build receives `has_update: false`.
 - A client reporting the same version and a lower build receives
   `has_update: true`.
+- An administrator can correct both version and build on an existing release,
+  and reopening the editor shows the saved values.
 - Existing download-only App publishing behavior is preserved.
