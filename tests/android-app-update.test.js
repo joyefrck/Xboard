@@ -25,13 +25,15 @@ test('guest app update endpoint scopes updates by app key and returns the direct
   assert.doesNotMatch(controller, /temporarySignedRoute|app-downloads\.download|download_handle/);
 });
 
-test('guest app update endpoint compares normalized app versions before build numbers', () => {
+test('guest app update endpoint uses build number only for equal or invalid versions', () => {
   const controller = readRepoFile('app/Http/Controllers/V1/Guest/AppUpdateController.php');
 
   assert.match(controller, /private function normalizeVersionParts\(string \s*\$version\): \?array/);
   assert.match(controller, /private function compareVersions\(string \s*\$left,\s*string \s*\$right\): \?int/);
   assert.match(controller, /\$versionComparison = \$this->compareVersions\(\$latest->version,\s*\$currentVersion\);/);
-  assert.match(controller, /\$hasUpdate = \$versionComparison !== null\s*\?\s*\$versionComparison > 0\s*:\s*\$latest->build_number > \$currentBuild;/);
+  assert.match(controller, /if \(\$versionComparison === null \|\| \$versionComparison === 0\)/);
+  assert.match(controller, /\$hasUpdate = \$latest->build_number > \$currentBuild;/);
+  assert.match(controller, /else \{\s*\$hasUpdate = \$versionComparison > 0;/);
   assert.match(controller, /Collection::make\(\$candidates\)->sort\(function \(AppVersion \$left,\s*AppVersion \$right\) \{/);
   assert.match(controller, /return \$this->compareVersions\(\$right->version,\s*\$left->version\)/);
 });

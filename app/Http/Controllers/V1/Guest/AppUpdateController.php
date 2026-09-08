@@ -86,9 +86,11 @@ class AppUpdateController extends Controller
         }
 
         $versionComparison = $this->compareVersions($latest->version, $currentVersion);
-        $hasUpdate = $versionComparison !== null
-            ? $versionComparison > 0
-            : $latest->build_number > $currentBuild;
+        if ($versionComparison === null || $versionComparison === 0) {
+            $hasUpdate = $latest->build_number > $currentBuild;
+        } else {
+            $hasUpdate = $versionComparison > 0;
+        }
         $force = $hasUpdate && ($latest->is_force || $currentBuild < $latest->min_supported_build);
         $latestPayload = $latest->toClientArray();
 
