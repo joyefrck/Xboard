@@ -17,7 +17,7 @@ class PlanService
     }
 
     /**
-     * 获取所有可销售的订阅计划列表
+     * 获取公开可销售的套餐列表，包含周期套餐和不限时套餐
      * 条件：show 和 sell 为 true，且容量充足
      *
      * @return Collection
@@ -25,9 +25,6 @@ class PlanService
     public function getAvailablePlans(): Collection
     {
         return $this->getSellablePlans()
-            ->filter(function (Plan $plan) {
-                return !$this->isTrafficPackagePlan($plan);
-            })
             ->values();
     }
 

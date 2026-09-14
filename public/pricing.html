@@ -534,7 +534,7 @@
                                         { key: 'year_price', label: '年付' },
                                         { key: 'two_year_price', label: '两年付' },
                                         { key: 'three_year_price', label: '三年付' },
-                                        { key: 'onetime_price', label: '一次性' }
+                                        { key: 'onetime_price', label: '不限时' }
                                     ];
                                     const activePricing = pricingPeriods.find(({ key }) => Number(plan[key]) > 0);
                                     const price = activePricing ? `￥${(Number(plan[activePricing.key]) / 100).toFixed(2)}` : '免费';
