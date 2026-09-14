@@ -1183,3 +1183,95 @@ body[data-er-user-shell="true"] .n-dialog.n-modal .n-base-close {
     transition-duration: 0.01ms !important;
   }
 }
+/* Native modal top layer covers the entire user shell, including floating widgets. */
+body[data-er-purchase-notice="open"] {
+  overflow: hidden;
+}
+
+.er-purchase-notice {
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 30px;
+  overflow-y: auto;
+  border: 1px solid rgba(110, 135, 185, 0.2);
+  border-radius: 24px;
+  background: linear-gradient(135deg, #fff, #f3f7ff);
+  color: #172036;
+  box-shadow: 0 28px 90px rgba(22, 35, 64, 0.24);
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.er-purchase-notice::backdrop {
+  background: rgba(19, 31, 52, 0.48);
+  backdrop-filter: blur(5px);
+}
+
+.er-purchase-notice__eyebrow {
+  color: #5066b2;
+  font-weight: 600;
+}
+
+.er-purchase-notice h2 {
+  margin: 6px 0 18px;
+  font-size: 22px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.er-purchase-notice__content p {
+  margin: 0 0 14px;
+}
+
+.er-purchase-notice__content strong {
+  font-weight: 650;
+}
+
+.er-purchase-notice__content .er-purchase-notice__policy {
+  margin-bottom: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(161, 112, 42, 0.14);
+  border-radius: 14px;
+  background: #fff8ee;
+  color: #795626;
+}
+
+.er-purchase-notice__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.er-purchase-notice__actions button {
+  min-height: 42px;
+  padding: 9px 18px;
+  border: 1px solid rgba(72, 90, 132, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.er-purchase-notice__actions .er-purchase-notice__continue {
+  border-color: transparent;
+  background: linear-gradient(105deg, #00abbc, #4c66e7 62%, #8759ec);
+  color: #fff;
+  font-weight: 600;
+}
+
+.er-purchase-notice__actions button:focus-visible {
+  outline: 3px solid #5066b2;
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .er-purchase-notice { padding: 24px 20px; }
+  .er-purchase-notice__actions { flex-direction: column-reverse; }
+  .er-purchase-notice__actions button { width: 100%; }
+}

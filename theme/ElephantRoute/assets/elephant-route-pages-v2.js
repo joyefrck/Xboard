@@ -109,6 +109,76 @@
     normalizeInviteCopyLabels(targetWindow);
   }
 
+  function createPurchaseNotice(targetWindow) {
+    var doc = targetWindow.document;
+    var previousRoute = '';
+    var acknowledged = false;
+    var dialog = null;
+
+    function close() {
+      if (!dialog) return;
+      var current = dialog;
+      dialog = null;
+      current.close();
+      current.remove();
+      doc.body.removeAttribute('data-er-purchase-notice');
+    }
+
+    function returnToStore() {
+      acknowledged = false;
+      close();
+      targetWindow.location.hash = '#/plan';
+      sync();
+    }
+
+    function sync() {
+      var route = normalizeRoute(targetWindow.location.hash);
+      if (route === previousRoute) return;
+      var previousPage = resolvePageKey(previousRoute);
+      var page = resolvePageKey(route);
+      previousRoute = route;
+      close();
+
+      if (page !== 'checkout' && page !== 'order-detail') {
+        acknowledged = false;
+        return;
+      }
+      // Creating an order after acknowledging its checkout is one purchase flow.
+      if (acknowledged && previousPage === 'checkout' && page === 'order-detail') return;
+      acknowledged = false;
+
+      dialog = doc.createElement('dialog');
+      dialog.className = 'er-purchase-notice';
+      dialog.setAttribute('aria-labelledby', 'er-purchase-notice-title');
+      dialog.setAttribute('aria-describedby', 'er-purchase-notice-description');
+      dialog.innerHTML = '<div class="er-purchase-notice__eyebrow">购买前请阅读</div>'
+        + '<h2 id="er-purchase-notice-title">服务支持与反馈须知</h2>'
+        + '<div id="er-purchase-notice-description" class="er-purchase-notice__content">'
+        + '<p>如您在购买、支付或节点使用过程中遇到问题，请通过<strong>站内工单</strong>或<strong>官方 Telegram 群</strong>联系我们，客服会及时跟进处理。</p>'
+        + '<p>为便于核实和解决问题，请统一通过上述官方渠道反馈，勿通过其他渠道发起投诉或施压。</p>'
+        + '<p class="er-purchase-notice__policy">违反此约定的行为一经核实，我们将<strong>停止提供服务并停用相关账号</strong>。感谢您的理解与配合。</p>'
+        + '</div><div class="er-purchase-notice__actions">'
+        + '<button type="button" data-er-notice-back>返回商店</button>'
+        + '<button type="button" class="er-purchase-notice__continue" data-er-notice-continue>我已了解，继续</button>'
+        + '</div>';
+      dialog.querySelector('[data-er-notice-back]').addEventListener('click', returnToStore);
+      dialog.querySelector('[data-er-notice-continue]').addEventListener('click', function () {
+        acknowledged = true;
+        close();
+      });
+      dialog.addEventListener('cancel', function (event) {
+        event.preventDefault();
+        returnToStore();
+      });
+      doc.body.appendChild(dialog);
+      doc.body.setAttribute('data-er-purchase-notice', 'open');
+      // A modal dialog uses the browser top layer and makes the background inert.
+      dialog.showModal();
+    }
+
+    return { sync: sync, destroy: close };
+  }
+
   function mount(targetWindow) {
     if (!targetWindow || !targetWindow.document || !targetWindow.document.body) {
       return function () {};
@@ -119,8 +189,11 @@
     }
 
     var active = true;
+    var purchaseNotice = createPurchaseNotice(targetWindow);
     var update = function () {
-      if (active) syncRoutePresentation(targetWindow);
+      if (!active) return;
+      syncRoutePresentation(targetWindow);
+      purchaseNotice.sync();
     };
 
     var observer = null;
@@ -142,6 +215,7 @@
       targetWindow.removeEventListener('hashchange', update);
       targetWindow.removeEventListener('popstate', update);
       if (observer) observer.disconnect();
+      purchaseNotice.destroy();
       targetWindow.document.body.removeAttribute('data-er-page');
       targetWindow.document.body.removeAttribute('data-er-user-shell');
       if (mountedWindows) mountedWindows.delete(targetWindow);
@@ -159,6 +233,7 @@
     applyRouteMarkers: applyRouteMarkers,
     normalizeInviteCopyLabels: normalizeInviteCopyLabels,
     syncRoutePresentation: syncRoutePresentation,
+    createPurchaseNotice: createPurchaseNotice,
     mount: mount
   };
 });
