@@ -710,6 +710,22 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "启用Telegram绑定引导",
         "description": "开启后将在用户端显示Telegram绑定引导，帮助用户绑定Telegram账户以接收通知。"
       },
+      "group_access": {
+        "title": "官方群入群审核",
+        "chat_id": "官方群 ID",
+        "description": "使用绑定 Bot 管理的私有群。付费或管理员发放套餐后获得长期资格，套餐过期仍保留。",
+        "check": "检查群配置",
+        "checking": "正在检查…",
+        "ready": "技术检查通过，启用前请完成下方人工核对。",
+        "not_ready": "配置未就绪，请核对群 ID、Bot 权限和 Webhook。",
+        "check_private": "私有群",
+        "check_bot": "Bot 审批权限",
+        "check_webhook": "入群 Webhook",
+        "pass": "通过",
+        "fail": "未通过",
+        "enable": "启用入群审核",
+        "prerequisites": "启用前须完成历史资格补录，撤销旧免审邀请，并禁止普通成员直接拉人。原群链接不再下发给用户；关闭后暂停新的入群申请。"
+      },
       "discuss_link": {
         "title": "群组链接",
         "description": "填写后将在用户端显示或在需要的地方使用。",

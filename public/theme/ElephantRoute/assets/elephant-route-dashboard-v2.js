@@ -61,6 +61,7 @@
     orders: '/api/v1/user/order/fetch',
     downloads: '/api/v1/app-downloads',
     telegramBot: '/api/v1/user/telegram/getBotInfo',
+    telegramGroup: '/api/v1/user/telegram/join-group',
     dify: '/api/v1/user/support/dify-context'
   };
   var NAV_ITEMS = [
@@ -81,6 +82,8 @@
     observer: null,
     retryTimer: null,
     modalLastFocus: null,
+    modalGeneration: 0,
+    groupJoining: false,
     loadGeneration: 0
   };
 
@@ -242,7 +245,7 @@
       bindVisible: enabled,
       bindDisabled: bound,
       bindLabel: bound ? '已绑定' : '绑定 Bot',
-      groupVisible: Boolean(comm.telegram_discuss_link),
+      groupVisible: Boolean(comm.telegram_group_access_enabled),
       description: bound
         ? 'Bot 已绑定，可接收订阅与服务提醒。'
         : enabled
@@ -1206,12 +1209,70 @@
   }
 
   function joinTelegramGroup() {
-    var comm = state.data.comm || {};
-    if (!comm.telegram_discuss_link) {
-      notify('error', '群组链接暂未配置');
-      return;
+    if (state.groupJoining) return;
+    state.groupJoining = true;
+    setButtonState('[data-action="join-telegram"]', true, '正在检查…');
+    openModal('加入官方群', 'Telegram 服务', function (body, footer) {
+      body.appendChild(createElement('p', '', '正在检查入群资格…'));
+      addModalCloseButton(footer);
+    });
+    var generation = state.modalGeneration;
+    function stillOpen() {
+      var modal = getModal();
+      return state.root && generation === state.modalGeneration && modal && modal.getAttribute('aria-hidden') === 'false';
     }
-    global.open(comm.telegram_discuss_link, '_blank', 'noopener,noreferrer');
+    function showResult(title, message, actionLabel, onAction) {
+      openModal(title, 'Telegram 服务', function (body, footer) {
+        body.appendChild(createElement('p', '', message));
+        if (onAction) {
+          var action = createElement('button', 'er-v2-button er-v2-button-primary', actionLabel);
+          action.type = 'button';
+          action.addEventListener('click', onAction);
+          var close = createElement('button', 'er-v2-button er-v2-button-secondary', '我知道了');
+          close.type = 'button';
+          close.dataset.action = 'close-modal';
+          footer.appendChild(close);
+          footer.appendChild(action);
+        } else {
+          addModalCloseButton(footer);
+        }
+      });
+    }
+    requestJson(ENDPOINTS.telegramGroup, { method: 'POST' }).then(function (payload) {
+      if (!stillOpen()) return;
+      var result = getResponseData(payload) || {};
+      if (result.state === 'ineligible') {
+        showResult('暂未获得入群资格', '官方群面向已购买服务或由管理员开通套餐的用户开放，套餐过期后仍可加入。若套餐由管理员开通，请联系支持核实资格。', '前往购买', function () { closeModal(); navigate('#/plan'); });
+      } else if (result.state === 'binding_required') {
+        state.data.user = Object.assign({}, state.data.user || {}, { telegram_id: null });
+        showResult('请先绑定 Telegram', '你已获得入群资格，请先绑定 Telegram 账号。绑定成功后，返回网站重新点击“加入群组”。', '绑定 Bot', openTelegramBinding);
+      } else if (result.state === 'ready' && /^https:\/\/t\.me\/(?:\+|joinchat\/)[A-Za-z0-9_-]+$/.test(result.invite_link || '')) {
+        var expiresAt = Number(result.expires_at) * 1000;
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('申请链接已过期，请重新获取');
+        showResult('入群资格验证通过', '请使用已绑定的 Telegram 账号申请入群，Bot 将自动核验身份。申请链接有效至 ' + new Date(expiresAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) + '。', '前往 Telegram 申请入群', function () {
+          if (Date.now() >= expiresAt) { notify('error', '申请链接已过期，请重新点击加入群组'); return; }
+          global.open(result.invite_link, '_blank', 'noopener,noreferrer');
+        });
+      } else if (result.state === 'already_member') {
+        showResult('你已加入官方群', '请在 Telegram 中打开已加入的官方群，无需重复申请。');
+      } else if (result.state === 'binding_conflict') {
+        showResult('请核实 Telegram 绑定', '当前 Telegram 绑定存在冲突或更换记录，请联系支持核实后再申请入群。');
+      } else if (result.state === 'blocked') {
+        showResult('暂不可申请入群', '当前账号暂不可申请入群，请联系支持。');
+      } else {
+        showResult('入群服务暂不可用', '请稍后重试，或联系支持确认官方群开放情况。');
+      }
+    }).catch(function (error) {
+      if (!stillOpen()) return;
+      if (error.status === 401 || error.status === 403) {
+        showResult('请重新登录', '登录状态已失效，请重新登录后申请入群。', '重新登录', function () { closeModal(); navigate('#/login'); });
+      } else {
+        showResult('暂时无法申请入群', '入群服务暂时不可用，请稍后重试。');
+      }
+    }).finally(function () {
+      state.groupJoining = false;
+      setButtonState('[data-action="join-telegram"]', false, '加入群组');
+    });
   }
 
   function openTelegramBinding() {
@@ -1229,8 +1290,9 @@
       body.appendChild(createElement('p', 'er-v2-modal-loading', '正在加载 Bot 信息…'));
       addModalCloseButton(footer);
     });
+    var bindingGeneration = state.modalGeneration;
     Promise.all([requestJson(ENDPOINTS.telegramBot), requestJson(ENDPOINTS.subscribe)]).then(function (payloads) {
-      if (!state.root) return;
+      if (!state.root || state.modalGeneration !== bindingGeneration) return;
       var bot = getResponseData(payloads[0]) || {};
       var subscribe = getResponseData(payloads[1]) || {};
       var body = getModalBody();
@@ -1267,6 +1329,7 @@
       body.appendChild(stepOne);
       body.appendChild(stepTwo);
     }).catch(function (error) {
+      if (state.modalGeneration !== bindingGeneration) return;
       var body = getModalBody();
       if (body) body.textContent = error.message || '绑定信息加载失败';
     });
@@ -1333,6 +1396,7 @@
 
   function openModal(title, kicker, render) {
     if (!state.root) return;
+    state.modalGeneration += 1;
     var modal = getModal();
     if (!modal) return;
     var body = modal.querySelector('[data-modal-body]');
@@ -1359,6 +1423,7 @@
   }
 
   function closeModal() {
+    state.modalGeneration += 1;
     var modal = getModal();
     document.body.classList.remove('er-v2-modal-open');
     if (!modal || modal.getAttribute('aria-hidden') === 'true') return;

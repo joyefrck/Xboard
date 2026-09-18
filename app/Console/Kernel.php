@@ -35,6 +35,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('check:order')->everyMinute()->onOneServer();
         $schedule->command('check:commission')->everyMinute()->onOneServer();
         $schedule->command('check:ticket')->everyMinute()->onOneServer();
+        $schedule->command('telegram:group-retry')->everyMinute()->onOneServer()->withoutOverlapping(20)->runInBackground();
         // reset
         $schedule->command('reset:traffic')->everyMinute()->onOneServer();
         $schedule->command('reset:log')->daily()->onOneServer();

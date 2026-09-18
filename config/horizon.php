@@ -202,6 +202,17 @@ return [
                 'maxProcesses' => 1,
                 'tries' => 1,
             ],
+            'XboardTelegramGroup' => [
+                'connection' => 'telegram_group',
+                'queue' => ['telegram_group'],
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
+                'tries' => 3,
+                'timeout' => 220,
+                'maxJobs' => 25,
+                'maxTime' => 900,
+            ],
             'XboardTelegram' => [
                 'connection' => 'redis',
                 'queue' => ['send_telegram'],

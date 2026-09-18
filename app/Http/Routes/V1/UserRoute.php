@@ -78,6 +78,8 @@ class UserRoute
             $router->get('/gift-card/types', [GiftCardController::class, 'types']);
             // Telegram
             $router->get('/telegram/getBotInfo', [TelegramController::class, 'getBotInfo']);
+            $router->get('/telegram/group-status', [TelegramController::class, 'groupStatus']);
+            $router->post('/telegram/join-group', [TelegramController::class, 'joinGroup'])->middleware('throttle:6,1');
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
             $router->Post('/comm/getStripePublicKey', [CommController::class, 'getStripePublicKey']);

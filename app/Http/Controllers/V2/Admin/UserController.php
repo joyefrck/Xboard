@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V2\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\TelegramGroupEligibilityService;
 use App\Http\Requests\Admin\UserGenerate;
 use App\Http\Requests\Admin\UserSendMail;
 use App\Http\Requests\Admin\UserUpdate;
@@ -354,14 +355,21 @@ class UserController extends Controller
             $params['commission_balance'] = $params['commission_balance'] * 100;
         }
 
+        $grantsGroupAccess = TelegramGroupEligibilityService::isAdminPlanGrant($user, $params);
+        $operatorId = (int) $request->user()->id;
         try {
             DB::transaction(function () use (
                 $user,
                 $params,
                 $trafficPackage,
-                $trafficPackageAddGb
+                $trafficPackageAddGb,
+                $grantsGroupAccess,
+                $operatorId
             ): void {
-                $user->update($params);
+                if (!$user->update($params)) throw new \RuntimeException('用户信息保存失败');
+                if ($grantsGroupAccess) {
+                    app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_plan', (int) $user->plan_id, $operatorId);
+                }
 
                 if ($trafficPackage && $trafficPackageAddGb !== null) {
                     app(TrafficPackageService::class)->grantByAdmin(
@@ -369,6 +377,7 @@ class UserController extends Controller
                         $trafficPackage,
                         (int) $trafficPackageAddGb
                     );
+                    app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_package', (int) $trafficPackage->id, $operatorId);
                 }
             });
         } catch (\Throwable $e) {
@@ -479,9 +488,12 @@ class UserController extends Controller
                 'expired_at' => $request->input('expired_at'),
             ]);
 
-            if (!$user->save()) {
-                return $this->fail([500, '生成失败']);
-            }
+            DB::transaction(function () use ($user, $request): void {
+                if (!$user->saveOrFail()) throw new \RuntimeException('用户信息保存失败');
+                if ($request->input('plan_id') && $user->plan_id) {
+                    app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_plan', (int) $user->plan_id, (int) $request->user()->id);
+                }
+            });
             return $this->success(true);
         }
 
@@ -512,7 +524,10 @@ class UserController extends Controller
             $users = [];
             foreach ($usersData as $userData) {
                 $user = $userService->createUser($userData);
-                $user->save();
+                if (!$user->saveOrFail()) throw new \RuntimeException('用户信息保存失败');
+                if ($request->input('plan_id') && $user->plan_id) {
+                    app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_plan', (int) $user->plan_id, (int) $request->user()->id);
+                }
                 $users[] = $user;
             }
             DB::commit();

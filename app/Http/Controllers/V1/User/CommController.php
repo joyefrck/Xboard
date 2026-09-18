@@ -14,7 +14,9 @@ class CommController extends Controller
     {
         $data = [
             'is_telegram' => (int)admin_setting('telegram_bot_enable', 0),
-            'telegram_discuss_link' => admin_setting('telegram_discuss_link'),
+            // Raw invite links must not bypass server-side eligibility checks.
+            'telegram_discuss_link' => null,
+            'telegram_group_access_enabled' => app(\App\Services\TelegramGroupAccessService::class)->enabled(),
             'stripe_pk' => admin_setting('stripe_pk_live'),
             'withdraw_methods' => admin_setting('commission_withdraw_method', Dict::WITHDRAW_METHOD_WHITELIST_DEFAULT),
             'withdraw_close' => (int)admin_setting('withdraw_close_enable', 0),

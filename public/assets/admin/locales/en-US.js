@@ -790,6 +790,22 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "title": "Enable Telegram Binding Guide",
         "description": "When enabled, a Telegram binding guide will be displayed on the user side to help users bind their Telegram accounts for notifications."
       },
+      "group_access": {
+        "title": "Official group admission",
+        "chat_id": "Official group ID",
+        "description": "Use a private group managed by the account-binding bot. Purchases and admin-granted plans provide lasting eligibility, including after expiry.",
+        "check": "Check group setup",
+        "checking": "Checking…",
+        "ready": "Technical checks passed. Complete the manual checks below before enabling.",
+        "not_ready": "Setup is not ready. Check the group ID, bot permissions and webhook.",
+        "check_private": "Private group",
+        "check_bot": "Bot approval permission",
+        "check_webhook": "Join-request webhook",
+        "pass": "Passed",
+        "fail": "Not passed",
+        "enable": "Enable admission review",
+        "prerequisites": "First backfill verified historical eligibility, revoke old unrestricted invites and prevent members from adding people directly. Raw group links are no longer exposed. Disabling pauses new admissions."
+      },
       "discuss_link": {
         "title": "Group Link",
         "description": "Once filled in, it will be displayed on the user side or used where needed.",

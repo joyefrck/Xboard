@@ -58,6 +58,14 @@ return [
             'region' => env('AWS_V2BOARD_REGION', 'us-east-1'),
         ],
 
+        'telegram_group' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'telegram_group',
+            'retry_after' => 300,
+            'block_for' => null,
+        ],
+
         'redis' => [
             'driver' => 'redis',
             'connection' => 'default',

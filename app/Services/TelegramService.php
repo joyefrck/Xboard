@@ -81,6 +81,29 @@ class TelegramService
         )));
     }
 
+    public function getChat(int $chatId): object
+    {
+        return $this->request('getChat', ['chat_id' => $chatId]);
+    }
+
+    public function getChatMember(int $chatId, int $userId): object
+    {
+        return $this->request('getChatMember', ['chat_id' => $chatId, 'user_id' => $userId]);
+    }
+
+    public function createChatInviteLink(int $chatId, int $expiresAt): object
+    {
+        return $this->request('createChatInviteLink', [
+            'chat_id' => $chatId, 'expire_date' => $expiresAt, 'creates_join_request' => 'true',
+            'name' => 'Website group access',
+        ]);
+    }
+
+    public function revokeChatInviteLink(int $chatId, string $link): object
+    {
+        return $this->request('revokeChatInviteLink', ['chat_id' => $chatId, 'invite_link' => $link]);
+    }
+
     public function approveChatJoinRequest(int $chatId, int $userId): void
     {
         $this->request('approveChatJoinRequest', [
@@ -140,7 +163,7 @@ class TelegramService
 
         } catch (\Exception $e) {
             Log::error('Telegram Bot 命令注册失败', [
-                'error' => $e->getMessage(),
+                'error' => get_class($e),
                 'trace' => $e->getTraceAsString()
             ]);
         }
@@ -248,10 +271,10 @@ class TelegramService
             Log::error('Telegram API 请求失败', [
                 'method' => $method,
                 'params' => $this->redactParams($params),
-                'error' => $e->getMessage(),
+                'error' => get_class($e),
             ]);
 
-            throw new ApiException("Telegram 服务错误: {$e->getMessage()}");
+            throw new ApiException('Telegram 服务暂时不可用，请稍后重试');
         }
     }
 
@@ -272,7 +295,7 @@ class TelegramService
 
     private function redactParams(array $params): array
     {
-        foreach (['secret_token', 'text'] as $sensitiveKey) {
+        foreach (['secret_token', 'text', 'invite_link', 'url'] as $sensitiveKey) {
             if (array_key_exists($sensitiveKey, $params)) {
                 $params[$sensitiveKey] = '[REDACTED]';
             }

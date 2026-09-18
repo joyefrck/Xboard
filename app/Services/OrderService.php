@@ -177,6 +177,7 @@ class OrderService
             if (!$order->save()) {
                 throw new \RuntimeException('订单信息保存失败');
             }
+            app(TelegramGroupEligibilityService::class)->grantFromOrder($order);
         });
 
         $eventId = match ((int) $order->type) {

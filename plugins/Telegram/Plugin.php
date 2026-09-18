@@ -331,11 +331,20 @@ class Plugin extends AbstractPlugin
       return;
     }
 
-    $user->telegram_id = $msg->chat_id;
-    if (!$user->save()) {
-      $this->sendMessage($msg, '设置失败');
+    $bound = \Illuminate\Support\Facades\Cache::lock('telegram-binding:' . $msg->chat_id, 15)->block(3, function () use ($user, $msg) {
+      return \Illuminate\Support\Facades\DB::transaction(function () use ($user, $msg) {
+        $current = User::whereKey($user->id)->lockForUpdate()->first();
+        if (!$current || $current->telegram_id || User::where('telegram_id', $msg->chat_id)->exists()) return false;
+        $current->telegram_id = $msg->chat_id;
+        $current->saveOrFail();
+        return true;
+      });
+    });
+    if (!$bound) {
+      $this->sendMessage($msg, '该网站账号或 Telegram 账号已绑定，请联系支持核实');
       return;
     }
+    $user->refresh();
 
     HookManager::call('user.telegram.bind.after', [$user]);
     $this->sendMessage($msg, '绑定成功');

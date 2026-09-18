@@ -4,36 +4,34 @@ namespace App\Http\Controllers\V1\Guest;
 
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Jobs\ProcessTelegramGroupRequest;
+use App\Services\TelegramGroupAccessService;
 use App\Services\Plugin\HookManager;
 use App\Services\TelegramService;
-use App\Services\UserService;
 use Illuminate\Http\Request;
 
 class TelegramController extends Controller
 {
     protected ?object $msg = null;
     protected TelegramService $telegramService;
-    protected UserService $userService;
-
-    public function __construct(TelegramService $telegramService, UserService $userService)
-    {
-        $this->telegramService = $telegramService;
-        $this->userService = $userService;
-    }
 
     public function webhook(Request $request): void
     {
         $expectedToken = md5(admin_setting('telegram_bot_token'));
-        if ($request->input('access_token') !== $expectedToken) {
+        if (!admin_setting('telegram_bot_token') || !hash_equals($expectedToken, (string) $request->input('access_token', ''))) {
             throw new ApiException('access_token is error', 401);
         }
 
         $data = $request->json()->all();
 
+        $this->msg = null;
+        if (isset($data['chat_join_request'])) {
+            $join = app(TelegramGroupAccessService::class)->record($data);
+            if ($join && $join->status === 'pending') ProcessTelegramGroupRequest::dispatch($join->id);
+            return;
+        }
         $this->formatMessage($data);
         $this->formatCallbackQuery($data);
-        $this->formatChatJoinRequest($data);
         $this->handle();
     }
 
@@ -41,6 +39,7 @@ class TelegramController extends Controller
     {
         if (!$this->msg)
             return;
+        $this->telegramService = app(TelegramService::class);
         $msg = $this->msg;
         $this->processBotName($msg);
         try {
@@ -123,30 +122,4 @@ class TelegramController extends Controller
         ];
     }
 
-    private function formatChatJoinRequest(array $data): void
-    {
-        $joinRequest = $data['chat_join_request'] ?? null;
-        if (!$joinRequest)
-            return;
-
-        $chatId = $joinRequest['chat']['id'] ?? null;
-        $userId = $joinRequest['from']['id'] ?? null;
-
-        if (!$chatId || !$userId)
-            return;
-
-        $user = User::where('telegram_id', $userId)->first();
-
-        if (!$user) {
-            $this->telegramService->declineChatJoinRequest($chatId, $userId);
-            return;
-        }
-
-        if (!$this->userService->isAvailable($user)) {
-            $this->telegramService->declineChatJoinRequest($chatId, $userId);
-            return;
-        }
-
-        $this->telegramService->approveChatJoinRequest($chatId, $userId);
-    }
 }

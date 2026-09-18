@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\User;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\TelegramService;
+use App\Services\TelegramGroupAccessService;
 use Illuminate\Http\Request;
 
 class TelegramController extends Controller
@@ -17,6 +18,20 @@ class TelegramController extends Controller
             'username' => $response->result->username
         ];
         return $this->success($data);
+    }
+
+    public function groupStatus(Request $request, TelegramGroupAccessService $service)
+    {
+        return $this->success($service->status($request->user()))->header('Cache-Control', 'no-store');
+    }
+
+    public function joinGroup(Request $request, TelegramGroupAccessService $service)
+    {
+        try {
+            return $this->success($service->issue($request->user()))->header('Cache-Control', 'no-store');
+        } catch (\Throwable) {
+            return $this->fail([503, '入群服务暂时不可用，请稍后重试'])->header('Cache-Control', 'no-store');
+        }
     }
 
     public function unbind(Request $request)

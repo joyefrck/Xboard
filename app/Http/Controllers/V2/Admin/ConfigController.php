@@ -13,6 +13,7 @@ use App\Protocols\Surge;
 use App\Services\MailService;
 use App\Services\Plugin\PluginConfigService;
 use App\Services\TelegramService;
+use App\Services\TelegramGroupAccessService;
 use App\Services\TelegramBotProfile;
 use App\Services\TelegramCredentialService;
 use App\Services\ThemeService;
@@ -77,12 +78,12 @@ class ConfigController extends Controller
         $app_url = admin_setting('app_url');
         if (blank($app_url))
             return $this->fail([422, '请先设置站点网址']);
-        $hookUrl = $app_url . '/api/v1/guest/telegram/webhook?' . http_build_query([
+        $hookUrl = rtrim($app_url, '/') . '/api/v1/guest/telegram/webhook?' . http_build_query([
             'access_token' => md5(admin_setting('telegram_bot_token', $request->input('telegram_bot_token')))
         ]);
         $telegramService = new TelegramService($request->input('telegram_bot_token'));
         $telegramService->getMe();
-        $telegramService->setWebhook($hookUrl);
+        $telegramService->setWebhook($hookUrl, ['allowed_updates' => ['message', 'callback_query', 'chat_join_request']]);
         $telegramService->registerBotCommands();
         return $this->success(true);
     }
@@ -274,6 +275,8 @@ class ConfigController extends Controller
                     ->hasToken(TelegramBotProfile::TICKET),
                 'telegram_ticket_bot_username' => admin_setting('telegram_ticket_bot_username', ''),
                 'telegram_ticket_webhook_configured' => $this->ticketTelegramWebhookConfigured(),
+                'telegram_discuss_id' => (string) admin_setting('telegram_discuss_id', ''),
+                'telegram_group_access_enable' => (bool) admin_setting('telegram_group_access_enable', false),
                 'telegram_discuss_link' => admin_setting('telegram_discuss_link')
             ],
             'app' => [
@@ -327,6 +330,16 @@ class ConfigController extends Controller
         ];
     }
 
+    public function checkTelegramGroup(Request $request, TelegramGroupAccessService $service)
+    {
+        $data = $request->validate(['telegram_discuss_id' => ['required', 'regex:/^-\d{1,18}$/']]);
+        try {
+            return $this->success($service->checkConfiguration((int) $data['telegram_discuss_id']));
+        } catch (\Throwable) {
+            return $this->fail([422, '无法检查群设置，请核对群 ID、Bot 权限和 Webhook']);
+        }
+    }
+
     public function save(ConfigSave $request, TelegramCredentialService $credentials)
     {
         $data = $request->validated();
@@ -338,6 +351,30 @@ class ConfigController extends Controller
         if (($data['telegram_ticket_bot_enable'] ?? false)
             && !$this->ticketTelegramWebhookConfigured()) {
             return $this->fail([422, '请先设置工单机器人 Webhook']);
+        }
+
+        $groupEnabled = (bool) ($data['telegram_group_access_enable'] ?? admin_setting('telegram_group_access_enable', false));
+        if ($groupEnabled) {
+            foreach (['telegram_bot_token', 'app_url'] as $key) {
+                if (array_key_exists($key, $data) && (string) $data[$key] !== (string) admin_setting($key, '')) {
+                    return $this->fail([422, '请先关闭入群审核，再修改 Bot 令牌或站点网址并重新设置 Webhook']);
+                }
+            }
+        }
+        $groupChanged = false;
+        foreach (['telegram_group_access_enable', 'telegram_discuss_id', 'telegram_bot_enable'] as $key) {
+            if (array_key_exists($key, $data) && (string) $data[$key] !== (string) admin_setting($key, '')) $groupChanged = true;
+        }
+        if ($groupEnabled && $groupChanged) {
+            if (!(bool) ($data['telegram_bot_enable'] ?? admin_setting('telegram_bot_enable', false))) {
+                return $this->fail([422, '启用入群审核前请先启用绑定 Bot']);
+            }
+            try {
+                $ready = app(TelegramGroupAccessService::class)->checkConfiguration((int) ($data['telegram_discuss_id'] ?? admin_setting('telegram_discuss_id', 0)));
+                if (!$ready['ready']) return $this->fail([422, '请先配置私有群、Bot 审批权限和入群 Webhook']);
+            } catch (\Throwable) {
+                return $this->fail([422, '群配置检查失败，未启用入群审核']);
+            }
         }
 
         foreach ($data as $k => $v) {

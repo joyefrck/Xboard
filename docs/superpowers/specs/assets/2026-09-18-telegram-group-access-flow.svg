@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1430" viewBox="0 0 1200 1430" role="img" aria-labelledby="title desc">
+<title id="title">大象网络 Telegram 入群流程 · 评审稿</title>
+<desc id="desc">历史付费、管理员赠送或手动添加套餐可获得长期入群资格。登录且账号正常后，依次校验资格、绑定 Telegram、签发短期申请链接，由 Bot 校验实际申请人后批准入群。过期和流量耗尽不影响资格。</desc>
+<style>text{font-family:"PingFang SC","Microsoft YaHei",sans-serif;fill:#111827} .sub{fill:#6b7280;font-size:16px} .label{font-size:17px;font-weight:500}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7Z" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7Z" fill="#ea580c"/></marker>
+<marker id="arrow-green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7Z" fill="#059669"/></marker>
+</defs><rect width="1200" height="1430" fill="#ffffff"/>
+<text x="40" y="51" font-size="30" text-anchor="start" font-weight="600" style="fill:#111827">大象网络 · Telegram 入群流程</text>
+<text x="40" y="83" font-size="16" text-anchor="start" font-weight="400" style="fill:#6b7280">评审稿  v1.0  /  2026-09-18  /  尚未实施</text>
+<rect x="40" y="106" width="1120" height="48" rx="10" fill="#f0fdf4"/>
+<text x="600" y="137" font-size="19" text-anchor="middle" font-weight="500" style="fill:#166534">付费购买、后台赠送、管理员添加 → 长期保留资格；套餐过期、流量耗尽不影响</text>
+<rect x="460" y="180" width="320" height="70" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="620.0" y="212.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">点击「加入群组」</text>
+<text x="620.0" y="240.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">已登录网站账号</text>
+<path d="M 620 267 L 780 325 L 620 383 L 460 325 Z" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="620" y="323" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">账号正常？</text>
+<text x="620" y="348" font-size="15" text-anchor="middle" font-weight="400" style="fill:#6b7280">未封禁</text>
+<path d="M 620 452 L 780 510 L 620 568 L 460 510 Z" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="620" y="508" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">有入群资格？</text>
+<text x="620" y="533" font-size="15" text-anchor="middle" font-weight="400" style="fill:#6b7280">查询长期资格记录</text>
+<path d="M 620 637 L 780 695 L 620 753 L 460 695 Z" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="620" y="702" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">已绑定 Telegram？</text>
+<rect x="460" y="840" width="320" height="80" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="620.0" y="877.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">签发入群申请链接</text>
+<text x="620.0" y="905.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">绑定本人 · 建议 10 分钟有效</text>
+<rect x="460" y="975" width="320" height="80" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="620.0" y="1012.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">前往 Telegram 申请</text>
+<text x="620.0" y="1040.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">使用绑定的 Telegram 账号</text>
+<path d="M 620 1107 L 780 1165 L 620 1223 L 460 1165 Z" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="620" y="1163" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">Bot 复核通过？</text>
+<text x="620" y="1188" font-size="15" text-anchor="middle" font-weight="400" style="fill:#6b7280">本人、资格、群组、链接</text>
+<rect x="460" y="1300" width="320" height="80" rx="12" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="620.0" y="1337.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">批准加入官方群</text>
+<text x="620.0" y="1365.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">套餐以后到期仍保留资格</text>
+<rect x="880" y="288" width="280" height="74" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1020.0" y="322.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">暂停入群</text>
+<text x="1020.0" y="350.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">联系支持处理账号状态</text>
+<rect x="880" y="467" width="280" height="86" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1020.0" y="507.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">提示未获得资格</text>
+<text x="1020.0" y="535.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">购买套餐或由管理员发放</text>
+<rect x="880" y="647" width="280" height="96" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1020.0" y="692.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">先绑定 Bot</text>
+<text x="1020.0" y="720.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">绑定成功后重新点击加入群组</text>
+<rect x="880" y="1117" width="280" height="96" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1020.0" y="1162.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">不批准本次申请</text>
+<text x="1020.0" y="1190.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">身份不符、无资格或链接失效</text>
+<path d="M620 250 V267" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 383 V452" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 568 V637" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 753 V840" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 920 V975" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 1055 V1107" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<path d="M620 1223 V1300" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="626.0" y="401" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="642" y="420" font-size="17" text-anchor="middle" font-weight="400" style="fill:#2563eb">是</text>
+<rect x="626.0" y="586" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="642" y="605" font-size="17" text-anchor="middle" font-weight="400" style="fill:#2563eb">是</text>
+<rect x="626.0" y="778" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="642" y="797" font-size="17" text-anchor="middle" font-weight="400" style="fill:#2563eb">是</text>
+<rect x="626.0" y="1248" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="642" y="1267" font-size="17" text-anchor="middle" font-weight="400" style="fill:#2563eb">是</text>
+<path d="M780 325 H880" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="813.0" y="308" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="829" y="327" font-size="17" text-anchor="middle" font-weight="400" style="fill:#ea580c">否</text>
+<path d="M780 510 H880" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="813.0" y="493" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="829" y="512" font-size="17" text-anchor="middle" font-weight="400" style="fill:#ea580c">否</text>
+<path d="M780 695 H880" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="813.0" y="678" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="829" y="697" font-size="17" text-anchor="middle" font-weight="400" style="fill:#ea580c">否</text>
+<path d="M780 1165 H880" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<rect x="813.0" y="1148" width="32" height="25" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="829" y="1167" font-size="17" text-anchor="middle" font-weight="400" style="fill:#ea580c">否</text>
+<rect x="40" y="215" width="320" height="232" rx="12" fill="#f0fdf4" stroke="#bbf7d0"/>
+<text x="62" y="249" font-size="20" text-anchor="start" font-weight="600" style="fill:#111827">资格来源 · 任意满足一项</text>
+<text x="62" y="292" font-size="19" text-anchor="start" font-weight="500" style="fill:#111827">① 成功付费购买</text>
+<text x="62" y="315" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">套餐 / 流量包 / 余额消费</text>
+<text x="62" y="352" font-size="19" text-anchor="start" font-weight="500" style="fill:#111827">② 后台直接赠送套餐</text>
+<text x="62" y="375" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">管理员发放成功</text>
+<text x="62" y="412" font-size="19" text-anchor="start" font-weight="500" style="fill:#111827">③ 管理员手动添加套餐</text>
+<text x="62" y="435" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">含创建账号时分配套餐</text>
+<rect x="40" y="490" width="320" height="86" rx="12" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="200.0" y="530.0" font-size="21" text-anchor="middle" font-weight="600" style="fill:#111827">保存长期资格</text>
+<text x="200.0" y="558.0" font-size="16" text-anchor="middle" font-weight="400" style="fill:#6b7280">记录来源、时间和操作人</text>
+<path d="M200 447 V490" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<path d="M360 533 H410 V510 H460" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<text x="40" y="614" font-size="19" text-anchor="start" font-weight="600" style="fill:#111827">资格归属：网站账号</text>
+<text x="40" y="646" font-size="18" text-anchor="start" font-weight="400" style="fill:#111827">到期 / 流量耗尽：保留</text>
+<text x="40" y="676" font-size="18" text-anchor="start" font-weight="400" style="fill:#111827">封禁期间：暂停入群</text>
+<text x="40" y="706" font-size="18" text-anchor="start" font-weight="400" style="fill:#111827">自动试用：不自动授予</text>
+<text x="40" y="736" font-size="18" text-anchor="start" font-weight="400" style="fill:#111827">历史来源不明：人工核对补录</text>
+<rect x="40" y="845" width="320" height="376" rx="12" fill="#f9fafb" stroke="#e5e7eb"/>
+<text x="62" y="882" font-size="21" text-anchor="start" font-weight="600" style="fill:#111827">异常与恢复</text>
+<text x="62" y="925" font-size="17" text-anchor="start" font-weight="500" style="fill:#111827">链接过期</text>
+<text x="62" y="949" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">返回网站重新获取</text>
+<text x="62" y="986" font-size="17" text-anchor="start" font-weight="500" style="fill:#111827">尚未绑定 / Telegram 号不符</text>
+<text x="62" y="1010" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">完成绑定或切换至正确账号</text>
+<text x="62" y="1047" font-size="17" text-anchor="start" font-weight="500" style="fill:#111827">Bot / 网络异常</text>
+<text x="62" y="1071" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">保留申请，等待重试；不自动放行</text>
+<text x="62" y="1108" font-size="17" text-anchor="start" font-weight="500" style="fill:#111827">群组已加入</text>
+<text x="62" y="1132" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">无需再次申请</text>
+<text x="62" y="1169" font-size="17" text-anchor="start" font-weight="500" style="fill:#111827">已有成员</text>
+<text x="62" y="1193" font-size="15" text-anchor="start" font-weight="400" style="fill:#6b7280">本次不批量清理，不因过期踢人</text>
+<rect x="880" y="836" width="280" height="190" rx="12" fill="#f9fafb" stroke="#e5e7eb"/>
+<text x="900" y="872" font-size="20" text-anchor="start" font-weight="600" style="fill:#111827">群侧启用条件</text>
+<text x="900" y="908" font-size="16" text-anchor="start" font-weight="400" style="fill:#111827">私有群 + 入群申请审批</text>
+<text x="900" y="942" font-size="16" text-anchor="start" font-weight="400" style="fill:#111827">Bot 拥有邀请 / 审批权限</text>
+<text x="900" y="976" font-size="16" text-anchor="start" font-weight="400" style="fill:#111827">撤销旧免审链接，限制直接拉人</text>
+<path d="M48 1410 H76" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="88" y="1416" font-size="14" text-anchor="start" font-weight="400" style="fill:#6b7280">正常流程</text>
+<path d="M233 1410 H261" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-orange)"/>
+<text x="273" y="1416" font-size="14" text-anchor="start" font-weight="400" style="fill:#6b7280">拦截 / 补充操作</text>
+<path d="M480 1410 H508" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<text x="520" y="1416" font-size="14" text-anchor="start" font-weight="400" style="fill:#6b7280">资格写入 / 读取</text>
+<text x="1158" y="1416" font-size="13" text-anchor="end" font-weight="400" style="fill:#6b7280">完整口径、历史补录与验收场景见配套说明书</text>
+</svg>

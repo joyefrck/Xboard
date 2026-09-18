@@ -32,8 +32,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260918telegramBinding1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260918telegramBinding1/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260918telegramGroup1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260918telegramGroup1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -272,7 +272,7 @@ test('Dashboard 2.0 Telegram view model covers disabled, unbound, bound, and mis
   assert.equal(unavailable.bindVisible, false);
   assert.equal(unavailable.groupVisible, false);
 
-  const disabled = helpers.buildTelegramViewModel({ is_telegram: 0, telegram_discuss_link: 'https://t.me/example' }, {});
+  const disabled = helpers.buildTelegramViewModel({ is_telegram: 0, telegram_group_access_enabled: true }, {});
   assert.equal(disabled.bindVisible, false);
   assert.equal(disabled.groupVisible, true);
 
@@ -281,7 +281,7 @@ test('Dashboard 2.0 Telegram view model covers disabled, unbound, bound, and mis
   assert.equal(unbound.bindDisabled, false);
   assert.equal(unbound.groupVisible, false);
 
-  const bound = helpers.buildTelegramViewModel({ is_telegram: 1, telegram_discuss_link: 'https://t.me/example' }, { telegram_id: 123 });
+  const bound = helpers.buildTelegramViewModel({ is_telegram: 1, telegram_group_access_enabled: true }, { telegram_id: 123 });
   assert.equal(bound.bindDisabled, true);
   assert.equal(bound.bindLabel, '已绑定');
   assert.equal(bound.groupVisible, true);
