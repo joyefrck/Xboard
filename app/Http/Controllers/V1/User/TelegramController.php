@@ -6,10 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\TelegramService;
 use App\Services\TelegramGroupAccessService;
+use App\Services\TelegramBindingService;
 use Illuminate\Http\Request;
 
 class TelegramController extends Controller
 {
+    public function binding(Request $request, TelegramBindingService $service)
+    {
+        return $this->success($service->account($request->user()))->header('Cache-Control', 'no-store');
+    }
+
     public function getBotInfo()
     {
         $telegramService = new TelegramService();

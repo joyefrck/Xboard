@@ -61,6 +61,7 @@
     orders: '/api/v1/user/order/fetch',
     downloads: '/api/v1/app-downloads',
     telegramBot: '/api/v1/user/telegram/getBotInfo',
+    telegramBinding: '/api/v1/user/telegram/binding',
     telegramGroup: '/api/v1/user/telegram/join-group',
     dify: '/api/v1/user/support/dify-context'
   };
@@ -227,6 +228,15 @@
     };
   }
 
+  function buildTelegramAccountLabel(user, account) {
+    if (!user || !user.telegram_id) return '';
+    var id = String(user.telegram_id);
+    var matched = account && String(account.id) === id ? account : {};
+    var username = String(matched.username || '').trim().replace(/^@+/, '');
+    var name = String(matched.name || '').trim();
+    return '已绑定账号：' + (username ? '@' + username : name ? name + '（ID：' + id + '）' : 'ID：' + id);
+  }
+
   function buildTelegramViewModel(comm, user) {
     user = user || {};
     if (!comm) {
@@ -263,6 +273,7 @@
     hasUnfinishedOrders: hasUnfinishedOrders,
     buildSubscriptionViewModel: buildSubscriptionViewModel,
     buildTelegramViewModel: buildTelegramViewModel,
+    buildTelegramAccountLabel: buildTelegramAccountLabel,
     getNavigationItems: function () {
       return NAV_ITEMS.concat([{ route: '#/ticket', label: '问题申诉', iconName: 'appeal' }]).map(function (item) {
         return Object.assign({}, item);
@@ -776,7 +787,7 @@
       '      <p class="er-v2-inline-error" data-error="subscribe" hidden></p>',
       '    </article>',
       '    <article class="er-v2-panel er-v2-telegram er-v2-entrance" aria-labelledby="er-v2-telegram-title">',
-      '      <div><div class="er-v2-telegram-mark" aria-hidden="true">' + solidIcon('telegram') + '</div><p class="er-v2-kicker">连接与提醒</p><h2 id="er-v2-telegram-title">Telegram 服务</h2><p class="er-v2-description" data-field="telegram-description">正在检查服务状态</p></div>',
+      '      <div><div class="er-v2-telegram-mark" aria-hidden="true">' + solidIcon('telegram') + '</div><p class="er-v2-kicker">连接与提醒</p><h2 id="er-v2-telegram-title">Telegram 服务</h2><p class="er-v2-description" data-field="telegram-description">正在检查服务状态</p><p class="er-v2-telegram-account" data-field="telegram-account" hidden></p></div>',
       '      <div class="er-v2-actions"><button type="button" class="er-v2-button er-v2-button-primary" data-action="bind-telegram">绑定 Bot</button><button type="button" class="er-v2-button" data-action="join-telegram">加入群组</button></div>',
       '      <p class="er-v2-inline-error" data-error="telegram" hidden></p>',
       '    </article>',
@@ -975,6 +986,7 @@
           setRegionError(name, result.reason);
         }
       });
+      state.data.telegramAccount = null;
       renderUser();
       renderSubscription();
       renderTelegram();
@@ -983,6 +995,7 @@
       renderServers();
       renderOrders();
       renderInvite();
+      loadTelegramAccount(generation);
     });
   }
 
@@ -1069,6 +1082,19 @@
     setButtonState('[data-action="import-subscription"]', !view.canSubscribe || !view.hasProduct);
   }
 
+  function loadTelegramAccount(generation) {
+    var user = state.data.user || {};
+    if (!user.telegram_id) return;
+    var id = String(user.telegram_id);
+    requestJson(ENDPOINTS.telegramBinding).then(function (payload) {
+      if (generation !== state.loadGeneration || !state.root || String((state.data.user || {}).telegram_id) !== id) return;
+      state.data.telegramAccount = getResponseData(payload);
+      renderTelegram();
+    }).catch(function () {
+      // Keep the bound ID visible if account details cannot be fetched.
+    });
+  }
+
   function renderTelegram() {
     var comm = state.data.comm;
     var user = state.data.user || {};
@@ -1082,6 +1108,12 @@
     }
     if (groupButton) groupButton.hidden = !view.groupVisible;
     setText('[data-field="telegram-description"]', view.description);
+    var accountNode = state.root.querySelector('[data-field="telegram-account"]');
+    if (accountNode) {
+      var accountLabel = buildTelegramAccountLabel(user, state.data.telegramAccount);
+      accountNode.textContent = accountLabel;
+      accountNode.hidden = !accountLabel;
+    }
   }
 
   function renderDownloads() {

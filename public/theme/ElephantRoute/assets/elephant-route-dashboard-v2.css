@@ -1058,6 +1058,15 @@
   line-height: 1.7;
 }
 
+.er-v2-telegram-account {
+  margin: 8px 0 0;
+  color: var(--er-v2-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .er-v2-telegram .er-v2-actions {
   margin-top: 16px;
 }
