@@ -105,7 +105,7 @@ class StatController extends Controller
     }
 
     /**
-     * Get order statistics with filtering and pagination
+     * Get order statistics grouped by calendar day, month or year
      *
      * @param Request $request
      * @return array
@@ -114,63 +114,89 @@ class StatController extends Controller
     {
         $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
-            'end_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => ['nullable', 'date_format:Y-m-d', ...($request->filled('start_date') ? ['after_or_equal:start_date'] : [])],
+            'period' => 'nullable|in:day,month,year',
             'type' => 'nullable|in:paid_total,paid_count,commission_total,commission_count',
         ]);
 
+        $period = $request->input('period') ?: 'day';
+        $format = match ($period) {
+            'month' => 'Y-m',
+            'year' => 'Y',
+            default => 'Y-m-d',
+        };
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Expand month/year selections to complete calendar periods in the app timezone.
+        if ($startDate) {
+            $startDate = match ($period) {
+                'month' => date('Y-m-01', strtotime($startDate)),
+                'year' => date('Y-01-01', strtotime($startDate)),
+                default => $startDate,
+            };
+        }
+        if ($endDate) {
+            $endDate = match ($period) {
+                'month' => date('Y-m-t', strtotime($endDate)),
+                'year' => date('Y-12-31', strtotime($endDate)),
+                default => $endDate,
+            };
+        }
+
         $query = Stat::where('record_type', 'd');
-
-        // Apply date filters
-        if ($request->input('start_date')) {
-            $query->where('record_at', '>=', strtotime($request->input('start_date')));
+        if ($startDate) {
+            $query->where('record_at', '>=', strtotime($startDate));
         }
-        if ($request->input('end_date')) {
-            $query->where('record_at', '<=', strtotime($request->input('end_date') . ' 23:59:59'));
+        if ($endDate) {
+            $query->where('record_at', '<', strtotime($endDate . ' +1 day'));
         }
-
-        $statistics = $query->orderBy('record_at', 'DESC')
-            ->get();
+        $statistics = $query->orderBy('record_at', 'ASC')->get();
 
         $summary = [
             'paid_total' => 0,
             'paid_count' => 0,
             'commission_total' => 0,
             'commission_count' => 0,
-            'start_date' => $request->input('start_date', date('Y-m-d', $statistics->last()?->record_at)),
-            'end_date' => $request->input('end_date', date('Y-m-d', $statistics->first()?->record_at)),
+            'start_date' => $startDate ?: date('Y-m-d', $statistics->first()?->record_at ?? time()),
+            'end_date' => $endDate ?: date('Y-m-d', $statistics->last()?->record_at ?? time()),
             'avg_paid_amount' => 0,
-            'avg_commission_amount' => 0
+            'avg_commission_amount' => 0,
         ];
 
-        $dailyStats = [];
+        $periodStats = [];
         foreach ($statistics as $statistic) {
-            $date = date('Y-m-d', $statistic['record_at']);
-
-            // Update summary
-            $summary['paid_total'] += $statistic['paid_total'];
-            $summary['paid_count'] += $statistic['paid_count'];
-            $summary['commission_total'] += $statistic['commission_total'];
-            $summary['commission_count'] += $statistic['commission_count'];
-
-            // Calculate daily stats
-            $dailyData = [
-                'date' => $date,
-                'paid_total' => $statistic['paid_total'],
-                'paid_count' => $statistic['paid_count'],
-                'commission_total' => $statistic['commission_total'],
-                'commission_count' => $statistic['commission_count'],
-                'avg_order_amount' => $statistic['paid_count'] > 0 ? round($statistic['paid_total'] / $statistic['paid_count'], 2) : 0,
-                'avg_commission_amount' => $statistic['commission_count'] > 0 ? round($statistic['commission_total'] / $statistic['commission_count'], 2) : 0
-            ];
-
-            if ($request->input('type')) {
-                $dailyStats[] = [
+            $date = date($format, $statistic->record_at);
+            if (!isset($periodStats[$date])) {
+                $periodStats[$date] = [
                     'date' => $date,
-                    'value' => $statistic[$request->input('type')],
-                    'type' => $this->getTypeLabel($request->input('type'))
+                    'paid_total' => 0,
+                    'paid_count' => 0,
+                    'commission_total' => 0,
+                    'commission_count' => 0,
+                ];
+            }
+            foreach (['paid_total', 'paid_count', 'commission_total', 'commission_count'] as $field) {
+                $value = (int) $statistic[$field];
+                $periodStats[$date][$field] += $value;
+                $summary[$field] += $value;
+            }
+        }
+
+        $list = [];
+        foreach ($periodStats as $data) {
+            if ($type = $request->input('type')) {
+                $list[] = [
+                    'date' => $data['date'],
+                    'value' => $data[$type],
+                    'type' => $this->getTypeLabel($type),
                 ];
             } else {
-                $dailyStats[] = $dailyData;
+                $data['avg_order_amount'] = $data['paid_count'] > 0
+                    ? round($data['paid_total'] / $data['paid_count'], 2) : 0;
+                $data['avg_commission_amount'] = $data['commission_count'] > 0
+                    ? round($data['commission_total'] / $data['commission_count'], 2) : 0;
+                $list[] = $data;
             }
         }
 
@@ -191,7 +217,8 @@ class StatController extends Controller
             'code' => 0,
             'message' => 'success',
             'data' => [
-                'list' => array_reverse($dailyStats),
+                'list' => $list,
+                'period' => $period,
                 'summary' => $summary,
             ]
         ];

@@ -14,12 +14,12 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=20260918-group1"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=20260918-income-period1"></script>
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css" />
   <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css">
-  <script src="/assets/admin/locales/en-US.js"></script>
-  <script src="/assets/admin/locales/zh-CN.js"></script>
-  <script src="/assets/admin/locales/ko-KR.js"></script>
+  <script src="/assets/admin/locales/en-US.js?v=20260918-income-period1"></script>
+  <script src="/assets/admin/locales/zh-CN.js?v=20260918-income-period1"></script>
+  <script src="/assets/admin/locales/ko-KR.js?v=20260918-income-period1"></script>
   <style>
     .xboard-app-downloads-entry {
       position: fixed;

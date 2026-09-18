@@ -1081,6 +1081,14 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "recordTime": "Record Time"
     },
     "overview": {
+      "statisticPeriod": "Statistics period",
+      "period_day": "Daily",
+      "period_month": "Monthly",
+      "period_year": "Yearly",
+      "lastMonths": "Last {{count}} months",
+      "lastYears": "Last {{count}} years",
+      "startPeriod": "From",
+      "endPeriod": "To",
       "title": "Revenue Overview",
       "thisMonth": "This Month",
       "lastMonth": "Last Month",

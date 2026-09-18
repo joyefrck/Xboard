@@ -994,6 +994,14 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "recordTime": "기록 시간"
     },
     "overview": {
+      "statisticPeriod": "통계 주기",
+      "period_day": "일별",
+      "period_month": "월별",
+      "period_year": "연별",
+      "lastMonths": "최근 {{count}}개월",
+      "lastYears": "최근 {{count}}년",
+      "startPeriod": "시작",
+      "endPeriod": "종료",
       "title": "매출 개요",
       "thisMonth": "이번 달",
       "lastMonth": "지난 달",

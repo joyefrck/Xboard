@@ -1086,6 +1086,14 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "recordTime": "记录时间"
     },
     "overview": {
+      "statisticPeriod": "统计周期",
+      "period_day": "按天",
+      "period_month": "按月",
+      "period_year": "按年",
+      "lastMonths": "最近{{count}}个月",
+      "lastYears": "最近{{count}}年",
+      "startPeriod": "开始",
+      "endPeriod": "结束",
       "title": "收入概览",
       "thisMonth": "本月",
       "lastMonth": "上月",
