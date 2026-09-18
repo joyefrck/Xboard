@@ -800,7 +800,7 @@
 
 .er-v2-workspace {
   display: grid;
-  grid-template-rows: minmax(226px, 1.45fr) auto minmax(180px, 1fr);
+  grid-template-rows: minmax(max-content, 1.45fr) auto minmax(180px, 1fr);
   gap: 12px;
 }
 
@@ -1781,7 +1781,7 @@
 
 @media (min-width: 1280px) and (max-height: 819px) {
   .er-v2-dashboard { padding-bottom: 10px; }
-  .er-v2-workspace { grid-template-rows: 250px 148px 208px; gap: 10px; }
+  .er-v2-workspace { grid-template-rows: minmax(250px, max-content) 148px 208px; gap: 10px; }
   .er-v2-subscription,
   .er-v2-telegram { padding: 16px 18px; }
   .er-v2-section-heading { margin-bottom: 8px; }

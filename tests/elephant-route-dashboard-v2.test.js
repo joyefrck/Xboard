@@ -32,8 +32,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260918telegramAccount1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260918telegramAccount1/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260918telegramAccount2/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260918telegramAccount2/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -262,7 +262,7 @@ test('Dashboard 2.0 renders split traffic fields, independent progress bars, and
   assert.match(styles, /\.er-v2-traffic-metrics strong \{[\s\S]*font-size: 16px/);
   assert.match(styles, /\.er-v2-traffic-cta button \{[\s\S]*font-size: 14px/);
   assert.match(styles, /\.er-v2-subscription-footer \{[\s\S]*margin-top: auto/);
-  assert.match(styles, /grid-template-rows: 250px 148px 208px/);
+  assert.match(styles, /grid-template-rows: minmax\(250px, max-content\) 148px 208px/);
 });
 
 test('Dashboard 2.0 Telegram view model covers disabled, unbound, bound, and missing group states', () => {
