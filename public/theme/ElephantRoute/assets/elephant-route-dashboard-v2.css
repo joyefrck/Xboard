@@ -375,6 +375,8 @@
 
 .er-v2-modal-dialog {
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
   width: min(100%, 520px);
   max-height: min(78vh, 620px);
   overflow: auto;
@@ -397,6 +399,7 @@
 .er-v2-modal-dialog h2 { margin: 0; color: var(--er-v2-text); font-size: 17px; }
 .er-v2-modal-footer { display: flex; justify-content: flex-end; margin-top: 15px; }
 .er-v2-modal-step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px 0; }
+.er-v2-modal-step > div { min-width: 0; }
 .er-v2-modal-step + .er-v2-modal-step { border-top: 1px solid var(--er-v2-line); }
 .er-v2-modal-step strong,
 .er-v2-modal-step a { display: block; }
@@ -404,12 +407,6 @@
 .er-v2-step-number { color: var(--er-v2-accent); font-size: 11px; font-weight: 800; }
 .er-v2-modal-loading,
 .er-v2-modal-help { color: var(--er-v2-muted); font-size: 12px; }
-
-.er-v2-toast {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  animation: er-v2-enter 150ms ease-out both;
-}
 
 .er-v2-sidebar-active .n-menu[data-er-v2-sidebar-hidden="true"] { display: none !important; }
 .er-v2-sidebar-active .n-scrollbar-content { min-height: 100%; }
@@ -1419,17 +1416,47 @@
 }
 
 .er-v2-bind-command {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
   margin: 7px 0 0;
-  padding: 9px;
+  padding: 10px 12px;
   overflow: hidden;
+  border: 1px solid transparent;
   border-radius: 8px;
   background: #172036;
   color: #fff;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.er-v2-bind-command-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.er-v2-bind-command-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.er-v2-bind-command-icon svg { width: 18px; height: 18px; }
+.er-v2-bind-command:hover { background: #25324d; }
+.er-v2-bind-command:focus-visible {
+  outline: 3px solid rgba(var(--er-v2-accent-rgb), 0.4);
+  outline-offset: 2px;
 }
 
 .er-v2-sidebar {

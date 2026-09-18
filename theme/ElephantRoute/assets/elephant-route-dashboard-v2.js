@@ -389,7 +389,10 @@
   }
 
   function notify(type, message) {
-    if (global.$message && typeof global.$message[type] === 'function') {
+    var modal = getModal();
+    var modalOpen = modal && modal.getAttribute('aria-hidden') === 'false';
+    // Native message containers sit below the dashboard modal's backdrop.
+    if (!modalOpen && global.$message && typeof global.$message[type] === 'function') {
       global.$message[type](message);
       return;
     }
@@ -397,7 +400,7 @@
     if (existing) existing.remove();
     var toast = document.createElement('div');
     toast.id = 'er-v2-toast';
-    toast.className = 'er-v2-toast er-v2-toast-' + type;
+    toast.className = 'er-v2-toast is-visible er-v2-toast-' + type;
     toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
     toast.textContent = message;
     document.body.appendChild(toast);
@@ -1249,8 +1252,15 @@
       stepTwo.appendChild(createElement('span', 'er-v2-step-number', '02'));
       var twoText = createElement('div');
       twoText.appendChild(createElement('strong', '', '向 Bot 发送绑定命令'));
-      var code = createElement('button', 'er-v2-bind-command', command);
+      var code = createElement('button', 'er-v2-bind-command');
       code.type = 'button';
+      code.setAttribute('aria-label', '复制绑定命令');
+      code.title = '复制绑定命令';
+      code.appendChild(createElement('span', 'er-v2-bind-command-text', command));
+      var copyIcon = createElement('span', 'er-v2-bind-command-icon');
+      copyIcon.setAttribute('aria-hidden', 'true');
+      copyIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>';
+      code.appendChild(copyIcon);
       code.addEventListener('click', function () { copyText(command, '绑定命令已复制'); });
       twoText.appendChild(code);
       stepTwo.appendChild(twoText);
