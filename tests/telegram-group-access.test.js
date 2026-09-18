@@ -96,7 +96,7 @@ test('admin controls are localized, cache refreshed and isolated from ticket bot
     const labels=context.window.XBOARD_TRANSLATIONS[locale].settings.telegram.group_access;
     for(const key of ['title','enable','prerequisites','chat_id','check','ready','not_ready']) assert.ok(labels[key]);
   }
-  assert.match(read('resources/views/admin.blade.php'),/20260918-income-period1/);
+  assert.match(read('resources/views/admin.blade.php'),/20260919-income-period2/);
   assert.equal(dashboard,read('public/theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
 });
 test('join queue has unique jobs and enough retry visibility for bounded Telegram operations', () => {
