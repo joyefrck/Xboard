@@ -15,6 +15,7 @@ class UserUpdate extends FormRequest
     {
         return [
             'id' => 'required|integer',
+            'expected_custom_order_id' => 'nullable|integer',
             'email' => 'email:strict',
             'password' => 'nullable|min:8',
             'transfer_enable' => 'numeric',

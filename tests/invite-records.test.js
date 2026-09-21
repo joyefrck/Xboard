@@ -74,6 +74,6 @@ test('invite assets are cache-busted and compressed variants match the source bu
   assert.equal(publicView, view);
   assert.equal(gzip, bundle);
   assert.equal(brotli, bundle);
-  assert.match(view, /umi\.js\?v=\{\{\$version\}\}-er20260908inviteRecords1/);
+  assert.match(view, /umi\.js\?v=\{\{\$version\}\}-er20260921privatePlan1/);
   assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20260914purchaseNotice1/);
 });

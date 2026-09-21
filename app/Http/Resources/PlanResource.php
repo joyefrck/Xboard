@@ -21,6 +21,7 @@ class PlanResource extends JsonResource
     {
         return [
             'id' => $this->resource['id'],
+            'plan_type' => $this->resource['plan_type'] ?? Plan::TYPE_STANDARD,
             'group_id' => $this->resource['group_id'],
             'name' => $this->resource['name'],
             'tags' => $this->resource['tags'],

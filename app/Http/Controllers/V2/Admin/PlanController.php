@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V2\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\PlanSave;
 use App\Models\Order;
+use App\Services\PrivatePlanService;
 use App\Models\Plan;
 use App\Models\User;
 use App\Models\UserTrafficPackage;
@@ -59,7 +60,11 @@ class PlanController extends Controller
             ])
             ->get();
 
-        $plans->each(function (Plan $plan) use ($statistics): void {
+        // Admin-only owner labels: do not expose user emails in public plan resources.
+        $ownerEmails = User::whereIn('id', $plans->where('plan_type', Plan::TYPE_EXCLUSIVE)
+            ->pluck('owner_user_id')->filter()->unique())->pluck('email', 'id');
+        $plans->each(function (Plan $plan) use ($statistics, $ownerEmails): void {
+            $plan->setAttribute('owner_email', $plan->isExclusive() ? $ownerEmails->get($plan->owner_user_id) : null);
             $planStatistics = $statistics->get($plan->id);
             $plan->setAttribute('users_count', (int) ($planStatistics->users_count ?? 0));
             $plan->setAttribute('active_users_count', (int) ($planStatistics->active_users_count ?? 0));
@@ -70,36 +75,7 @@ class PlanController extends Controller
 
     public function save(PlanSave $request)
     {
-        $params = $request->validated();
-        
-        if ($request->input('id')) {
-            $plan = Plan::find($request->input('id'));
-            if (!$plan) {
-                return $this->fail([400202, '该订阅不存在']);
-            }
-            
-            DB::beginTransaction();
-            try {
-                if ($request->input('force_update')) {
-                    User::where('plan_id', $plan->id)->update([
-                        'group_id' => $params['group_id'],
-                        'transfer_enable' => $params['transfer_enable'] * 1073741824,
-                        'speed_limit' => $params['speed_limit'],
-                        'device_limit' => $params['device_limit'],
-                    ]);
-                }
-                $plan->update($params);
-                DB::commit();
-                return $this->success(true);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error($e);
-                return $this->fail([500, '保存失败']);
-            }
-        }
-        if (!Plan::create($params)) {
-            return $this->fail([500, '创建失败']);
-        }
+        app(PrivatePlanService::class)->savePlan($request->validated(), (bool) $request->input('force_update'));
         return $this->success(true);
     }
 
@@ -133,6 +109,10 @@ class PlanController extends Controller
             return $this->fail([400202, '该订阅不存在']);
         }
 
+        if ($plan->isExclusive()) {
+            $updateData['show'] = false;
+            $updateData['sell'] = false;
+        }
         try {
             $plan->update($updateData);
         } catch (\Exception $e) {

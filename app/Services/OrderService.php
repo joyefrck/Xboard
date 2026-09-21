@@ -57,11 +57,17 @@ class OrderService
         HookManager::call('order.create.before', [$user, $plan, $period, $couponCode]);
 
         return DB::transaction(function () use ($user, $plan, $period, $couponCode, $userService) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            (new PlanService($plan))->validatePurchase($user, $period);
+            if ($userService->isNotCompleteOrderByUserId($user->id)) {
+                throw new ApiException(__('You have an unpaid or pending order, please try again later or cancel it'));
+            }
             $newPeriod = PlanService::getPeriodKey($period);
 
             $order = new Order([
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
+                'no_proration' => $plan->isPrivate(),
                 'period' => $newPeriod,
                 'trade_no' => Helper::generateOrderNo(),
                 'total_amount' => (int) (optional($plan->prices)[$newPeriod] * 100),
@@ -143,7 +149,14 @@ class OrderService
         HookManager::call('order.open.before', $order);
 
 
-        DB::transaction(function () use ($order, $plan, $trafficPackage) {
+        $opened = DB::transaction(function () use ($order, $plan, $trafficPackage) {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ((int) $lockedOrder->status !== Order::STATUS_PROCESSING) return false;
+            $this->user = User::whereKey($order->user_id)->lockForUpdate()->firstOrFail();
+            if ($plan?->isExclusive() && ((int) $plan->owner_user_id !== (int) $this->user->id
+                || (int) $this->user->plan_id !== (int) $plan->id)) {
+                throw new ApiException('专属套餐归属已变更，订单不能开通，请联系管理员');
+            }
             if ((string) $order->period === Order::PERIOD_TRAFFIC_PACKAGE && !$trafficPackage) {
                 throw new ApiException(__('Subscription plan does not exist'));
             }
@@ -178,7 +191,9 @@ class OrderService
                 throw new \RuntimeException('订单信息保存失败');
             }
             app(TelegramGroupEligibilityService::class)->grantFromOrder($order);
+            return true;
         });
+        if (!$opened) return;
 
         $eventId = match ((int) $order->type) {
             Order::TYPE_NEW_PURCHASE => admin_setting('new_order_event_id', 0),
@@ -208,11 +223,12 @@ class OrderService
             $order->type = Order::TYPE_TRAFFIC_PACKAGE;
         } else if ($order->period === Plan::PERIOD_RESET_TRAFFIC) {
             $order->type = Order::TYPE_RESET_TRAFFIC;
-        } else if ($user->plan_id !== NULL && $order->plan_id !== $user->plan_id && ($user->expired_at > time() || $user->expired_at === NULL)) {
+        } else if ($user->plan_id !== NULL && (int) $order->plan_id !== (int) $user->plan_id
+            && ($user->custom_pending_order_id || $user->expired_at > time() || $user->expired_at === NULL)) {
             if (!(int) admin_setting('plan_change_enable', 1))
                 throw new ApiException('目前不允许更改订阅，请联系客服或提交工单操作');
             $order->type = Order::TYPE_UPGRADE;
-            if ((int) admin_setting('surplus_enable', 1))
+            if ((int) admin_setting('surplus_enable', 1) && !Plan::find($user->plan_id)?->isPrivate())
                 $this->getSurplusValue($user, $order);
             if ($order->surplus_amount >= $order->total_amount) {
                 $order->refund_amount = (int) ($order->surplus_amount - $order->total_amount);
@@ -220,6 +236,8 @@ class OrderService
             } else {
                 $order->total_amount = (int) ($order->total_amount - $order->surplus_amount);
             }
+        } else if ($order->no_proration && (int) $order->plan_id === (int) $user->plan_id) {
+            $order->type = Order::TYPE_RENEWAL;
         } else if ($this->isProratedRenewalCandidate($user, $order)) {
             $order->type = Order::TYPE_RENEWAL;
             $this->applyRenewalSurplusCredit($user, $order);
@@ -285,6 +303,7 @@ class OrderService
             $lastOneTimeOrder = Order::where('user_id', $user->id)
                 ->where('period', Plan::PERIOD_ONETIME)
                 ->where('status', Order::STATUS_COMPLETED)
+                ->where('no_proration', false)
                 ->orderBy('id', 'DESC')
                 ->first();
             if (!$lastOneTimeOrder)
@@ -302,6 +321,7 @@ class OrderService
             $order->surplus_order_ids = Order::where('user_id', $user->id)
                 ->where('period', '!=', Plan::PERIOD_RESET_TRAFFIC)
                 ->where('status', Order::STATUS_COMPLETED)
+                ->where('no_proration', false)
                 ->pluck('id')
                 ->all();
         } else {
@@ -310,6 +330,7 @@ class OrderService
                 ->whereNotIn('period', [Plan::PERIOD_RESET_TRAFFIC, Plan::PERIOD_ONETIME])
                 ->where('type', '!=', Order::TYPE_TRAFFIC_PACKAGE)
                 ->where('status', Order::STATUS_COMPLETED)
+                ->where('no_proration', false)
                 ->get();
 
             if ($orders->isEmpty()) {
@@ -361,6 +382,7 @@ class OrderService
             ->whereNotIn('period', [Plan::PERIOD_RESET_TRAFFIC, Plan::PERIOD_ONETIME])
             ->where('type', '!=', Order::TYPE_TRAFFIC_PACKAGE)
             ->where('status', Order::STATUS_COMPLETED)
+            ->where('no_proration', false)
             ->get();
 
         if ($orders->isEmpty()) {
@@ -411,11 +433,14 @@ class OrderService
         $order = $this->order;
         if ($order->status !== Order::STATUS_PENDING)
             return true;
-        $order->status = Order::STATUS_PROCESSING;
-        $order->paid_at = time();
-        $order->callback_no = $callbackNo;
-        if (!$order->save())
-            return false;
+        // A repeated callback holding a stale model must not reopen a completed order.
+        $updated = Order::whereKey($order->id)->where('status', Order::STATUS_PENDING)->update([
+            'status' => Order::STATUS_PROCESSING,
+            'paid_at' => time(),
+            'callback_no' => $callbackNo,
+        ]);
+        if (!$updated) return true;
+        $order->refresh();
         try {
             OrderHandleJob::dispatchSync($order->trade_no);
         } catch (\Exception $e) {
@@ -467,6 +492,40 @@ class OrderService
             throw new ApiException(__('Subscription plan does not exist'));
         }
 
+        // Close the former entitlement even when it has no transferable credit.
+        if ((int) $this->user->plan_id !== (int) $plan->id
+            && ($plan->isPrivate() || Plan::find($this->user->plan_id)?->isPrivate())) {
+            Order::where('user_id', $this->user->id)
+                ->where('id', '!=', $order->id)
+                ->where('status', Order::STATUS_COMPLETED)
+                ->whereIn('period', array_keys(self::STR_TO_TIME))
+                ->update(['status' => Order::STATUS_DISCOUNTED]);
+        }
+        if ($plan->isCustom()) {
+            $this->user->fill([
+                'plan_id' => $plan->id,
+                'group_id' => null,
+                'expired_at' => 0,
+                'transfer_enable' => 0,
+                'u' => 0,
+                'd' => 0,
+                'next_reset_at' => null,
+                'custom_pending_order_id' => $order->id,
+            ]);
+            return;
+        }
+        $this->user->custom_pending_order_id = null;
+        if ($plan->isExclusive() && (int) $order->type === Order::TYPE_RENEWAL) {
+            $this->user->group_id = $plan->group_id;
+            $wasExpired = (int) $this->user->expired_at <= time();
+            $this->user->expired_at = $this->getTime($order->period, max(time(), (int) $this->user->expired_at));
+            if ($wasExpired) {
+                $this->user->transfer_enable = $plan->transfer_enable * 1073741824;
+                app(TrafficResetService::class)->performReset($this->user, TrafficResetLog::SOURCE_ORDER);
+            }
+            return;
+        }
+
         // change plan process
         if ((int) $order->type === Order::TYPE_UPGRADE) {
             $this->user->expired_at = time();
@@ -489,13 +548,13 @@ class OrderService
 
     private function shouldRestartPeriodOnRenewal(Order $order): bool
     {
-        return (int) $order->type === Order::TYPE_RENEWAL
+        return !$order->no_proration && (int) $order->type === Order::TYPE_RENEWAL
             && is_array($order->surplus_order_ids);
     }
 
     private function shouldSkipOpenEvent(Order $order): bool
     {
-        return $this->shouldRestartPeriodOnRenewal($order);
+        return $order->no_proration || $this->shouldRestartPeriodOnRenewal($order);
     }
 
     private function buyTrafficPackage(Order $order, TrafficPackage $trafficPackage): void

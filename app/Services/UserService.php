@@ -48,6 +48,7 @@ class UserService
 
     public function isAvailable(User $user)
     {
+        if ($user->custom_pending_order_id) return false;
         $trafficPackageService = app(TrafficPackageService::class);
         $available = !$user->banned && (
             $trafficPackageService->hasUsablePlanBalance($user)
@@ -63,7 +64,7 @@ class UserService
 
     public function getAvailableUsers()
     {
-        return User::where('banned', 0)
+        return User::whereNull('custom_pending_order_id')->where('banned', 0)
             ->where(function ($query) {
                 $query->where(function ($query) {
                     $query->whereNotNull('plan_id')

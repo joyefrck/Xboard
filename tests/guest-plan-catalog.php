@@ -16,6 +16,7 @@ $capsule->bootEloquent();
 $capsule->schema()->create('v2_plan', function (Blueprint $table): void {
     $table->integer('id')->primary();
     $table->string('name');
+    $table->string('plan_type')->default('standard');
     $table->text('prices');
     $table->boolean('show');
     $table->boolean('sell');

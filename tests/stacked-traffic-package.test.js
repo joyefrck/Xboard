@@ -106,7 +106,7 @@ test('legacy one-time traffic packages remain visible on the user purchase page 
   assert.match(planService, /Plan::PERIOD_ONETIME/);
   assert.match(planService, /Plan::PERIOD_MONTHLY/);
   assert.match(planService, /function getAvailablePlansForUser\(User \$user\): Collection/);
-  assert.match(planService, /getAvailablePlansForUser\(User \$user\): Collection[\s\S]{0,120}return \$this->getSellablePlans\(\)[\s\S]{0,80}->values\(\)/);
+  assert.match(planService, /getAvailablePlansForUser\(User \$user\): Collection[\s\S]{0,120}\$plans = \$this->getSellablePlans\(\)[\s\S]{0,550}return \$plans->values\(\)/);
   assert.doesNotMatch(planService, /getAvailablePlansForUser\(User \$user\): Collection[\s\S]{0,220}!\$this->isTrafficPackagePlan\(\$plan\)/);
   assert.match(planService, /if \(\$this->isTrafficPackagePlan\(\$plan\)\) \{[\s\S]{0,140}return \$plan->show && \$plan->sell && \$this->hasCapacity\(\$plan\)/);
   assert.match(planService, /if \(\$periodKey === Plan::PERIOD_ONETIME\) \{[\s\S]{0,120}\$this->validateLegacyTrafficPackagePurchase\(\)/);

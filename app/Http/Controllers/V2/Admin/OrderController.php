@@ -209,6 +209,10 @@ class OrderController extends Controller
             return $this->fail([400202, '该订阅不存在']);
         }
 
+        if ($plan->isPrivate()) {
+            (new PlanService($plan))->validatePurchase($user, $request->input('period'));
+        }
+
         $userService = new UserService();
         if ($userService->isNotCompleteOrderByUserId($user->id)) {
             return $this->fail([400, '该用户还有待支付的订单，无法分配']);
@@ -220,6 +224,7 @@ class OrderController extends Controller
             $orderService = new OrderService($order);
             $order->user_id = $user->id;
             $order->plan_id = $plan->id;
+            $order->no_proration = $plan->isPrivate();
             $period = $request->input('period');
             $order->period = PlanService::getPeriodKey((string) $period);
             $order->trade_no = Helper::guid();

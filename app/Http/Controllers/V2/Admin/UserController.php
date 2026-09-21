@@ -15,6 +15,8 @@ use App\Models\UserTrafficPackage;
 use App\Services\AuthService;
 use App\Services\TrafficPackageService;
 use App\Services\UserService;
+use App\Services\PrivatePlanService;
+use App\Exceptions\ApiException;
 use App\Traits\QueryOperators;
 use App\Utils\Helper;
 use Illuminate\Database\Eloquent\Builder;
@@ -283,7 +285,9 @@ class UserController extends Controller
         $data['traffic_package_remaining'] = $trafficPackageRemaining;
         $data['total_used'] = (int) ($data['total_used'] ?? ($hasActivePlan ? $user->u + $user->d : 0));
         $data['has_active_plan'] = $hasActivePlan;
-        $data['active_product_name'] = $activeProductName;
+        $data['active_product_name'] = $user->custom_pending_order_id
+            ? ($user->plan?->name ?? '私人定制') . ' · 待开通'
+            : $activeProductName;
         unset($data['latest_traffic_package_name']);
 
         return $data;
@@ -366,7 +370,15 @@ class UserController extends Controller
                 $grantsGroupAccess,
                 $operatorId
             ): void {
+                $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+                $params = app(PrivatePlanService::class)->assignment($user, $params);
+                $openingCustom = (bool) $user->custom_pending_order_id && empty($params['custom_pending_order_id'])
+                    && array_key_exists('custom_pending_order_id', $params);
                 if (!$user->update($params)) throw new \RuntimeException('用户信息保存失败');
+                if ($openingCustom) {
+                    $user->unsetRelation('plan');
+                    app(\App\Services\TrafficResetService::class)->setInitialResetTime($user);
+                }
                 if ($grantsGroupAccess) {
                     app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_plan', (int) $user->plan_id, $operatorId);
                 }
@@ -380,6 +392,8 @@ class UserController extends Controller
                     app(TelegramGroupEligibilityService::class)->grant((int) $user->id, 'admin_package', (int) $trafficPackage->id, $operatorId);
                 }
             });
+        } catch (ApiException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::error($e);
             return $this->fail([500, '保存失败']);
@@ -473,6 +487,9 @@ class UserController extends Controller
 
     public function generate(UserGenerate $request)
     {
+        if ($request->input('plan_id') && Plan::find($request->input('plan_id'))?->isPrivate()) {
+            throw new ApiException('请先创建用户，再通过用户管理分配专属套餐');
+        }
         if ($request->input('email_prefix')) {
             $email = $request->input('email_prefix') . '@' . $request->input('email_suffix');
 

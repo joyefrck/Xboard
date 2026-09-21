@@ -209,8 +209,8 @@
 
     return {
       name: name,
-      status: active ? '使用中' : (expired ? '已过期' : '未订阅'),
-      statusTone: active ? 'success' : (expired ? 'danger' : 'muted'),
+      status: info.custom_pending ? '待开通' : active ? '使用中' : (expired ? '已过期' : '未订阅'),
+      statusTone: info.custom_pending ? 'muted' : active ? 'success' : (expired ? 'danger' : 'muted'),
       hasActivePlan: hasActivePlan,
       hasTrafficPackage: hasTrafficPackage,
       planTotal: planTotal,
@@ -220,10 +220,10 @@
       packageUsed: packageUsed,
       packageRemaining: packageRemaining,
       packageProgress: packageProgress,
-      expiryLabel: expiryLabel,
+      expiryLabel: info.custom_pending ? '开通后计算' : expiryLabel,
       resetLabel: hasActivePlan ? formatDate(info.next_reset_at) : '—',
-      trafficNote: trafficNote,
-      canSubscribe: Boolean(info.subscribe_url),
+      trafficNote: info.custom_pending ? '私人定制已付款，等待管理员配置专属套餐；开通后开始计算有效期。' : trafficNote,
+      canSubscribe: !info.custom_pending && Boolean(info.subscribe_url),
       hasProduct: active || expired || hasNamedProduct
     };
   }

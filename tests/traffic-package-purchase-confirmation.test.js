@@ -23,11 +23,13 @@ test('one-time traffic package purchase does not show subscription replacement w
     }
 
     const bundle = readRepoFile(bundlePath);
-    assert.match(
-      bundle,
-      /R=\(\)=>b\.value!=="onetime_price"&&n\.plan_id&&n\.plan_id!=i\.value&&\(n\.expired_at===null\|\|n\.expired_at>=Math\.floor\(Date\.now\(\)\/1e3\)\)/,
-      `${bundlePath} should skip subscription replacement warning for onetime traffic packages`
-    );
+    const expression = bundle.match(/R=\(\)=>([^;]{0,700}?),q=\(\)=>\{window\.\$dialog/)?.[1];
+    assert.ok(expression, `${bundlePath} must provide a replacement confirmation guard`);
+    const warns = new Function('b', 'n', 'i', 'a', `return Boolean(${expression});`);
+    const current = {plan_id: 1, expired_at: Math.floor(Date.now()/1000)+86400,
+      userInfo: {current_plan_type:'exclusive'}};
+    assert.equal(warns({value:'onetime_price'}, current, {value:2}, {value:{plan_type:'standard'}}), false);
+    assert.equal(warns({value:'month_price'}, current, {value:2}, {value:{plan_type:'standard'}}), true);
     assert.match(
       bundle,
       /请注意，变更订阅会导致当前订阅被覆盖。/,

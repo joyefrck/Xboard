@@ -51,6 +51,7 @@ class Order extends Model
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
         'surplus_order_ids' => 'array',
+        'no_proration' => 'boolean',
         'handling_amount' => 'integer'
     ];
 

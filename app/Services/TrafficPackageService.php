@@ -242,7 +242,7 @@ class TrafficPackageService
         ?Collection $packages = null,
         ?int $planRemainingBytes = null
     ): void {
-        if ($user->banned) {
+        if ($user->banned || $user->custom_pending_order_id) {
             return;
         }
 

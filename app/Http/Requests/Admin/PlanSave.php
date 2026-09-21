@@ -24,6 +24,9 @@ class PlanSave extends FormRequest
     {
         return [
             'id' => 'nullable|integer',
+            'plan_type' => 'sometimes|in:standard,custom,exclusive',
+            'owner_user_id' => 'nullable|integer|exists:v2_user,id',
+            'owner_email' => 'nullable|email|max:255',
             'name' => 'required|string|max:255',
             'content' => 'nullable|string',
             'reset_traffic_method' => 'integer|nullable',

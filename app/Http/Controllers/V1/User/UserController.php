@@ -103,6 +103,7 @@ class UserController extends Controller
                 'balance',
                 'commission_balance',
                 'plan_id',
+                'custom_pending_order_id',
                 'discount',
                 'commission_rate',
                 'telegram_id',
@@ -112,6 +113,7 @@ class UserController extends Controller
         if (!$user) {
             return $this->fail([400, __('The user does not exist')]);
         }
+        $user['current_plan_type'] = $user->plan_id ? (Plan::find($user->plan_id)?->plan_type ?? Plan::TYPE_STANDARD) : Plan::TYPE_STANDARD;
         $user['avatar_url'] = 'https://cdn.v2ex.com/gravatar/' . md5($user->email) . '?s=64&d=identicon';
         $trafficSummary = app(UserService::class)->getTrafficSummary($user);
         foreach ($trafficSummary as $key => $value) {
@@ -142,6 +144,7 @@ class UserController extends Controller
             ->select([
                 'id',
                 'plan_id',
+                'custom_pending_order_id',
                 'token',
                 'expired_at',
                 'u',
@@ -177,6 +180,17 @@ class UserController extends Controller
         $user['effective_expired_at'] = $trafficSummary['effective_expired_at'];
         $user['expired_at'] = $trafficSummary['effective_expired_at'];
         $user['transfer_enable'] = $trafficSummary['effective_transfer_enable'];
+        if ($user->custom_pending_order_id) {
+            $pendingOrder = \App\Models\Order::find($user->custom_pending_order_id);
+            $user['plan_id'] = $pendingOrder?->plan_id;
+            $user['plan'] = $pendingOrder?->plan;
+            $user['custom_pending'] = true;
+            $user['active_product_name'] = $pendingOrder?->plan?->name ?? '私人定制';
+            $user['active_product_type'] = 'custom_pending';
+            $user['subscribe_url'] = null;
+            $user['expired_at'] = 0;
+            $user['effective_expired_at'] = 0;
+        }
         $user = HookManager::filter('user.subscribe.response', $user);
         return $this->success($user);
     }

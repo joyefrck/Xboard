@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Server;
 use App\Models\ServerRoute;
 use App\Models\User;
+use App\Models\Plan;
 use App\Models\UserTrafficPackage;
 use App\Services\Plugin\HookManager;
 use App\Utils\Helper;
@@ -38,10 +39,18 @@ class ServerService
      */
     public static function getAvailableServers(User $user): array
     {
+        if ($user->custom_pending_order_id) return [];
         $servers = Server::whereJsonContains('group_ids', (string) $user->group_id)
             ->where('show', true)
             ->get();
 
+        $privateGroup = Plan::where('plan_type', Plan::TYPE_EXCLUSIVE)
+            ->where('group_id', $user->group_id)->first();
+        if ($privateGroup) {
+            if ((int) $privateGroup->owner_user_id !== (int) $user->id
+                || (int) $user->plan_id !== (int) $privateGroup->id) return [];
+            $servers = $servers->filter(fn ($node) => count($node->group_ids ?? []) === 1);
+        }
         $servers = self::sortByDisplayNodeId($servers)
             ->append(['last_check_at', 'last_push_at', 'online', 'is_online', 'available_status', 'cache_key', 'server_key']);
 
@@ -91,6 +100,8 @@ class ServerService
             ->where('v2_user.banned', 0)
             ->select([
                 'v2_user.id',
+                'v2_user.custom_pending_order_id',
+                'v2_user.plan_id',
                 'v2_user.uuid',
                 'v2_user.speed_limit',
                 'v2_user.device_limit',
@@ -98,6 +109,8 @@ class ServerService
             ])
             ->groupBy([
                 'v2_user.id',
+                'v2_user.custom_pending_order_id',
+                'v2_user.plan_id',
                 'v2_user.uuid',
                 'v2_user.speed_limit',
                 'v2_user.device_limit',
@@ -109,6 +122,16 @@ class ServerService
             ->havingRaw('(v2_user.expired_at >= ? OR v2_user.expired_at IS NULL) AND (v2_user.u + v2_user.d < v2_user.transfer_enable)', [time()])
             ->orHavingRaw('COALESCE(SUM(traffic_packages.remaining_bytes), 0) > 0')
             ->get();
+        $users = $users->filter(fn ($user) => !$user->custom_pending_order_id);
+        $owners = Plan::where('plan_type', Plan::TYPE_EXCLUSIVE)
+            ->whereIn('group_id', $node->group_ids)->get();
+        if ($owners->isNotEmpty()) {
+            $owner = $owners->first();
+            $users = count($node->group_ids) === 1 && $owners->count() === 1
+                ? $users->filter(fn ($user) => (int) $user->id === (int) $owner->owner_user_id
+                    && (int) $user->plan_id === (int) $owner->id)
+                : collect();
+        }
         return HookManager::filter('server.users.get', $users, $node);
     }
 

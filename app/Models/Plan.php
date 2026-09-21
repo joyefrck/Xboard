@@ -37,6 +37,10 @@ class Plan extends Model
 {
     use HasFactory;
 
+    public const TYPE_STANDARD = 'standard';
+    public const TYPE_CUSTOM = 'custom';
+    public const TYPE_EXCLUSIVE = 'exclusive';
+
     protected $table = 'v2_plan';
     protected $dateFormat = 'U';
 
@@ -74,6 +78,8 @@ class Plan extends Model
     ];
 
     protected $fillable = [
+        'plan_type',
+        'owner_user_id',
         'group_id',
         'transfer_enable',
         'name',
@@ -91,6 +97,7 @@ class Plan extends Model
     ];
 
     protected $casts = [
+        'owner_user_id' => 'integer',
         'show' => 'boolean',
         'renew' => 'boolean',
         'created_at' => 'timestamp',
@@ -300,6 +307,21 @@ class Plan extends Model
     public static function isValidPeriod(string $period): bool
     {
         return array_key_exists($period, self::getAvailablePeriods());
+    }
+
+    public function isCustom(): bool
+    {
+        return $this->plan_type === self::TYPE_CUSTOM;
+    }
+
+    public function isExclusive(): bool
+    {
+        return $this->plan_type === self::TYPE_EXCLUSIVE;
+    }
+
+    public function isPrivate(): bool
+    {
+        return $this->isCustom() || $this->isExclusive();
     }
 
     public function users(): HasMany

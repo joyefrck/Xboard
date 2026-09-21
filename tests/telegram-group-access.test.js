@@ -83,7 +83,7 @@ test('routes, server-side identity and webhook authentication protect all group 
   assert.doesNotMatch(joinSource,/telegram_discuss_link/);
 });
 test('order and administrator grants are wired inside their existing transactions', () => {
-  const orders=read('app/Services/OrderService.php'); assert.match(orders,/grantFromOrder\(\$order\);\s*}\);/);
+  const orders=read('app/Services/OrderService.php'); assert.match(orders,/grantFromOrder\(\$order\);\s*return true;\s*}\);/);
   const admin=read('app/Http/Controllers/V2/Admin/UserController.php'); assert.match(admin,/isAdminPlanGrant\(\$user, \$params\)/);
   assert.equal((admin.match(/'admin_plan'/g)||[]).length,3); assert.match(admin,/'admin_package'/);
   assert.doesNotMatch(read('app/Services/UserService.php'),/TelegramGroupEligibility/);
@@ -96,7 +96,7 @@ test('admin controls are localized, cache refreshed and isolated from ticket bot
     const labels=context.window.XBOARD_TRANSLATIONS[locale].settings.telegram.group_access;
     for(const key of ['title','enable','prerequisites','chat_id','check','ready','not_ready']) assert.ok(labels[key]);
   }
-  assert.match(read('resources/views/admin.blade.php'),/20260919-income-period2/);
+  assert.match(read('resources/views/admin.blade.php'),/20260922-private-plan-email1/);
   assert.equal(dashboard,read('public/theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
 });
 test('join queue has unique jobs and enough retry visibility for bounded Telegram operations', () => {

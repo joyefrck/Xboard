@@ -30,13 +30,19 @@ class PlanService
 
     public function getAvailablePlansForUser(User $user): Collection
     {
-        return $this->getSellablePlans()
-            ->values();
+        $plans = $this->getSellablePlans();
+        $current = $user->plan_id ? Plan::find($user->plan_id) : null;
+        if ($current?->isExclusive() && (int) $current->owner_user_id === (int) $user->id) {
+            $plans = $plans->reject(fn (Plan $plan) => $plan->isCustom());
+            if ($current->renew) $plans->push($current);
+        }
+        return $plans->values();
     }
 
     protected function getSellablePlans(): Collection
     {
-        return Plan::where('show', true)
+        return Plan::where('plan_type', '!=', Plan::TYPE_EXCLUSIVE)
+            ->where('show', true)
             ->where('sell', true)
             ->orderBy('sort')
             ->get()
@@ -87,6 +93,10 @@ class PlanService
      */
     public function isPlanAvailableForUser(Plan $plan, User $user): bool
     {
+        if ($plan->isExclusive()) {
+            return (int) $plan->owner_user_id === (int) $user->id
+                && (int) $user->plan_id === (int) $plan->id && (bool) $plan->renew;
+        }
         if ($this->isTrafficPackagePlan($plan)) {
             return $plan->show && $plan->sell && $this->hasCapacity($plan);
         }
@@ -106,12 +116,30 @@ class PlanService
             throw new ApiException(__('Subscription plan does not exist'));
         }
 
+        if ($this->plan->isExclusive()) {
+            if (!$this->isPlanAvailableForUser($this->plan, $user)) {
+                throw new ApiException('该套餐仅供绑定用户续费');
+            }
+        }
+        if ($this->plan->isCustom() && (!$this->plan->show || !$this->plan->sell)) {
+            throw new ApiException('该私人定制商品已停止销售');
+        }
+        if ($this->plan->isCustom() && ($user->custom_pending_order_id
+            || ($user->plan_id && Plan::find($user->plan_id)?->isExclusive()))) {
+            throw new ApiException('您已有私人定制套餐，请等待开通或续费当前专属套餐');
+        }
+
         // 转换周期格式为新版格式
         $periodKey = self::getPeriodKey($period);
         $price = $this->plan->prices[$periodKey] ?? null;
 
         if ($price === null) {
             throw new ApiException(__('This payment period cannot be purchased, please choose another period'));
+        }
+
+        if ($this->plan->isPrivate() && ($periodKey === Plan::PERIOD_ONETIME
+            || ($this->plan->isCustom() && $periodKey === Plan::PERIOD_RESET_TRAFFIC))) {
+            throw new ApiException('私人定制套餐不支持该购买周期');
         }
 
         if ($periodKey === Plan::PERIOD_RESET_TRAFFIC) {
@@ -199,6 +227,7 @@ class PlanService
 
     protected function validatePlanAvailability(User $user): void
     {
+        if ($this->plan->isExclusive() && $this->isPlanAvailableForUser($this->plan, $user)) return;
         if ((!$this->plan->show && !$this->plan->renew) || (!$this->plan->show && $user->plan_id !== $this->plan->id)) {
             throw new ApiException(__('This subscription has been sold out, please choose another subscription'));
         }
