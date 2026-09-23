@@ -161,7 +161,7 @@ Route::get('/app', function (Request $request) use ($isAllowedAppHost) {
 
 //TODO:: 兼容
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))), function () {
-    return view('admin', [
+    return response()->view('admin', [
         'title' => admin_setting('app_name', 'XBoard'),
         'theme_sidebar' => admin_setting('frontend_theme_sidebar', 'light'),
         'theme_header' => admin_setting('frontend_theme_header', 'dark'),
@@ -170,7 +170,7 @@ Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path
         'version' => app(UpdateService::class)->getCurrentVersion(),
         'logo' => admin_setting('logo'),
         'secure_path' => admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key'))))
-    ]);
+    ])->header('Cache-Control', 'private, no-store');
 });
 
 Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/app-downloads', function () {

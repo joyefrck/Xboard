@@ -51,6 +51,15 @@ return [
 
     'https' => env('OCTANE_HTTPS', false),
 
+    // Admin entry URLs are content-versioned by scripts/version-admin-assets.php.
+    // Keep HTML, API responses, uploads and user-facing themes out of this policy.
+    'static_file_headers' => [
+        'assets/admin/assets/*.js' => ['Cache-Control' => 'public, max-age=31536000, immutable'],
+        'assets/admin/assets/*.css' => ['Cache-Control' => 'public, max-age=31536000, immutable'],
+        'assets/admin/assets/*.ttf' => ['Cache-Control' => 'public, max-age=31536000, immutable'],
+        'assets/admin/locales/*.js' => ['Cache-Control' => 'public, max-age=31536000, immutable'],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Octane Listeners

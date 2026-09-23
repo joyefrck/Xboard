@@ -215,9 +215,9 @@ test('admin bundle module graph uses one cache-busted URL version', () => {
   const bundle = read('public/assets/admin/assets/index.js');
   const vendor = read('public/assets/admin/assets/vendor.js');
 
-  assert.match(view, /assets\/admin\/assets\/index\.js\?v=20260922-private-plan-email1/);
-  assert.match(bundle, /from"\.\/vendor\.js\?v=20260922-private-plan-email1";import"\.\/index\.js\?v=20260922-private-plan-email1"/);
-  assert.match(vendor, /from"\.\/index\.js\?v=20260922-private-plan-email1"/);
+  const version = view.match(/assets\/admin\/assets\/index\.js\?v=(admin-[a-f0-9]{20})/)[1];
+  assert.ok(bundle.includes(`from"./vendor.js?v=${version}";import"./index.js?v=${version}"`));
+  assert.ok(vendor.includes(`from"./index.js?v=${version}"`));
   assert.doesNotMatch(bundle, /from"\.\/vendor\.js";import"\.\/index\.js"/);
   assert.doesNotMatch(vendor, /from"\.\/index\.js"/);
 });
