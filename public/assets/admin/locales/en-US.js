@@ -1652,6 +1652,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "plan": "Subscription Plan",
         "period": "Period",
         "amount": "Payment Amount",
+        "paymentMethod": "Payment Method",
         "status": "Order Status",
         "commission": "Commission Amount",
         "commissionStatus": "Commission Status",

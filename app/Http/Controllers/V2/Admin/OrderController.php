@@ -36,7 +36,7 @@ class OrderController extends Controller
     {
         $current = $request->input('current', 1);
         $pageSize = $request->input('pageSize', 10);
-        $orderModel = Order::with(['plan:id,name', 'trafficPackage:id,name']);
+        $orderModel = Order::with(['plan:id,name', 'trafficPackage:id,name', 'payment:id,name']);
 
         if ($request->boolean('is_commission')) {
             $orderModel->whereNotNull('invite_user_id')

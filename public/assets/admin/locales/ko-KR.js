@@ -1150,6 +1150,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
         "plan": "구독 플랜",
         "period": "기간",
         "amount": "결제 금액",
+        "paymentMethod": "결제 수단",
         "status": "주문 상태",
         "commission": "수수료 금액",
         "commissionStatus": "수수료 상태",

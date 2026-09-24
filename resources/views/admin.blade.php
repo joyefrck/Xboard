@@ -14,13 +14,13 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-8d9b795ee6ff072a7a5c" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-8d9b795ee6ff072a7a5c" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-8d9b795ee6ff072a7a5c">
-  <script defer src="/assets/admin/locales/en-US.js?v=admin-8d9b795ee6ff072a7a5c"></script>
-  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-8d9b795ee6ff072a7a5c"></script>
-  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-8d9b795ee6ff072a7a5c"></script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-8d9b795ee6ff072a7a5c"></script>
+  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-53353bfb4dab5ef484be" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-53353bfb4dab5ef484be" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-53353bfb4dab5ef484be">
+  <script defer src="/assets/admin/locales/en-US.js?v=admin-53353bfb4dab5ef484be"></script>
+  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-53353bfb4dab5ef484be"></script>
+  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-53353bfb4dab5ef484be"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-53353bfb4dab5ef484be"></script>
   <style>
     .xboard-app-downloads-entry {
       position: fixed;

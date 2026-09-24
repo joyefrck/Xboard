@@ -1644,6 +1644,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "plan": "订阅计划",
         "period": "周期",
         "amount": "支付金额",
+        "paymentMethod": "支付方式",
         "status": "订单状态",
         "commission": "佣金金额",
         "commissionStatus": "佣金状态",
