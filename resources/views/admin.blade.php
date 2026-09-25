@@ -26,7 +26,8 @@
       position: fixed;
       right: 18px;
       bottom: 18px;
-      z-index: 2147483000;
+      /* Keep the shortcut below admin dialogs, sheets and their overlays (z-50). */
+      z-index: 40;
       display: none;
       align-items: center;
       justify-content: center;
