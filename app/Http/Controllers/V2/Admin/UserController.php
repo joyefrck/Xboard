@@ -64,6 +64,21 @@ class UserController extends Controller
      */
     private function applyFilters(Request $request, Builder $builder): void
     {
+        $planType = $request->input('plan_type', 'all');
+        if (!in_array($planType, ['all', Plan::TYPE_STANDARD, Plan::TYPE_CUSTOM, Plan::TYPE_EXCLUSIVE], true)) {
+            throw new ApiException('无效的套餐类型');
+        }
+        if ($planType !== 'all') {
+            $builder->whereHas('plan', function (Builder $query) use ($planType) {
+                $query->where(function (Builder $types) use ($planType) {
+                    $types->where('plan_type', $planType);
+                    if ($planType === Plan::TYPE_STANDARD) {
+                        $types->orWhereNull('plan_type');
+                    }
+                });
+            });
+        }
+
         if (!$request->has('filter')) {
             return;
         }
