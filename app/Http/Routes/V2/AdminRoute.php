@@ -6,6 +6,7 @@ use App\Http\Controllers\V2\Admin\PlanController;
 use App\Http\Controllers\V2\Admin\Server\GroupController;
 use App\Http\Controllers\V2\Admin\Server\RouteController;
 use App\Http\Controllers\V2\Admin\Server\ManageController;
+use App\Http\Controllers\V2\Admin\Server\AutomationController;
 use App\Http\Controllers\V2\Admin\OrderController;
 use App\Http\Controllers\V2\Admin\UserController;
 use App\Http\Controllers\V2\Admin\StatController;
@@ -70,6 +71,20 @@ class AdminRoute
             });
 
             // Server
+            $router->group(['prefix' => 'server/automation'], function ($router) {
+                $router->get('/fetch', [AutomationController::class, 'fetch']);
+                $router->get('/users', [AutomationController::class, 'users']);
+                $router->post('/probe-user/save', [AutomationController::class, 'probeUserSave']);
+                $router->get('/logs', [AutomationController::class, 'logs']);
+                $router->post('/connection/save', [AutomationController::class, 'connectionSave']);
+                $router->post('/connection/verify', [AutomationController::class, 'connectionVerify']);
+                $router->post('/save', [AutomationController::class, 'save']);
+                $router->post('/match', [AutomationController::class, 'match']);
+                $router->post('/backup/save', [AutomationController::class, 'backupSave']);
+                $router->post('/backup/drop', [AutomationController::class, 'backupDrop']);
+                $router->post('/pause', [AutomationController::class, 'pause']);
+                $router->post('/operation', [AutomationController::class, 'operation']);
+            });
             $router->group([
                 'prefix' => 'server/group'
             ], function ($router) {

@@ -10,7 +10,7 @@ test('every admin entry resource has the verified content version', () => {
   const result = spawnSync('php', ['scripts/version-admin-assets.php', '--check'], { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const urls = [...read('resources/views/admin.blade.php').matchAll(/(?:src|href)="(\/assets\/admin\/[^" ]+)"/g)].map(match => match[1]);
-  assert.equal(urls.length, 7);
+  assert.equal(urls.length, 8);
   for (const url of urls) assert.match(url, /\?v=admin-[a-f0-9]{20}$/);
   assert.equal(new Set(urls.map(url => url.split('?v=')[1])).size, 1);
 });

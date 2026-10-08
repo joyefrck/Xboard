@@ -33,6 +33,8 @@ compose.yaml
 .superpowers/
 storage/app/app-downloads/
 storage/app/ticket-attachments/
+storage/app/node-automation-probes/
+storage/app/node-automation-backups/
 
 # Exclude large release files
 public/download/ElephantNetwork-Android.apk

@@ -160,6 +160,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "nodeManagement": "Node Management",
     "permissionGroupManagement": "Permission Group",
     "routeManagement": "Route Management",
+    "automationConfiguration": "Automation",
     "subscriptionManagement": "Subscription",
     "planManagement": "Plan Management",
     "orderManagement": "Order Management",

@@ -157,6 +157,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     "nodeManagement": "노드 관리",
     "permissionGroupManagement": "권한 그룹",
     "routeManagement": "경로 관리",
+    "automationConfiguration": "자동화 설정",
     "subscriptionManagement": "구독",
     "planManagement": "플랜 관리",
     "orderManagement": "주문 관리",

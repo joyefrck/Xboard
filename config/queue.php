@@ -66,6 +66,14 @@ return [
             'block_for' => null,
         ],
 
+        'node_automation' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'node_automation',
+            'retry_after' => 660,
+            'block_for' => null,
+        ],
+
         'redis' => [
             'driver' => 'redis',
             'connection' => 'default',

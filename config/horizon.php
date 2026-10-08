@@ -169,6 +169,19 @@ return [
     */
 
     'environments' => [
+        '*' => [
+            'XboardNodeAutomation' => [
+                'connection' => 'node_automation',
+                'queue' => ['node_automation'],
+                'balance' => false,
+                'minProcesses' => 2,
+                'maxProcesses' => 2,
+                'tries' => 2,
+                'timeout' => 540,
+                'maxJobs' => 50,
+                'maxTime' => 1800,
+            ],
+        ],
         'local' => [
             'XboardTraffic' => [
                 'connection' => 'redis',

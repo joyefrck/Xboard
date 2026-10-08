@@ -15,7 +15,7 @@ function adminAssetVersionPlan(string $root): array
 
     // index and vendor import each other. Normalize their URLs to avoid hashing
     // the previous version into the next one (and changing it on every run).
-    $moduleReference = '~((?:\./)?(?:index|vendor)\.js)\?v=[A-Za-z0-9_-]+~';
+    $moduleReference = '~((?:\./)?(?:index|vendor|node-automation)\.js)\?v=[A-Za-z0-9_-]+~';
     $fontReference = '~(\./codicon\.ttf)(?:\?v=[A-Za-z0-9_-]+)?~';
     $hash = hash_init('sha256');
     foreach ($files as $path => $content) {
