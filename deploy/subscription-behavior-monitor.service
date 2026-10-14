@@ -1,0 +1,26 @@
+[Unit]
+Description=Xboard subscription behavior detection and combined Telegram alert
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/1panel/apps/openresty/openresty/www/sites/xboard/index
+ExecStart=/usr/bin/python3 /opt/1panel/apps/openresty/openresty/www/sites/xboard/index/scripts/subscription-behavior-monitor.py --log-root=/opt/1panel/www/sites --container=index-web-1 --lock-file=/run/xboard-subscription-behavior/monitor.lock
+TimeoutStartSec=180
+RuntimeDirectory=xboard-subscription-behavior
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+Nice=10
+CPUQuota=50%
+MemoryMax=384M
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/run/xboard-subscription-behavior
+NoNewPrivileges=yes
+StandardOutput=journal
+StandardError=journal

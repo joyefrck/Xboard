@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Xboard subscription behavior detection every two hours
+
+[Timer]
+OnCalendar=*-*-* 00/2:00:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1min
+Unit=subscription-behavior-monitor.service
+
+[Install]
+WantedBy=timers.target

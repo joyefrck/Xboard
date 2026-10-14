@@ -1,0 +1,28 @@
+<?php
+// Keep detection thresholds in one source shared with the host detector.
+return [
+    'owner_user_id' => 3,
+    'timezone' => 'Asia/Shanghai',
+    'window_seconds' => 7200,
+    'background_seconds' => 86400,
+    'dedupe_seconds' => 86400,
+    'state_seconds' => 604800,
+    'threshold' => 70,
+    'r1_min_downloads' => 60,
+    'r1_min_span_seconds' => 1800,
+    'r1_cli_ratio' => 0.8,
+    'r1_median_seconds' => 60,
+    'r1_short_seconds' => 60,
+    'r1_short_ratio' => 0.7,
+    'r2_min_clusters' => 3,
+    'r2_cluster_gap_seconds' => 1800,
+    'r2_window_seconds' => 60,
+    'r2_min_downloads' => 10,
+    'r2_median_seconds' => 3,
+    'r2_max_bytes7d' => 134217728,
+    'traffic_health_max_age_seconds' => 1800,
+    'message_max_chars' => 4000,
+    'input_max_bytes' => 8388608,
+    'max_candidates' => 2000,
+    'known_node_ips' => [],
+];
