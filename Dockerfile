@@ -32,6 +32,7 @@ COPY .docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN sh scripts/install-node-automation-probe.sh
 
 RUN composer install --no-cache --no-dev \
+    && php scripts/check-horizon-provisioning.php --environment=local \
     && php artisan storage:link \
     && chown -R www:www /www \
     && chmod -R 775 /www \

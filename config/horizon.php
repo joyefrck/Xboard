@@ -169,7 +169,7 @@ return [
     */
 
     'environments' => [
-        '*' => [
+        'local' => [
             'XboardNodeAutomation' => [
                 'connection' => 'node_automation',
                 'queue' => ['node_automation'],
@@ -181,8 +181,6 @@ return [
                 'maxJobs' => 50,
                 'maxTime' => 1800,
             ],
-        ],
-        'local' => [
             'XboardTraffic' => [
                 'connection' => 'redis',
                 'queue' => ['traffic_fetch'],
