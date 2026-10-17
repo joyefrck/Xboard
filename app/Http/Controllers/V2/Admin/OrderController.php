@@ -95,7 +95,12 @@ class OrderController extends Controller
 
         // Handle operator-based filtering
         if (!is_string($value) || !str_contains($value, ':')) {
-            $query->where($field, 'like', "%{$value}%");
+            // User IDs identify one account, including links without an eq: prefix.
+            if ($field === 'user_id') {
+                $query->where($field, '=', $value);
+            } else {
+                $query->where($field, 'like', "%{$value}%");
+            }
             return;
         }
 
