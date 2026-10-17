@@ -20,6 +20,10 @@ class TicketService
         $storedAttachments = [];
         try {
             DB::beginTransaction();
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->first();
+            if (!$ticket || $ticket->status === Ticket::STATUS_CLOSED) {
+                throw new ApiException('工单不存在或已关闭');
+            }
             $ticketMessage = TicketMessage::create([
                 'user_id' => $userId,
                 'ticket_id' => $ticket->id,
@@ -44,16 +48,15 @@ class TicketService
 
     public function replyByAdmin($ticketId, $message, $userId, array $attachments = []): void
     {
-        $ticket = Ticket::where('id', $ticketId)
-            ->first();
-        if (!$ticket) {
-            throw new ApiException('工单不存在');
-        }
-        $ticket->status = Ticket::STATUS_OPENING;
         $attachmentService = new TicketAttachmentService();
         $storedAttachments = [];
         try {
             DB::beginTransaction();
+            $ticket = Ticket::whereKey($ticketId)->lockForUpdate()->first();
+            if (!$ticket) {
+                throw new ApiException('工单不存在');
+            }
+            $ticket->status = Ticket::STATUS_OPENING;
             $ticketMessage = TicketMessage::create([
                 'user_id' => $userId,
                 'ticket_id' => $ticket->id,
