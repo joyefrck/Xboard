@@ -33,28 +33,40 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('p', { className: 'na-muted' }, '这台备用关联以上全部节点，沿用原 NodeID；切换时只更新这个域名的 IP。'));
   }
 
-  function UserPicker({ value, selected, onChange, disabled }) {
+  function UserPicker({ group, value, selected, onChange, disabled }) {
     const [search, setSearch] = R.useState('');
     const [users, setUsers] = R.useState([]);
     const [error, setError] = R.useState('');
     const [busy, setBusy] = R.useState(false);
     async function find() {
       setBusy(true); setError('');
-      try { setUsers(await call('/users', { search }, 'get')); }
+      try { setUsers(await call('/users', { search, group_id: group.id }, 'get')); }
       catch (e) { setError(e.message || '搜索失败'); }
       finally { setBusy(false); }
     }
     return h('div', { className: 'na-user' },
       h('div', { className: 'na-actions' },
-        h('input', { 'aria-label': '公共检测账号搜索', placeholder: '邮箱或用户 ID', value: search,
+        h('input', { 'aria-label': group.name + ' 公共检测账号搜索', placeholder: '邮箱或用户 ID', value: search,
           onChange: e => setSearch(e.target.value), disabled }),
         button(busy ? '搜索中…' : '搜索账号', find, disabled || busy || search.trim().length < 1),
-        h('select', { 'aria-label': '公共检测账号', value: value || '', disabled,
+        h('select', { 'aria-label': group.name + ' 公共检测账号', value: value || '', disabled,
           onChange: e => onChange(e.target.value ? Number(e.target.value) : null) },
           h('option', { value: '' }, '选择公共检测账号'),
           value && !users.some(u => u.id === Number(value)) ? h('option', { value }, '#' + value + (selected?.email && selected.id === Number(value) ? ' ' + selected.email : '')) : null,
           users.map(u => h('option', { key: u.id, value: u.id, disabled: !!u.banned }, '#' + u.id + ' ' + u.email + (u.banned ? '（已封禁）' : ''))))),
       error ? h('p', { role: 'alert', className: 'na-error' }, error) : null);
+  }
+
+  function GroupAccountRow({ group, selected, perform, disabled }) {
+    const [value, setValue] = R.useState(selected?.id || null);
+    R.useEffect(() => { setValue(selected?.id || null); }, [selected?.id]);
+    return h('div', { className: 'na-account-row' },
+      h('h4', null, group.name + ' · #' + group.id),
+      selected ? h('p', { className: 'na-muted' }, '已保存：#' + selected.id + (selected.email ? ' ' + selected.email : '（账号已删除）')) : null,
+      h(UserPicker, { group, value, selected, onChange: setValue, disabled }),
+      h('div', { className: 'na-actions' },
+        button('保存 ' + group.name + ' 检测账号', () => perform('/probe-user/save', { group_id: group.id, user_id: value }), !value || disabled, 'na-primary'),
+        button('清除 ' + group.name + ' 检测账号', () => perform('/probe-user/save', { group_id: group.id, user_id: null }), !selected || disabled)));
   }
 
   function BackupForm({ group, initial, perform, cancel }) {
@@ -84,7 +96,7 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { className: 'na-actions' }, h('button', { type: 'submit', className: 'na-button na-primary', disabled: saving }, saving ? '保存中…' : '保存备用'), button('取消', cancel, saving)));
   }
 
-  function GroupRow({ group, probeAccount, perform, openLogs, queue, busy, requestBusy, pending }) {
+  function GroupRow({ group, accountsReady, perform, openLogs, queue, busy, requestBusy, pending }) {
     const [editing, setEditing] = R.useState(null);
     const mayPause = !!group.enabled || !!group.pending_operation || pending;
     const locked = !!group.enabled || !!group.pending_operation || busy;
@@ -101,10 +113,10 @@ export function createAutomationPage({ React: R, api, layout }) {
           (group.nodes.find(n => n.id === result.node_id)?.name || '节点 #' + result.node_id) + ' ' + (result.ok ? '通过' : '不可用')).join(' / ')) : null,
         group.nodes.length > 1 ? h('p', { className: 'na-note' }, '此域名共用 DNS。切换会影响以上 ' + group.nodes.length + ' 个节点，备用必须支持全部端口和协议。') : null,
         h('div', { className: 'na-actions' },
-          button(mayPause ? '暂停自动化' : '验证并开启', () => mayPause ? perform('/pause', { id: group.id }) : queue(group, 'enable'), !group.id || (!mayPause && (!group.record_id || !probeAccount)) || (mayPause ? requestBusy : busy), mayPause ? '' : 'na-primary'),
-          button(group.record_id ? '重新验证配置并匹配 DNS' : '验证配置并匹配 DNS', () => perform('/save', { domain: group.domain }), locked || !probeAccount),
+          button(mayPause ? '暂停自动化' : '验证并开启', () => mayPause ? perform('/pause', { id: group.id }) : queue(group, 'enable'), !group.id || (!mayPause && (!group.record_id || !accountsReady)) || (mayPause ? requestBusy : busy), mayPause ? '' : 'na-primary'),
+          button(group.record_id ? '重新验证配置并匹配 DNS' : '验证配置并匹配 DNS', () => perform('/save', { domain: group.domain }), locked || !accountsReady),
           button('切换记录', () => openLogs(group), !group.id || requestBusy)),
-        h('p', { className: 'na-muted' }, '本组全部节点使用「固定配置」中的公共检测账号。备用 V2bX 沿用原 NodeID、端口、协议和密钥。'),
+        h('p', { className: 'na-muted' }, '本域名各节点按权限组使用「固定配置」中的对应检测账号。备用 V2bX 沿用原 NodeID、端口、协议和密钥。'),
         h('div', { className: 'na-section-title' }, h('h3', null, group.domain + ' 的备用 VPS'), button('为此域名新增备用', () => setEditing({}), !group.id || locked)),
         h('p', { className: 'na-muted' }, '以下备用均关联 ' + group.domain + '，共同接替 NodeID ' + nodeIds(group) + '。请在备用 V2bX 上部署这些相同的 NodeID、端口和协议。'),
         !group.backups?.length ? h('p', { className: 'na-empty' }, '尚未配置备用。先保存「固定配置」中的公共检测账号并匹配本域名 DNS，再添加已部署 V2bX 的 VPS。') :
@@ -180,11 +192,9 @@ export function createAutomationPage({ React: R, api, layout }) {
   }
 
   function Page() {
-    const [data, setData] = R.useState({ groups: [], connection: null, probe_account: null });
+    const [data, setData] = R.useState({ groups: [], connection: null, probe_accounts: [], permission_groups: [] });
     const [zone, setZone] = R.useState('443ds443.com');
     const [token, setToken] = R.useState('');
-    const [probeUser, setProbeUser] = R.useState(null);
-    const probeInitialized = R.useRef(false);
     const [busy, setBusy] = R.useState(false);
     const [message, setMessage] = R.useState('');
     const [error, setError] = R.useState('');
@@ -200,7 +210,6 @@ export function createAutomationPage({ React: R, api, layout }) {
         const value = await call('/fetch', {}, 'get');
         if (live.current) {
           setData(value);
-          if (!probeInitialized.current) { setProbeUser(value.probe_account?.id || null); probeInitialized.current = true; }
           if (!zoneInitialized.current) { setZone(value.connection?.zone_name || '443ds443.com'); zoneInitialized.current = true; }
         }
       } catch (e) { if (live.current) setError(e.message || '加载失败'); }
@@ -259,13 +268,13 @@ export function createAutomationPage({ React: R, api, layout }) {
             if (next !== undefined) { e.preventDefault(); setTab(tabs[next].id); document.getElementById('na-tab-' + tabs[next].id)?.focus(); }
           } }, item.name))),
       h('div', { id: 'na-panel-pool', role: 'tabpanel', 'aria-labelledby': 'na-tab-pool', className: 'na-tab-panel', hidden: tab !== 'pool' },
-        !data.connection?.verified_at || !data.probe_account ? h('p', { className: 'na-note' }, '请先在「固定配置」中验证 Cloudflare 连接并选择公共检测账号。',
+        !data.connection?.verified_at || !data.probe_accounts?.length ? h('p', { className: 'na-note' }, '请先在「固定配置」中验证 Cloudflare 连接并选择公共检测账号。',
           button('前往固定配置', () => setTab('settings'))) : null,
       h('div', { className: 'na-section-title' }, h('h3', null, '节点与备用池'),
         h('input', { 'aria-label': '筛选域名或节点', placeholder: '搜索域名或节点名称', value: search, onChange: e => setSearch(e.target.value) }), button('刷新', load, busy)),
       !data.groups.length ? h('p', { className: 'na-empty' }, '加载后将展示使用域名的节点。IP 地址节点不支持 DNS 自动切换。') :
         data.groups.filter(g => (g.domain + ' ' + g.nodes.map(n => n.name).join(' ')).toLowerCase().includes(search.toLowerCase()))
-          .map(g => h(GroupRow, { key: g.domain, group: g, probeAccount: data.probe_account, perform, queue, openLogs, busy: busy || running,
+          .map(g => h(GroupRow, { key: g.domain, group: g, accountsReady: g.nodes.every(n => data.probe_accounts?.some(a => n.group_ids?.map(Number).includes(a.group_id))), perform, queue, openLogs, busy: busy || running,
             requestBusy: busy, pending: running && operation.group.id === g.id }))),
       h('div', { id: 'na-panel-settings', role: 'tabpanel', 'aria-labelledby': 'na-tab-settings', className: 'na-tab-panel', hidden: tab !== 'settings' },
       h('section', { className: 'na-connection', 'aria-label': 'Cloudflare 连接' },
@@ -280,13 +289,13 @@ export function createAutomationPage({ React: R, api, layout }) {
             h('a', { href: 'https://developers.cloudflare.com/fundamentals/api/get-started/create-token/', target: '_blank', rel: 'noreferrer' }, 'Token 配置说明')))),
       h('section', { className: 'na-connection', 'aria-label': '公共检测账号设置' },
         h('div', { className: 'na-section-title' }, h('h3', null, '公共检测账号'),
-          h('span', { className: 'na-badge' }, data.probe_account ? '已配置 · 所有节点共用' : '尚未配置')),
-        h('p', { className: 'na-muted' }, '只需选择一个 Xboard 订阅用户，所有域名和节点统一使用它进行真实代理检测。账号需具备受管节点权限、有效期和可用流量；检测会消耗少量流量。'),
-        h(UserPicker, { value: probeUser, selected: data.probe_account, onChange: setProbeUser,
-          disabled: busy || running || data.groups.some(g => g.enabled || g.pending_operation) }),
-        button('保存公共检测账号', () => perform('/probe-user/save', { user_id: probeUser }),
-          !probeUser || busy || running || data.groups.some(g => g.enabled || g.pending_operation), 'na-primary'),
-        h('p', { className: 'na-muted' }, '更换公共账号前请先暂停所有自动化，并等待任务完成；保存后逐组重新验证配置与备用。'))),
+          h('span', { className: 'na-badge' }, data.probe_accounts?.length ? '已配置 ' + data.probe_accounts.length + ' 个权限组' : '尚未配置')),
+        h('p', { className: 'na-muted' }, '每个权限组分别选择一个 Xboard 订阅用户，例如 level2、level3 各配置一个。检测时按节点权限组选择账号；账号须属于该组、有效且有可用流量，检测会消耗少量流量。'),
+        data.permission_groups?.length ? data.permission_groups.map(group => h(GroupAccountRow, { key: group.id, group,
+          selected: data.probe_accounts?.find(a => a.group_id === group.id), perform,
+          disabled: busy || running || data.groups.some(g => g.enabled || g.pending_operation) })) :
+          h('p', { className: 'na-empty' }, '请先在「权限组管理」创建权限组。'),
+        h('p', { className: 'na-muted' }, '更换或清除账号前请先暂停所有自动化，并等待任务完成；保存后逐域名重新验证配置与备用。多权限组节点优先使用权限组 ID 较小的可用账号。'))),
       h('div', { id: 'na-panel-logs', role: 'tabpanel', 'aria-labelledby': 'na-tab-logs', className: 'na-tab-panel', hidden: tab !== 'logs' },
         h('section', { className: 'na-log', 'aria-label': '全部切换记录' }, h(LogList, { active: tab === 'logs' }))),
       logs ? h(LogDialog, { key: logs.id, group: logs, close: () => setLogs(null) }) : null);

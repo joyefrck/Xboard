@@ -18,15 +18,23 @@ class ProxyProbe
         return $nodes->all();
     }
 
-    public function account(): User
+    public function account(int $groupId): User
     {
-        $id = NodeAutomationSetting::find(1)?->probe_user_id;
-        if (!$id) throw new AutomationException('请先配置公共检测账号');
+        $id = NodeAutomationSetting::find(1)?->probe_users_by_group[$groupId] ?? null;
+        if (!$id) throw new AutomationException('请先为权限组 ' . $groupId . ' 配置公共检测账号');
         $user = User::find($id);
-        if (!$user || $user->banned || $user->custom_pending_order_id ||
-            ($user->expired_at !== null && $user->expired_at <= time()) || !$user->uuid ||
-            ($user->getRemainingTraffic() <= 0 && !UserTrafficPackage::where('user_id', $user->id)
-                ->where('status', UserTrafficPackage::STATUS_ACTIVE)->where('remaining_bytes', '>', 0)->exists())) {
+        if ($user && (int) $user->group_id !== $groupId) {
+            throw new AutomationException('公共检测账号不属于权限组 ' . $groupId);
+        }
+        if (!$user || $user->banned || $user->custom_pending_order_id || !$user->uuid) {
+            throw new AutomationException('公共检测账号无效、过期或无可用流量');
+        }
+        // Independent packages grant access even when the periodic plan has expired.
+        $hasPlanBalance = ($user->expired_at === null || $user->expired_at > time())
+            && $user->getRemainingTraffic() > 0;
+        $hasPackageBalance = UserTrafficPackage::where('user_id', $user->id)
+            ->where('status', UserTrafficPackage::STATUS_ACTIVE)->where('remaining_bytes', '>', 0)->exists();
+        if (!$hasPlanBalance && !$hasPackageBalance) {
             throw new AutomationException('公共检测账号无效、过期或无可用流量');
         }
         return $user;
@@ -34,11 +42,17 @@ class ProxyProbe
 
     public function user(NodeAutomationGroup $group, Server $node): User
     {
-        $user = $this->account();
-        if (!ServerService::getAvailableUsers($node)->contains('id', $user->id)) {
-            throw new AutomationException('公共检测账号没有节点 ' . ($node->code ?: $node->id) . ' 的使用权限');
+        $groupIds = array_unique(array_map('intval', $node->group_ids ?? []));
+        sort($groupIds, SORT_NUMERIC);
+        $available = null;
+        foreach ($groupIds as $groupId) {
+            try { $user = $this->account($groupId); }
+            catch (AutomationException $e) { continue; }
+            $available ??= ServerService::getAvailableUsers($node);
+            if ($available->contains('id', $user->id)) return $user;
         }
-        return $user;
+        throw new AutomationException('节点 ' . ($node->code ?: $node->id) .
+            ' 没有可用的公共检测账号，请检查权限组 ' . implode('、', $groupIds) . ' 的账号配置、有效期、流量和节点使用权限');
     }
 
     public function fingerprint(NodeAutomationGroup $group): string

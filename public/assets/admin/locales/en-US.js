@@ -1047,7 +1047,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "monthlyIncome": "Monthly Income",
       "totalIncome": "Total Income",
       "totalUsers": "Total Users",
-      "activeUsers": "Active Users: {{count}}",
+      "activeUsers": "Currently Available Users: {{count}}",
       "totalOrders": "Total Orders",
       "revenue": "Revenue",
       "todayRegistered": "Today Registered",

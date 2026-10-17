@@ -960,7 +960,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "monthlyIncome": "월간 수입",
       "totalIncome": "총 수입",
       "totalUsers": "총 사용자",
-      "activeUsers": "활성 사용자: {{count}}",
+      "activeUsers": "현재 이용 가능한 사용자: {{count}}",
       "totalOrders": "총 주문",
       "revenue": "매출",
       "todayRegistered": "오늘 등록",

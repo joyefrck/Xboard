@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\NodeAutomationJob;
 use App\Models\{NodeAutomationConnection as Connection, NodeAutomationGroup as Group,
     NodeAutomationBackup as Backup, NodeAutomationLog as Event, NodeAutomationCheck as Observation,
-    NodeAutomationSetting as Setting, Server, User};
+    NodeAutomationSetting as Setting, Server, ServerGroup, User};
 use App\Services\NodeAutomation\{AutomationService, AutomationException, CloudflareDns, ProxyProbe};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB};
@@ -40,12 +40,17 @@ class AutomationController extends Controller
                     ['pending_operation' => $group ? $pending->get($group->id) : null,
                         'latest_check' => $group ? $checks->get($group->id)?->firstWhere('ip', $group->current_ip) : null,
                         'nodes' => $items->map(fn ($n) => ['id' => $n->id, 'display_id' => $n->code ?: $n->id,
-                        'name' => $n->name, 'port' => $n->port, 'type' => $n->type])->values()->all()]);
+                        'name' => $n->name, 'port' => $n->port, 'type' => $n->type, 'group_ids' => $n->group_ids])->values()->all()]);
             }
-            $setting = Setting::find(1);
-            $user = $setting?->probeUser()->first(['id', 'email']);
+            $mapping = Setting::find(1)?->probe_users_by_group ?? [];
+            $users = User::whereIn('id', array_values($mapping))->get(['id', 'email', 'group_id'])->keyBy('id');
+            $accounts = [];
+            foreach ($mapping as $groupId => $userId) {
+                $user = $users->get($userId);
+                $accounts[] = ['group_id' => (int) $groupId, 'id' => (int) $userId, 'email' => $user?->email];
+            }
             return ['connection' => Connection::first(), 'groups' => $rows,
-                'probe_account' => $setting?->probe_user_id ? ['id' => $setting->probe_user_id, 'email' => $user?->email] : null,
+                'probe_accounts' => $accounts, 'permission_groups' => ServerGroup::orderBy('id')->get(['id', 'name']),
                 'interval' => 60, 'threshold' => 3, 'cooldown' => 600];
         });
     }
@@ -128,7 +133,8 @@ class AutomationController extends Controller
 
     public function probeUserSave(Request $request)
     {
-        $data = $request->validate(['user_id' => 'required|integer|min:1|exists:v2_user,id']);
+        $data = $request->validate(['group_id' => 'required|integer|min:1|exists:v2_server_group,id',
+            'user_id' => 'present|nullable|integer|min:1|exists:v2_user,id']);
         return $this->respond(function () use ($data) {
             $lock = Cache::lock('node-automation:connection', 30);
             if (!$lock->get()) throw new AutomationException('公共配置正在更新');
@@ -142,9 +148,14 @@ class AutomationController extends Controller
                 }
                 return DB::transaction(function () use ($data) {
                     $setting = Setting::find(1) ?? new Setting();
-                    $changed = $setting->probe_user_id !== (int) $data['user_id'];
-                    $setting->forceFill(['id' => 1, 'probe_user_id' => $data['user_id']])->save();
-                    $user = (new ProxyProbe())->account();
+                    $mapping = $setting->probe_users_by_group ?? [];
+                    $groupId = (int) $data['group_id'];
+                    $userId = isset($data['user_id']) ? (int) $data['user_id'] : null;
+                    $changed = ($mapping[$groupId] ?? null) !== $userId;
+                    if ($userId) $mapping[$groupId] = $userId;
+                    else unset($mapping[$groupId]);
+                    $setting->forceFill(['id' => 1, 'probe_user_id' => null, 'probe_users_by_group' => $mapping])->save();
+                    $user = $userId ? (new ProxyProbe())->account($groupId) : null;
                     if ($changed) {
                         Group::query()->update(['config_hash' => null, 'failures' => 0,
                             'reason' => '公共检测账号已更新，请重新验证配置和备用']);
@@ -152,7 +163,7 @@ class AutomationController extends Controller
                             ->update(['state' => 'unchecked', 'tested_at' => null, 'tested_hash' => null]);
                         Observation::query()->delete();
                     }
-                    return ['id' => $user->id, 'email' => $user->email];
+                    return ['group_id' => $groupId, 'account' => $user ? ['id' => $user->id, 'email' => $user->email] : null];
                 });
             } finally {
                 foreach ($locks as $groupLock) $groupLock->release();
@@ -169,10 +180,13 @@ class AutomationController extends Controller
 
     public function users(Request $request)
     {
-        $data = $request->validate(['search' => 'required|string|min:1|max:100']);
+        $data = $request->validate(['search' => 'required|string|min:1|max:100',
+            'group_id' => 'required|integer|min:1|exists:v2_server_group,id']);
         // This endpoint returns identifiers for admin selection, never auth material.
-        $users = User::query()->where('email', 'like', '%' . $data['search'] . '%')->orWhere('id', ctype_digit($data['search']) ? (int) $data['search'] : -1)
-            ->limit(20)->get(['id', 'email', 'banned', 'expired_at', 'group_id']);
+        $users = User::query()->where('group_id', $data['group_id'])->where(function ($query) use ($data) {
+            $query->where('email', 'like', '%' . $data['search'] . '%')
+                ->orWhere('id', ctype_digit($data['search']) ? (int) $data['search'] : -1);
+        })->limit(20)->get(['id', 'email', 'banned', 'expired_at', 'group_id']);
         return $this->success($users);
     }
 

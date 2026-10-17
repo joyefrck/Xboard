@@ -1052,7 +1052,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "monthlyIncome": "月收入",
       "totalIncome": "总收入",
       "totalUsers": "总用户",
-      "activeUsers": "活跃用户: {{count}}",
+      "activeUsers": "当前可用用户: {{count}}",
       "totalOrders": "总订单",
       "revenue": "收入",
       "todayRegistered": "今日注册",

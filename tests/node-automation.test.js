@@ -24,10 +24,11 @@ test('admin API persists backup controls, protects active settings and deduplica
   assert.match(run.stdout, /API: .* checks passed/);
 });
 
-test('common-account upgrade preserves only unambiguous users and guards unfinished DNS operations', () => {
+test('account upgrades migrate group ownership and guard unfinished DNS operations', () => {
   const run = spawnSync(process.env.PHP_BINARY || 'php', [path.join(__dirname, 'node-automation-settings.php')], { encoding: 'utf8', timeout: 30000 });
   assert.equal(run.status, 0, run.stdout + run.stderr);
   assert.match(run.stdout, /settings: .* checks passed/);
+  assert.match(run.stdout, /group settings: upgrade checks passed/);
 });
 
 test('admin has fourth node menu, registered route, translation and readable module', () => {

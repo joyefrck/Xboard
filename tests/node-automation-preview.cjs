@@ -6,16 +6,17 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const stamp = () => new Date().toISOString();
 const connection = { id: 1, zone_name: 'example.test', zone_id: 'fixture-zone', verified_at: stamp() };
-let probeAccount = { id: 5, email: 'probe@example.test' };
+const permissionGroups = [{ id: 1, name: 'level2' }, { id: 2, name: 'level3' }];
+let probeAccounts = [{ group_id: 1, id: 5, email: 'probe@example.test' }];
 const groups = [{ id: 1, domain: 'us.example.test', enabled: false, state: 'paused', current_ip: '198.51.100.10', failures: 0,
   latest_check: { status: 'pass', nodes: [1,2,3].map(node_id=>({node_id,ok:true})), checked_at: stamp() },
   record_id: 'fixture-record', last_checked_at: stamp(), last_switched_at: null,
-  nodes: [1, 2, 3].map(id => ({ id, display_id: id, name: '美国-高峰专线0' + id, type: 'vless', port: 1000 + id })),
+  nodes: [1, 2, 3].map(id => ({ id, display_id: id, name: '美国-高峰专线0' + id, type: 'vless', port: 1000 + id, group_ids: ['1'] })),
   backups: [{ id: 1, name: '美国备用一', ip: '198.51.100.20', priority: 1, enabled: true, state: 'ready', tested_at: stamp() },
     { id: 2, name: '美国备用二', ip: '198.51.100.30', priority: 2, enabled: true, state: 'unchecked' },
     { id: 3, name: '原 VPS', ip: '198.51.100.40', priority: 999, enabled: false, state: 'needs_review' }] },
   { id: 2, domain: 'jp.example.test', enabled: false, state: 'unconfigured', current_ip: null, failures: 0,
-    nodes: [{ id: 11, display_id: 11, name: '日本-住宅IP01', type: 'hysteria', port: 1001 }], backups: [] }];
+    nodes: [{ id: 11, display_id: 11, name: '日本-住宅IP01', type: 'hysteria', port: 1001, group_ids: ['2'] }], backups: [] }];
 const events = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, group_id: i % 2 + 1,
   action: i % 3 ? 'auto' : 'manual', status: 'completed', created_at: new Date(Date.now() - (25 - i) * 60000).toISOString(),
   from_ip: '198.51.100.10', to_ip: '198.51.100.20', message: '演示记录：备用验证通过，DNS 回读已确认' }));
@@ -27,14 +28,15 @@ const server = http.createServer(async (req, res) => {
     const data = body ? JSON.parse(body) : Object.fromEntries(url.searchParams);
     const group = groups.find(g => g.id === Number(data.group_id || data.id) || g.domain === data.domain);
     const action = url.pathname.split('/server/automation')[1];
-    if (action === '/fetch') return json({ connection, groups, probe_account: probeAccount });
-    if (action === '/users') return json([{ id: 5, email: 'probe@example.test', banned: false, group_id: 1 }, { id: 6, email: 'probe2@example.test', banned: false, group_id: 1 }]);
+    if (action === '/fetch') return json({ connection, groups, probe_accounts: probeAccounts, permission_groups: permissionGroups });
+    if (action === '/users') return json([{ id: 5, email: 'probe@example.test', banned: false, group_id: 1 }, { id: 6, email: 'probe2@example.test', banned: false, group_id: 2 }].filter(u => u.group_id === Number(data.group_id)));
     if (action === '/connection/save') { connection.zone_name = data.zone_name; connection.verified_at = null; return json(connection); }
     if (action === '/connection/verify') { connection.verified_at = stamp(); return json(connection); }
     if (action === '/probe-user/save') {
-      probeAccount = { id: data.user_id, email: data.user_id === 5 ? 'probe@example.test' : 'probe2@example.test' };
+      probeAccounts = probeAccounts.filter(a => a.group_id !== data.group_id);
+      if (data.user_id) probeAccounts.push({ group_id: data.group_id, id: data.user_id, email: data.user_id === 5 ? 'probe@example.test' : 'probe2@example.test' });
       for (const g of groups) { g.backups.forEach(b => { if (!['active', 'needs_review'].includes(b.state)) b.state = 'unchecked'; }); }
-      return json(probeAccount);
+      return json(probeAccounts);
     }
     if (action === '/save') { group.record_id = 'fixture-record-' + group.id; group.state = 'paused'; group.current_ip ||= '198.51.100.50'; return json(group); }
     if (action === '/match') return json({ id: 'fixture-record', content: group.current_ip });

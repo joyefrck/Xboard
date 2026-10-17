@@ -42,9 +42,9 @@ $db->schema()->create('v2_plan', function(Blueprint $t) {
 });
 $user=User::create(['uuid'=>'00000000-0000-4000-8000-000000000001','group_id'=>1,'expired_at'=>time()+86400,'transfer_enable'=>1000000000]);
 $db->schema()->create('v2_node_automation_settings', function(Blueprint $t) {
-    $t->id(); $t->unsignedBigInteger('probe_user_id')->nullable(); $t->timestamps();
+    $t->id(); $t->unsignedBigInteger('probe_user_id')->nullable(); $t->json('probe_users_by_group')->nullable(); $t->timestamps();
 });
-Setting::create(['probe_user_id'=>$user->id]);
+Setting::create(['probe_users_by_group'=>[1=>$user->id]]);
 $group=new Group(['domain'=>'probe.example.test','config_hash'=>'test']);
 $probe=new ProxyProbe(); $probe->readiness();
 $checks=0;
