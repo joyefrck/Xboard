@@ -8,6 +8,7 @@ use App\Models\TrafficPackage;
 use App\Models\User;
 use App\Models\UserTrafficPackage;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
 
 class TrafficPackageService
 {
@@ -235,6 +236,68 @@ class TrafficPackageService
             ->where('remaining_bytes', '>', 0)
             ->orderBy('id')
             ->first();
+    }
+
+    /** Select only stale access profiles, following the same FIFO source as consumption. */
+    public function getPackageAccessSyncCandidatesQuery(?int $timestamp = null): Builder
+    {
+        $timestamp ??= time();
+        $firstPackages = UserTrafficPackage::query()
+            ->selectRaw('user_id, MIN(id) AS first_package_id')
+            ->where('status', UserTrafficPackage::STATUS_ACTIVE)
+            ->where('remaining_bytes', '>', 0)
+            ->groupBy('user_id');
+
+        $query = User::query()->select('v2_user.*')
+            ->joinSub($firstPackages, 'first_packages', function ($join) {
+                $join->on('first_packages.user_id', '=', 'v2_user.id');
+            })
+            ->join('v2_user_traffic_packages AS access_package', 'access_package.id', '=', 'first_packages.first_package_id')
+            ->leftJoin('v2_traffic_packages AS access_catalog', 'access_catalog.id', '=', 'access_package.traffic_package_id')
+            ->leftJoin('v2_plan AS access_legacy', 'access_legacy.id', '=', 'access_package.plan_id')
+            ->leftJoin('v2_plan AS access_fallback', 'access_fallback.id', '=', 'v2_user.plan_id')
+            ->where('v2_user.banned', 0)->whereNull('v2_user.custom_pending_order_id')
+            ->where(function ($query) use ($timestamp) {
+                $query->whereNull('v2_user.plan_id')
+                    ->orWhere('v2_user.transfer_enable', '<=', 0)
+                    ->orWhereRaw('v2_user.u + v2_user.d >= v2_user.transfer_enable')
+                    ->orWhere('v2_user.expired_at', '<=', $timestamp);
+            });
+
+        return $query->where(function ($query) {
+            foreach (['group_id', 'speed_limit', 'device_limit'] as $field) {
+                // NULL is a legitimate unlimited value; choose a product before its attribute.
+                $expected = "CASE WHEN access_catalog.id IS NOT NULL THEN access_catalog.{$field} "
+                    . "WHEN access_legacy.id IS NOT NULL THEN access_legacy.{$field} "
+                    . "ELSE access_fallback.{$field} END";
+                $query->orWhereRaw("COALESCE(v2_user.{$field}, -1) <> COALESCE(({$expected}), -1)");
+            }
+        });
+    }
+
+    /** Recheck under the same user-then-package lock order used by traffic consumption. */
+    public function syncPackageAccessForUser(int $userId): bool
+    {
+        return User::getConnectionResolver()->connection()->transaction(function () use ($userId) {
+            $user = User::whereKey($userId)->lockForUpdate()->first();
+            if (!$user || $user->banned || $user->custom_pending_order_id || $this->hasUsablePlanBalance($user)) {
+                return false;
+            }
+
+            $packages = UserTrafficPackage::with(['trafficPackage', 'plan'])
+                ->where('user_id', $userId)
+                ->where('status', UserTrafficPackage::STATUS_ACTIVE)
+                ->where('remaining_bytes', '>', 0)
+                ->orderBy('id')->lockForUpdate()->get();
+            if ($packages->isEmpty()) {
+                return false;
+            }
+
+            $fields = ['group_id', 'speed_limit', 'device_limit'];
+            $before = $user->only($fields);
+            $this->syncAccessProfile($user, $packages, 0);
+            return $before !== $user->only($fields);
+        }, 3);
     }
 
     public function syncAccessProfile(

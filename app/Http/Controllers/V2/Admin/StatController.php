@@ -12,6 +12,7 @@ use App\Models\StatUser;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\StatisticalService;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 
 class StatController extends Controller
@@ -361,11 +362,8 @@ class StatController extends Controller
         // Total users
         $totalUsers = User::count();
 
-        // Active users (users with valid subscription)
-        $activeUsers = User::where(function ($query) {
-            $query->where('expired_at', '>=', time())
-                ->orWhere('expired_at', NULL);
-        })->count();
+        // Keep the API field compatible; count currently usable plan/package access.
+        $activeUsers = app(UserService::class)->getAvailableUsersQuery()->count();
 
         // Previous paid income for growth calculation
         $twoMonthsAgoIncome = Order::where('paid_at', '>=', $twoMonthsAgoStart)

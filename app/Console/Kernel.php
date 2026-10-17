@@ -38,6 +38,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('telegram:group-retry')->everyMinute()->onOneServer()->withoutOverlapping(20)->runInBackground();
         // reset
         $schedule->command('reset:traffic')->everyMinute()->onOneServer();
+        $schedule->command('traffic:sync-package-access')->everyMinute()->onOneServer()->withoutOverlapping(4);
         $schedule->command('reset:log')->daily()->onOneServer();
         // send
         $schedule->command('send:remindMail', ['--force'])->dailyAt('11:30')->onOneServer();

@@ -15,6 +15,7 @@ use App\Services\TrafficResetService;
 use App\Models\TrafficResetLog;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserService
 {
@@ -64,14 +65,21 @@ class UserService
 
     public function getAvailableUsers()
     {
+        return $this->getAvailableUsersQuery()->get();
+    }
+
+    /** Side-effect-free eligibility shared by statistics and node access. */
+    public function getAvailableUsersQuery(?int $timestamp = null): Builder
+    {
+        $timestamp ??= time();
         return User::whereNull('custom_pending_order_id')->where('banned', 0)
-            ->where(function ($query) {
-                $query->where(function ($query) {
+            ->where(function ($query) use ($timestamp) {
+                $query->where(function ($query) use ($timestamp) {
                     $query->whereNotNull('plan_id')
                         ->where('transfer_enable', '>', 0)
                         ->whereRaw('u + d < transfer_enable')
-                        ->where(function ($query) {
-                            $query->where('expired_at', '>=', time())
+                        ->where(function ($query) use ($timestamp) {
+                            $query->where('expired_at', '>', $timestamp)
                                 ->orWhere('expired_at', NULL);
                         });
                 })->orWhereExists(function ($query) {
@@ -81,8 +89,7 @@ class UserService
                         ->where('v2_user_traffic_packages.status', UserTrafficPackage::STATUS_ACTIVE)
                         ->where('v2_user_traffic_packages.remaining_bytes', '>', 0);
                 });
-            })
-            ->get();
+            });
     }
 
     public function getUnAvailbaleUsers()
