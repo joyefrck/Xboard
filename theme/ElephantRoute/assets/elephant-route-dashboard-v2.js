@@ -183,11 +183,16 @@
       info.plan_used_traffic,
       hasActivePlan ? numberOr(info.u, 0) + numberOr(info.d, 0) : 0
     ));
-    var packageTotal = Math.max(0, numberOr(info.traffic_package_total, 0));
     var packageRemaining = Math.max(0, numberOr(info.traffic_package_remaining, 0));
+    var depletedPackage = packageRemaining === 0 ? info.depleted_traffic_package : null;
+    var packageTotal = Math.max(0, numberOr(info.traffic_package_total, 0),
+      numberOr(depletedPackage && depletedPackage.total_bytes, 0));
     var packageUsed = Math.max(0, packageTotal - packageRemaining);
     var hasTrafficPackage = packageTotal > 0 || packageRemaining > 0;
     var active = Boolean(hasActivePlan || packageRemaining > 0 || info.active_product_type === 'traffic_package');
+    var exhausted = packageRemaining === 0
+      && !(hasActivePlan && (planTotal === 0 || planUsed < planTotal))
+      && ((hasActivePlan && planTotal > 0 && planUsed >= planTotal) || packageTotal > 0);
     var expiredAt = info.effective_expired_at !== undefined ? info.effective_expired_at : info.expired_at;
     var expiredValue = numberOr(expiredAt, 0);
     var hasNamedProduct = Boolean(info.active_product_name || (info.plan && info.plan.name));
@@ -195,6 +200,7 @@
     var name = info.active_product_name
       || (info.plan && info.plan.name)
       || (info.latest_traffic_package && info.latest_traffic_package.name)
+      || (depletedPackage && depletedPackage.name)
       || (expired ? '原套餐已到期' : '暂无可用套餐');
     var planProgress = planTotal > 0 ? clamp(Math.round((planUsed / planTotal) * 100), 0, 100) : 0;
     var packageProgress = packageTotal > 0 ? clamp(Math.round((packageUsed / packageTotal) * 100), 0, 100) : 0;
@@ -209,8 +215,8 @@
 
     return {
       name: name,
-      status: info.custom_pending ? '待开通' : active ? '使用中' : (expired ? '已过期' : '未订阅'),
-      statusTone: info.custom_pending ? 'muted' : active ? 'success' : (expired ? 'danger' : 'muted'),
+      status: info.custom_pending ? '待开通' : exhausted ? '流量已耗完' : active ? '使用中' : (expired ? '已过期' : '未订阅'),
+      statusTone: info.custom_pending ? 'muted' : exhausted ? 'danger' : active ? 'success' : (expired ? 'danger' : 'muted'),
       hasActivePlan: hasActivePlan,
       hasTrafficPackage: hasTrafficPackage,
       planTotal: planTotal,
@@ -224,7 +230,7 @@
       resetLabel: hasActivePlan ? formatDate(info.next_reset_at) : '—',
       trafficNote: info.custom_pending ? '私人定制已付款，等待管理员配置专属套餐；开通后开始计算有效期。' : trafficNote,
       canSubscribe: !info.custom_pending && Boolean(info.subscribe_url),
-      hasProduct: active || expired || hasNamedProduct
+      hasProduct: active || exhausted || expired || hasNamedProduct
     };
   }
 

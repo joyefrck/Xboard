@@ -340,16 +340,31 @@ class TrafficPackageService
 
     public function getLatestActivePackage(User $user): ?array
     {
+        return $this->getLatestPackage($user, false);
+    }
+
+    public function getLatestDepletedPackage(User $user): ?array
+    {
+        return $this->getLatestPackage($user, true);
+    }
+
+    private function getLatestPackage(User $user, bool $depleted): ?array
+    {
         if (!$user->id) {
             return null;
         }
 
-        $package = UserTrafficPackage::with(['trafficPackage:id,name', 'plan:id,name'])
-            ->where('user_id', $user->id)
-            ->where('status', UserTrafficPackage::STATUS_ACTIVE)
-            ->where('remaining_bytes', '>', 0)
-            ->orderByDesc('id')
-            ->first();
+        $query = UserTrafficPackage::with(['trafficPackage:id,name', 'plan:id,name'])
+            ->where('user_id', $user->id);
+        if ($depleted) {
+            // Display history only; exhausted packages never contribute to access balances.
+            $query->whereIn('status', [UserTrafficPackage::STATUS_ACTIVE, UserTrafficPackage::STATUS_DEPLETED])
+                ->where('remaining_bytes', '<=', 0);
+        } else {
+            $query->where('status', UserTrafficPackage::STATUS_ACTIVE)
+                ->where('remaining_bytes', '>', 0);
+        }
+        $package = $query->orderByDesc('id')->first();
 
         if (!$package) {
             return null;

@@ -162,6 +162,8 @@ class UserController extends Controller
         }
         $userService = new UserService();
         $trafficSummary = $userService->getTrafficSummary($user);
+        $user['depleted_traffic_package'] = $trafficSummary['traffic_package_remaining'] > 0
+            ? null : app(\App\Services\TrafficPackageService::class)->getLatestDepletedPackage($user);
         if ($trafficSummary['has_active_plan'] && $user->plan_id) {
             $user['plan'] = Plan::find($user->plan_id);
             if (!$user['plan']) {

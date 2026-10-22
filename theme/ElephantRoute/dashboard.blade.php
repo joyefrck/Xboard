@@ -79,7 +79,7 @@
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20260819appealType1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20260921privatePlan1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261022depletedTraffic1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20260914purchaseNotice1"></script>
   <script>
     (function() {

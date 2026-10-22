@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const { spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -33,7 +34,7 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
   ]) {
     const view = readRepoFile(viewPath);
     assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260921privatePlan1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20260921privatePlan1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261022depletedTraffic1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -214,6 +215,53 @@ test('Dashboard 2.0 subscription view model keeps plan and traffic-package usage
   assert.equal(abnormal.planProgress, 100);
   assert.equal(abnormal.packageUsed, 0);
   assert.equal(abnormal.packageProgress, 0);
+});
+
+test('Dashboard 2.0 retains exhausted package details from the real traffic service', () => {
+  const result = spawnSync('php', ['tests/depleted-subscription-display.php'], { cwd: repoRoot, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const fixtures = JSON.parse(result.stdout);
+  const { buildSubscriptionViewModel } = require(path.join(repoRoot, 'theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
+  for (const key of ['depleted', 'legacy', 'zeroActive']) {
+    const view = buildSubscriptionViewModel(fixtures[key]);
+    assert.equal(view.status, '流量已耗完');
+    assert.equal(view.statusTone, 'danger');
+    assert.equal(view.name, fixtures[key].depleted_traffic_package.name);
+    assert.equal(view.packageUsed, fixtures[key].depleted_traffic_package.total_bytes);
+    assert.equal(view.packageTotal, view.packageUsed);
+    assert.equal(view.packageProgress, 100);
+    assert.equal(view.hasTrafficPackage, true);
+    assert.equal(view.hasProduct, true);
+  }
+  assert.equal(buildSubscriptionViewModel(fixtures.available).status, '使用中');
+  assert.equal(buildSubscriptionViewModel(fixtures.empty).status, '未订阅');
+  assert.equal(buildSubscriptionViewModel(fixtures.cancelled).status, '未订阅');
+  const gib = 1024 ** 3;
+  for (const [key, used, status] of [
+    ['repurchased', 0, '使用中'],
+    ['repurchasedUsed', 10, '使用中'],
+    ['repurchasedDepleted', 180, '流量已耗完']
+  ]) {
+    const view = buildSubscriptionViewModel(fixtures[key]);
+    assert.equal(view.name, '不限时流量包180G');
+    assert.equal(view.packageTotal, 180 * gib);
+    assert.equal(view.packageUsed, used * gib);
+    assert.equal(view.packageProgress, Math.round(used / 180 * 100));
+    assert.equal(view.status, status);
+    if (used < 180) assert.equal(fixtures[key].depleted_traffic_package, null);
+  }
+  const controller = readRepoFile('app/Http/Controllers/V1/User/UserController.php');
+  assert.match(controller, /'depleted_traffic_package'[\s\S]*getLatestDepletedPackage\(\$user\)/);
+});
+
+test('Dashboard 2.0 only marks traffic exhausted when both funding sources are empty', () => {
+  const { buildSubscriptionViewModel } = require(path.join(repoRoot, 'theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
+  const info = { has_active_plan: true, plan: { name: '月付套餐' }, plan_transfer_enable: 100, plan_used_traffic: 100 };
+  assert.equal(buildSubscriptionViewModel(info).status, '流量已耗完');
+  assert.equal(buildSubscriptionViewModel({ ...info, plan_used_traffic: 110 }).planProgress, 100);
+  assert.equal(buildSubscriptionViewModel({ ...info, traffic_package_total: 180, traffic_package_remaining: 10 }).status, '使用中');
+  assert.equal(buildSubscriptionViewModel({ ...info, plan_used_traffic: 50, traffic_package_total: 180, traffic_package_remaining: 0 }).status, '使用中');
+  assert.equal(buildSubscriptionViewModel({ ...info, custom_pending: true }).status, '待开通');
 });
 
 test('Dashboard 2.0 traffic-package CTA follows the purchasable package list', () => {
