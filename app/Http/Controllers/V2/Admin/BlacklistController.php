@@ -34,7 +34,10 @@ class BlacklistController extends Controller
             default => null,
         };
         $page = $query->select(['id', 'email', 'banned', 'ticket_muted_until', 'ticket_abuse_count'])
-            ->withMax('blacklistEvents', 'id')->orderByDesc('banned')->orderByDesc('ticket_muted_until')->orderByDesc('id')
+            ->withMax('blacklistEvents', 'id')
+            ->withMax(['blacklistEvents as latest_restriction_at' => fn ($q) => $q
+                ->whereIn('action', ['account_ban', 'ticket_mute'])], 'created_at')
+            ->orderByDesc('latest_restriction_at')->orderByDesc('id')
             ->paginate(20);
         $events = UserBlacklistEvent::whereIn('id', $page->getCollection()->pluck('blacklist_events_max_id')->filter())
             ->get(['id', 'reason', 'source', 'created_at', 'operator_id'])->keyBy('id');

@@ -332,6 +332,45 @@ $expectApi(fn () => $service->submit($first->id, '', '正常问题', null, $save
 $check($service->submit($other->id, '', '正常问题', null, $save) > 0, true, 'disabling AI preserves ordinary ticket flow');
 $check($first->fresh()->ticket_abuse_count, 2, 'disabling AI does not erase prior restrictions');
 
+// Restriction chronology owns the global order before pagination, across account statuses.
+$sortUsers = [];
+$sortEpoch = 1700000000;
+for ($i = 0; $i < 25; $i++) {
+    $sortUsers[] = $sortUser = User::create([
+        'email' => 'sort-fixture-' . $i . '@example.test', 'banned' => $i % 2 === 0,
+        'ticket_muted_until' => $i % 2 ? time() + 86400 + $i : null, 'ticket_abuse_count' => 1,
+    ]);
+    UserBlacklistEvent::create([
+        'user_id' => $sortUser->id, 'email' => $sortUser->email,
+        'action' => $i % 2 === 0 ? 'account_ban' : 'ticket_mute',
+        'source' => 'manual', 'reason' => 'sorting fixture',
+        'created_at' => $sortEpoch + (24 - $i) * 60, 'updated_at' => $sortEpoch,
+    ]);
+}
+$legacySort = User::create(['email' => 'sort-fixture-legacy@example.test', 'banned' => true]);
+$oldestSort = $sortUsers[24];
+$oldestSort->update(['banned' => false]);
+UserBlacklistEvent::create([
+    'user_id' => $oldestSort->id, 'email' => $oldestSort->email,
+    'action' => 'account_unban', 'source' => 'manual', 'reason' => 'later release is not a new restriction',
+    'created_at' => $sortEpoch + 999999, 'updated_at' => $sortEpoch + 999999,
+]);
+// A tie must stay deterministic across repeated page reads.
+UserBlacklistEvent::where('user_id', $sortUsers[3]->id)->update(['created_at' => $sortEpoch + 22 * 60]);
+$expectedSort = array_map(fn ($u) => $u->id, $sortUsers);
+[$expectedSort[2], $expectedSort[3]] = [$expectedSort[3], $expectedSort[2]];
+$firstSortPage = $controller->fetch($adminRequest(['search' => 'sort-fixture-', 'page' => 1]))->getData(true)['data'];
+$secondSortPage = $controller->fetch($adminRequest(['search' => 'sort-fixture-', 'page' => 2]))->getData(true)['data'];
+$check(array_column($firstSortPage['data'], 'id'), array_slice($expectedSort, 0, 20), 'newest restriction first across banned and muted users before pagination');
+$check(array_column($secondSortPage['data'], 'id'), [...array_slice($expectedSort, 20), $legacySort->id], 'older restrictions then unknown historical ban on the next page');
+$check($firstSortPage['total'], 26, 'sorting preserves pagination total');
+$check($secondSortPage['data'][4]['latest']['reason'], 'later release is not a new restriction', 'later release remains visible without moving the old restriction to the top');
+$mutedSort = $controller->fetch($adminRequest(['search' => 'sort-fixture-', 'status' => 'muted']))->getData(true)['data'];
+$expectedMuted = array_map(fn ($u) => $u->id, array_values(array_filter(
+    $sortUsers, fn ($u, $i) => $i % 2 === 1, ARRAY_FILTER_USE_BOTH
+)));
+$check(array_column($mutedSort['data'], 'id'), $expectedMuted, 'muted filter retains restriction-time order');
+
 $migration->down();
 $check($db->schema()->hasColumn('v2_user', 'ticket_muted_until'), false, 'migration rollback removes added columns');
 $check($db->schema()->hasTable('v2_user_blacklist_event'), false, 'migration rollback removes event table');
