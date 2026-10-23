@@ -12,6 +12,7 @@ use App\Http\Controllers\V2\Admin\UserController;
 use App\Http\Controllers\V2\Admin\StatController;
 use App\Http\Controllers\V2\Admin\NoticeController;
 use App\Http\Controllers\V2\Admin\TicketController;
+use App\Http\Controllers\V2\Admin\BlacklistController;
 use App\Http\Controllers\V2\Admin\TrafficPackageController;
 use App\Http\Controllers\V2\Admin\CouponController;
 use App\Http\Controllers\V2\Admin\GiftCardController;
@@ -143,6 +144,11 @@ class AdminRoute
                 $router->post('/resetSecret', [UserController::class, 'resetSecret']);
                 $router->post('/setInviteUser', [UserController::class, 'setInviteUser']);
                 $router->post('/destroy', [UserController::class, 'destroy']);
+            });
+
+            $router->group(['prefix' => 'blacklist'], function ($router) {
+                $router->get('/fetch', [BlacklistController::class, 'fetch']);
+                $router->get('/detail', [BlacklistController::class, 'detail']);
             });
 
             // Stat

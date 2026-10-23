@@ -16,9 +16,9 @@ class TicketSave extends FormRequest
     public function rules()
     {
         return [
-            'subject' => 'required',
+            'subject' => 'required|string|max:255',
             'level' => ['required', 'integer', Rule::in(Ticket::MANUAL_TYPES)],
-            'message' => 'required|string',
+            'message' => 'required|string|max:10000',
             'attachments' => 'sometimes|array|max:3',
             'attachments.*' => [
                 'file',
@@ -33,10 +33,13 @@ class TicketSave extends FormRequest
     {
         return [
             'subject.required' => __('Ticket subject cannot be empty'),
+            'subject.string' => '工单标题格式不正确',
+            'subject.max' => '工单标题不能超过255个字符',
             'level.required' => __('Ticket appeal type cannot be empty'),
             'level.integer' => __('Incorrect ticket appeal type format'),
             'level.in' => __('Incorrect ticket appeal type format'),
             'message.required' => __('Message cannot be empty'),
+            'message.max' => '每条工单消息不能超过10000个字符',
             'attachments.array' => '图片附件格式不正确',
             'attachments.max' => '每轮最多上传3张图片',
             'attachments.*.file' => '无效的图片附件',

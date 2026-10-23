@@ -167,6 +167,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     "couponManagement": "优惠券管理",
     "giftCardManagement": "礼品卡管理",
     "userManagement": "用户管理",
+    "blacklistManagement": "黑名单",
     "ticketManagement": "工单管理",
     "trafficResetLogs": "流量重置日志"
   },
@@ -2565,6 +2566,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "limited": "最多可同时在线 {{count}} 台设备"
       },
       "status_text": {
+        "ticket_muted": "工单禁言",
         "normal": "正常",
         "banned": "封禁"
       },
@@ -2933,6 +2935,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       }
     },
     "status": {
+      "ticket_muted": "工单禁言",
       "normal": "正常",
       "banned": "已封禁",
       "admin": "管理员",

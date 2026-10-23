@@ -168,6 +168,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "giftCardManagement": "Gift Card Management",
     "userManagement": "User Management",
     "trafficResetLogs": "Traffic Reset Logs",
+    "blacklistManagement": "Blacklist",
     "ticketManagement": "Ticket Management"
   },
   "plugin": {
@@ -2549,6 +2550,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "limited": "Maximum {{count}} devices allowed"
       },
       "status_text": {
+        "ticket_muted": "Ticket muted",
         "normal": "Normal",
         "banned": "Banned"
       },
@@ -2917,6 +2919,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       }
     },
     "status": {
+      "ticket_muted": "Ticket muted",
       "normal": "Normal",
       "banned": "Banned",
       "admin": "Admin",

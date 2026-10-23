@@ -65,7 +65,7 @@ test('admin user drawer separates plan traffic from package grants', () => {
     remaining: userEdit.indexOf('name:"traffic_package_remaining"'),
     product: userEdit.indexOf('name:"traffic_package_id"'),
     amount: userEdit.indexOf('name:"traffic_package_add_gb"'),
-    status: userEdit.indexOf('name:"banned"'),
+    status: userEdit.indexOf('name:"account_status"'),
   };
 
   Object.entries(positions).forEach(([name, position]) => {

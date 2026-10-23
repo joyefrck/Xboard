@@ -12,7 +12,6 @@ use App\Models\Plan;
 use App\Models\TrafficPackage;
 use App\Models\User;
 use App\Models\UserTrafficPackage;
-use App\Services\AuthService;
 use App\Services\TrafficPackageService;
 use App\Services\UserService;
 use App\Services\PrivatePlanService;
@@ -322,6 +321,9 @@ class UserController extends Controller
     public function update(UserUpdate $request)
     {
         $params = $request->validated();
+        $accountStatus = $params['account_status'] ?? null;
+        unset($params['account_status']);
+        if ($accountStatus !== null) unset($params['banned']);
         $trafficPackageId = $params['traffic_package_id'] ?? null;
         $trafficPackageAddGb = $params['traffic_package_add_gb'] ?? null;
         unset($params['traffic_package_id'], $params['traffic_package_add_gb']);
@@ -363,10 +365,6 @@ class UserController extends Controller
             $params['invite_user_id'] = null;
         }
 
-        if (isset($params['banned']) && (int) $params['banned'] === 1) {
-            $authService = new AuthService($user);
-            $authService->removeAllSessions();
-        }
         if (isset($params['balance'])) {
             $params['balance'] = $params['balance'] * 100;
         }
@@ -380,12 +378,24 @@ class UserController extends Controller
             DB::transaction(function () use (
                 $user,
                 $params,
+                $accountStatus,
                 $trafficPackage,
                 $trafficPackageAddGb,
                 $grantsGroupAccess,
                 $operatorId
             ): void {
                 $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+                if ($accountStatus !== null) {
+                    app(\App\Services\UserBlacklistService::class)->setAccountStatus((int) $user->id, $accountStatus, $operatorId);
+                    $user->refresh();
+                } elseif (array_key_exists('banned', $params)) {
+                    $blacklist = app(\App\Services\UserBlacklistService::class);
+                    if ($params['banned']) {
+                        $blacklist->manualBan((int) $user->id, '管理员在用户管理中手动封禁', $operatorId);
+                    } else {
+                        $blacklist->manualUnban((int) $user->id, $operatorId);
+                    }
+                }
                 $params = app(PrivatePlanService::class)->assignment($user, $params);
                 $openingCustom = (bool) $user->custom_pending_order_id && empty($params['custom_pending_order_id'])
                     && array_key_exists('custom_pending_order_id', $params);
@@ -647,9 +657,14 @@ class UserController extends Controller
         $builder = User::orderBy($sort, $sortType);
         $this->applyFilters($request, $builder);
         try {
-            $builder->update([
-                'banned' => 1
-            ]);
+            $operatorId = (int) $request->user()->id;
+            $builder->select('v2_user.id')->reorder()->chunkById(100, function ($users) use ($operatorId) {
+                foreach ($users as $target) {
+                    app(\App\Services\UserBlacklistService::class)->manualBan(
+                        (int) $target->id, '管理员在用户管理中批量封禁', $operatorId
+                    );
+                }
+            });
         } catch (\Exception $e) {
             Log::error($e);
             return $this->fail([500, '处理失败']);

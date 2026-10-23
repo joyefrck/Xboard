@@ -67,6 +67,8 @@ class User extends Authenticatable
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
         'banned' => 'boolean',
+        'ticket_muted_until' => 'integer',
+        'ticket_abuse_count' => 'integer',
         'is_admin' => 'boolean',
         'is_staff' => 'boolean',
         'remind_expire' => 'boolean',
@@ -81,6 +83,11 @@ class User extends Authenticatable
     public const COMMISSION_TYPE_SYSTEM = 0;
     public const COMMISSION_TYPE_PERIOD = 1;
     public const COMMISSION_TYPE_ONETIME = 2;
+
+    public function blacklistEvents(): HasMany
+    {
+        return $this->hasMany(UserBlacklistEvent::class, 'user_id');
+    }
 
     // 获取邀请人信息
     public function invite_user(): BelongsTo

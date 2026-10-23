@@ -78,8 +78,8 @@ test('user and admin ticket requests enforce the same image limits', () => {
 
   assert.match(userController, /\$request->file\('attachments',\s*\[\]\)/);
   assert.match(adminController, /\$request->file\('attachments',\s*\[\]\)/);
-  assert.match(userController, /['"]message['"]\s*=>\s*['"]required\|string['"]/);
-  assert.match(adminController, /['"]message['"]\s*=>\s*['"]required\|string['"]/);
+  assert.match(userController, /['"]message['"]\s*=>\s*['"]required\|string(?:\|max:\d+)?['"]/);
+  assert.match(adminController, /['"]message['"]\s*=>\s*['"]required\|string(?:\|max:\d+)?['"]/);
 });
 
 test('user ticket replies can be sent consecutively with per-message attachment limits', () => {

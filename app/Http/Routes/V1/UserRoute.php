@@ -60,12 +60,12 @@ class UserRoute
             // Notice
             $router->get('/notice/fetch', [NoticeController::class, 'fetch']);
             // Ticket
-            $router->post('/ticket/reply', [TicketController::class, 'reply']);
+            $router->post('/ticket/reply', [TicketController::class, 'reply'])->middleware('throttle:6,1');
             $router->post('/ticket/close', [TicketController::class, 'close']);
-            $router->post('/ticket/save', [TicketController::class, 'save']);
+            $router->post('/ticket/save', [TicketController::class, 'save'])->middleware('throttle:6,1');
             $router->get('/ticket/fetch', [TicketController::class, 'fetch']);
             $router->get('/ticket/attachment/{attachment}', [TicketController::class, 'attachment']);
-            $router->post('/ticket/withdraw', [TicketController::class, 'withdraw']);
+            $router->post('/ticket/withdraw', [TicketController::class, 'withdraw'])->middleware('throttle:6,1');
             // Server
             $router->get('/server/fetch', [ServerController::class, 'fetch']);
             // Coupon

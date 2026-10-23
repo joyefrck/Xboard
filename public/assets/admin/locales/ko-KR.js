@@ -163,6 +163,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     "orderManagement": "주문 관리",
     "couponManagement": "쿠폰 관리",
     "userManagement": "사용자 관리",
+    "blacklistManagement": "차단 목록",
     "ticketManagement": "티켓 관리"
   },
   "plugin": {
@@ -1817,6 +1818,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     }
   },
   "user": {
+    "status": { "ticket_muted": "문의 작성 제한" },
     "manage": {
       "title": "사용자 관리",
       "description": "여기에서 사용자 추가, 삭제, 편집 및 조회 작업을 수행할 수 있습니다."
@@ -1844,6 +1846,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
         "limited": "최대 {{count}}대의 기기 허용"
       },
       "status_text": {
+        "ticket_muted": "문의 작성 제한",
         "normal": "정상",
         "banned": "차단됨"
       },

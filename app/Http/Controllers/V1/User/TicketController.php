@@ -12,6 +12,7 @@ use App\Models\TicketMessageAttachment;
 use App\Models\User;
 use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
+use App\Services\TicketModerationService;
 use App\Utils\Dict;
 use Illuminate\Http\Request;
 use App\Services\Plugin\HookManager;
@@ -45,12 +46,15 @@ class TicketController extends Controller
     public function save(TicketSave $request)
     {
         $ticketService = new TicketService();
-        $ticket = $ticketService->createTicket(
-            $request->user()->id,
-            $request->input('subject'),
-            $request->input('level'),
-            $request->input('message'),
-            $request->file('attachments', [])
+        $ticket = app(TicketModerationService::class)->submit(
+            (int) $request->user()->id, $request->input('subject'), $request->input('message'), null,
+            fn () => $ticketService->createTicket(
+                $request->user()->id,
+                $request->input('subject'),
+                $request->input('level'),
+                $request->input('message'),
+                $request->file('attachments', [])
+            )
         );
         HookManager::call('ticket.create.after', $ticket);
         return $this->success(true);
@@ -61,7 +65,7 @@ class TicketController extends Controller
     {
         $request->validate([
             'id' => 'required|integer',
-            'message' => 'required|string',
+            'message' => 'required|string|max:10000',
             'attachments' => 'sometimes|array|max:3',
             'attachments.*' => [
                 'file',
@@ -72,6 +76,7 @@ class TicketController extends Controller
         ], [
             'id.required' => __('Invalid parameter'),
             'message.required' => __('Message cannot be empty'),
+            'message.max' => '每条工单消息不能超过10000个字符',
             'attachments.max' => '每轮最多上传3张图片',
             'attachments.*.image' => '附件必须是图片',
             'attachments.*.mimes' => '图片仅支持 JPG、PNG、WEBP 格式',
@@ -88,11 +93,14 @@ class TicketController extends Controller
         }
         $ticketService = new TicketService();
         if (
-            !$ticketService->reply(
-                $ticket,
-                $request->input('message'),
-                $request->user()->id,
-                $request->file('attachments', [])
+            !app(TicketModerationService::class)->submit(
+                (int) $request->user()->id, (string) $ticket->subject, $request->input('message'), (int) $ticket->id,
+                fn () => $ticketService->reply(
+                    $ticket,
+                    $request->input('message'),
+                    $request->user()->id,
+                    $request->file('attachments', [])
+                )
             )
         ) {
             return $this->fail([400, __('Ticket reply failed')]);
@@ -161,11 +169,14 @@ class TicketController extends Controller
                 __('Withdrawal method') . "：" . $request->input('withdraw_method'),
                 __('Withdrawal account') . "：" . $request->input('withdraw_account')
             );
-            $ticket = $ticketService->createTicket(
-                $request->user()->id,
-                $subject,
-                Ticket::TYPE_COMMISSION_WITHDRAWAL,
-                $message
+            $ticket = app(TicketModerationService::class)->submit(
+                (int) $request->user()->id, $subject, $message, null,
+                fn () => $ticketService->createTicket(
+                    $request->user()->id,
+                    $subject,
+                    Ticket::TYPE_COMMISSION_WITHDRAWAL,
+                    $message
+                )
             );
         } catch (\Exception $e) {
             throw $e;

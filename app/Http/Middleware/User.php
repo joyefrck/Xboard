@@ -22,6 +22,9 @@ class User
         if (!Auth::guard('sanctum')->check()) {
             throw new ApiException('未登录或登陆已过期', 403);
         }
+        if (Auth::guard('sanctum')->user()->banned) {
+            throw new ApiException('账号已被封禁', 403);
+        }
         return $next($request);
     }
 }

@@ -14,14 +14,15 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-bb4064173f9ddcda5cf7" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-bb4064173f9ddcda5cf7" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-bb4064173f9ddcda5cf7" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-bb4064173f9ddcda5cf7">
-  <script defer src="/assets/admin/locales/en-US.js?v=admin-bb4064173f9ddcda5cf7"></script>
-  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-bb4064173f9ddcda5cf7"></script>
-  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-bb4064173f9ddcda5cf7"></script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-bb4064173f9ddcda5cf7"></script>
+  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-51831e448a989e403e13" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-51831e448a989e403e13" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/user-blacklist.css?v=admin-51831e448a989e403e13" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-51831e448a989e403e13" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-51831e448a989e403e13">
+  <script defer src="/assets/admin/locales/en-US.js?v=admin-51831e448a989e403e13"></script>
+  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-51831e448a989e403e13"></script>
+  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-51831e448a989e403e13"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-51831e448a989e403e13"></script>
   <style>
     .xboard-app-downloads-entry {
       position: fixed;
