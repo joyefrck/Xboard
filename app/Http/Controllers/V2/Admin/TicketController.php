@@ -99,6 +99,11 @@ class TicketController extends Controller
                 });
             });
 
+        // Keep tickets awaiting an admin reply ahead of answered and closed tickets.
+        $ticketModel->orderByRaw(
+            'CASE WHEN v2_ticket.status = ? AND (v2_ticket.reply_status IS NULL OR v2_ticket.reply_status <> 0) THEN 0 ELSE 1 END',
+            [Ticket::STATUS_OPENING]
+        );
         $this->applyFiltersAndSorts($request, $ticketModel);
         $tickets = $ticketModel
             // Ticket timestamps also change on admin actions and may stay stale on repeated user replies.

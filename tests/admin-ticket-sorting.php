@@ -54,7 +54,7 @@ $db->schema()->create('v2_user', function (Blueprint $t) {
 $db->schema()->create('v2_ticket', function (Blueprint $t) {
     $t->increments('id'); $t->integer('user_id'); $t->string('subject');
     $t->integer('level')->default(0); $t->integer('status')->default(0);
-    $t->integer('reply_status')->default(1); $t->text('remarks')->nullable();
+    $t->integer('reply_status')->nullable()->default(1); $t->text('remarks')->nullable();
     $t->integer('created_at'); $t->integer('updated_at');
 });
 $db->schema()->create('v2_ticket_message', function (Blueprint $t) {
@@ -102,10 +102,21 @@ $check($first['total'], 5, 'message aggregation does not duplicate tickets or al
 $check($ids($fetch(['current' => 2])), [30, 50], 'second page uses the same user-message ordering and creation fallback');
 $check($ids($fetch(['current' => 3])), [10], 'admin reply and updated_at do not promote old user activity');
 $check($ids($fetch(['filter' => [['id' => 'status', 'value' => '1']]])), [60], 'closed tickets use the same sorting');
-$check($ids($fetch(['filter' => [], 'email' => ' owner@ ', 'pageSize' => 20])), [60, 20, 40, 30, 50, 10], 'email search across statuses preserves ordering');
+$check($ids($fetch(['filter' => [], 'email' => ' owner@ ', 'pageSize' => 20])), [20, 40, 30, 50, 10, 60], 'email search across statuses preserves pending priority and time ordering');
 $check($ids($fetch(['sort' => [['id' => 'id', 'desc' => false]]])), [10, 20], 'explicit column sorting remains available');
 $check($first['data'][0]['user']['email'], 'owner@example.test', 'ticket user response remains intact');
 $check(array_key_exists('last_user_reply_at', $first['data'][0]), false, 'sorting helper is not exposed in ticket response');
+
+// Older pending tickets must precede newer answered tickets across page boundaries.
+$db->table('v2_ticket')->whereIn('id', [20, 40])->update(['reply_status' => 0]);
+$db->table('v2_ticket')->where('id', 30)->update(['reply_status' => null]);
+$check($ids($fetch()), [30, 50], 'pending tickets, including legacy null reply status, sort before newer answered tickets');
+$check($ids($fetch(['current' => 2])), [10, 20], 'pending priority is applied globally before pagination');
+$check($ids($fetch(['current' => 3])), [40], 'answered tickets follow pending tickets in user-message time order');
+$check($ids($fetch(['filter' => [], 'email' => 'owner@', 'pageSize' => 20])), [30, 50, 10, 60, 20, 40], 'closed tickets are not treated as pending when searching all statuses');
+$check($ids($fetch(['sort' => [['id' => 'id', 'desc' => false]], 'current' => 2])), [50, 20], 'explicit sorting stays within pending and answered groups');
+$db->table('v2_ticket')->where('id', 20)->update(['reply_status' => 1]);
+$db->table('v2_ticket')->where('id', 30)->update(['reply_status' => 1]);
 
 try {
     Carbon::setTestNow(Carbon::createFromTimestampUTC(11000));
