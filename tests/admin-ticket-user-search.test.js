@@ -32,7 +32,7 @@ test('admin ticket fetch validates, trims, and fuzzy-matches user email', () => 
   assert.match(controller, /\$email\s*=\s*trim\(\(string\)\s*\$request->input\('email',\s*''\)\)/);
   assert.match(controller, /->when\(\$email !== '',\s*function \(\$query\) use \(\$email\)/);
   assert.match(controller, /whereHas\('user',[\s\S]*where\('email',\s*'like',\s*"%\{\$email\}%"\)/);
-  assert.match(controller, /latest\('updated_at'\)/);
+  assert.doesNotMatch(controller, /latest\('updated_at'\)/);
 });
 
 test('admin ticket table shows username immediately after the subject', () => {

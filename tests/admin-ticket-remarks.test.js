@@ -49,7 +49,6 @@ test('admin can update and clear remarks without moving the ticket in the queue'
   assert.match(controller, /\$remarks === '' \? null : \$remarks/);
   assert.match(controller, /\$ticket->timestamps = false/);
   assert.match(controller, /'remarks'\s*=>\s*\$ticket->remarks/);
-  assert.match(controller, /latest\('updated_at'\)/);
 });
 
 test('admin ticket table replaces time columns with a remarks dialog', () => {

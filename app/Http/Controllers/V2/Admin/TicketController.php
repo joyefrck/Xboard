@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
+use App\Models\TicketMessage;
 use App\Models\TicketMessageAttachment;
 use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
@@ -75,7 +76,17 @@ class TicketController extends Controller
 
         $email = trim((string) $request->input('email', ''));
 
+        $userReplies = TicketMessage::query()
+            ->select('ticket_id')
+            ->selectRaw('MAX(created_at) as last_user_reply_at')
+            ->where('is_admin', false)
+            ->groupBy('ticket_id');
+
         $ticketModel = Ticket::with('user')
+            ->select('v2_ticket.*')
+            ->leftJoinSub($userReplies, 'user_replies', function ($join) {
+                $join->on('user_replies.ticket_id', '=', 'v2_ticket.id');
+            })
             ->when($request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->input('status'));
             })
@@ -90,7 +101,9 @@ class TicketController extends Controller
 
         $this->applyFiltersAndSorts($request, $ticketModel);
         $tickets = $ticketModel
-            ->latest('updated_at')
+            // Ticket timestamps also change on admin actions and may stay stale on repeated user replies.
+            ->orderByRaw('COALESCE(user_replies.last_user_reply_at, v2_ticket.created_at) DESC')
+            ->orderByDesc('v2_ticket.id')
             ->paginate(
                 perPage: $request->integer('pageSize', 10),
                 page: $request->integer('current', 1)
