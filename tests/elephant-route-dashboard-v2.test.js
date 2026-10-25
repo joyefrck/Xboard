@@ -33,8 +33,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261025downloadPlatforms1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261025downloadPlatforms1/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261025downloadPlatforms2/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261025downloadPlatforms2/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
