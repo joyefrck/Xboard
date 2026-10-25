@@ -4,6 +4,7 @@
 namespace App\Jobs;
 
 use App\Models\StatUser;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -54,6 +55,8 @@ class StatUserJob implements ShouldQueue
         DB::transaction(function () use ($recordAt) {
             foreach ($this->data as $uid => $v) {
                 try {
+                    // Share the account-deletion lock so a delayed report cannot recreate orphan stats.
+                    if (!User::whereKey($uid)->sharedLock()->first(['id'])) continue;
                     $this->processUserStat($uid, $v, $recordAt);
                 } catch (\Exception $e) {
                     Log::error('StatUserJob failed for user ' . $uid . ': ' . $e->getMessage());

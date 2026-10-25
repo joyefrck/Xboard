@@ -107,6 +107,9 @@ class TicketService
         $storedAttachments = [];
         try {
             DB::beginTransaction();
+            if (!User::whereKey($userId)->lockForUpdate()->first()) {
+                throw new ApiException('账号不存在或已注销', 403);
+            }
             if (Ticket::where('status', 0)->where('user_id', $userId)->lockForUpdate()->first()) {
                 throw new ApiException('存在未关闭的工单');
             }

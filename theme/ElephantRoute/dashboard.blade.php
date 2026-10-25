@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20260622inputColor1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261025downloadPlatforms2">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20260914purchaseNotice1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261024profile1">
   <script>
     try {
       localStorage.setItem('vueuse-color-scheme', 'light');
@@ -23,7 +23,7 @@
       // The interface remains light through the stylesheet when storage is unavailable.
     }
   </script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20260921privatePlan1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261024profile1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -80,7 +80,7 @@
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20260819appealType1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261025downloadPlatforms2"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20260914purchaseNotice1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261024profile1"></script>
   <script>
     (function() {
       function insertLoginLogo() {

@@ -77,7 +77,17 @@ class TicketRetentionService
                 ->whereKey($messages->modelKeys())->delete();
         });
 
-        $this->pendingAttachments()->chunkById(100, function ($attachments) use (&$result) {
+        $attachments = $this->prunePendingAttachments();
+        foreach ($attachments as $key => $count) $result[$key] += $count;
+        return $result;
+    }
+
+    public function prunePendingAttachments(?array $messageIds = null): array
+    {
+        $result = ['attachments' => 0, 'bytes' => 0, 'failed_attachments' => 0];
+        $query = $this->pendingAttachments();
+        if ($messageIds !== null) $query->whereIn('ticket_message_id', $messageIds);
+        $query->chunkById(100, function ($attachments) use (&$result) {
             foreach ($attachments as $attachment) {
                 try {
                     if ($attachment->disk !== TicketAttachmentService::DISK ||

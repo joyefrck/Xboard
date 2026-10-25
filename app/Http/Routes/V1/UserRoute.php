@@ -30,6 +30,7 @@ class UserRoute
             $router->get('/resetSecurity', [UserController::class, 'resetSecurity']);
             $router->get('/info', [UserController::class, 'info']);
             $router->post('/changePassword', [UserController::class, 'changePassword']);
+            $router->post('/deleteAccount', [UserController::class, 'deleteAccount'])->middleware('throttle:5,1');
             $router->post('/update', [UserController::class, 'update']);
             $router->get('/getSubscribe', [UserController::class, 'getSubscribe']);
             $router->get('/getStat', [UserController::class, 'getStat']);

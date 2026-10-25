@@ -603,17 +603,169 @@ body[data-er-page="ticket"] section.cus-scroll-y .n-data-table-td:last-child .n-
   margin-left: 8px;
 }
 
-/* Profile */
-body[data-er-page="profile"] section.cus-scroll-y .n-card {
+/* Profile: a compact summary and two-column settings, with readable mobile stacking. */
+body[data-er-page="profile"] .er-profile-layout {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+body[data-er-page="profile"] .er-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+  align-items: stretch;
+}
+
+body[data-er-page="profile"] .er-profile-layout .n-card {
+  min-width: 0;
   max-width: 100%;
+  margin: 0 !important;
+  border-radius: 18px !important;
 }
 
-body[data-er-page="profile"] section.cus-scroll-y .n-form-item {
-  margin-bottom: 16px;
+body[data-er-page="profile"] .er-profile-layout .n-card-header {
+  padding: 16px 18px 10px !important;
 }
 
-body[data-er-page="profile"] section.cus-scroll-y .n-switch {
+body[data-er-page="profile"] .er-profile-layout .n-card__content {
+  padding: 16px 18px !important;
+}
+
+body[data-er-page="profile"] .er-profile-layout .n-card-header + .n-card__content {
+  padding-top: 0 !important;
+}
+
+body[data-er-page="profile"] .er-profile-wallet-content,
+body[data-er-page="profile"] .er-profile-notice-row,
+body[data-er-page="profile"] .er-profile-danger-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+body[data-er-page="profile"] .er-profile-wallet-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+body[data-er-page="profile"] .er-profile-balance {
+  flex-shrink: 0;
+  font-size: 26px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-er-page="profile"] .er-profile-balance > span {
   margin-left: 8px;
+  color: var(--er-pages-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+body[data-er-page="profile"] .er-profile-password {
+  grid-row: span 2;
+}
+
+.er-profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--er-pages-text);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.er-profile-field .n-input {
+  min-height: 36px;
+}
+
+body[data-er-page="profile"] .er-profile-notice-row {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+body[data-er-page="profile"] .er-profile-notice-row + .er-profile-notice-row {
+  border-top: 1px solid var(--er-pages-line);
+}
+
+.er-profile-hint {
+  margin: 0;
+  color: var(--er-pages-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+body[data-er-page="profile"] .er-profile-security .er-profile-hint {
+  margin-bottom: 12px;
+}
+
+body[data-er-page="profile"] .er-profile-danger {
+  grid-column: 1 / -1;
+  border-color: rgba(220, 61, 75, 0.2) !important;
+}
+
+body[data-er-page="profile"] .er-profile-danger .n-card-header__main {
+  color: #b83243;
+}
+
+body[data-er-page="profile"] .er-profile-danger-content > .n-button {
+  flex-shrink: 0;
+}
+
+body[data-er-user-shell="true"] .n-card.n-modal.er-profile-delete-modal {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px);
+  border-radius: 20px !important;
+}
+
+.er-profile-delete-warning {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(220, 61, 75, 0.18);
+  border-radius: 12px;
+  background: rgba(239, 68, 80, 0.06);
+  color: #a52b3c;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.er-profile-delete-modal .er-profile-field {
+  margin-top: 14px;
+}
+
+.er-profile-delete-error {
+  color: #b83243;
+  font-size: 14px;
+}
+
+.er-profile-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (max-width: 767px) {
+  body[data-er-page="profile"] .er-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+  body[data-er-page="profile"] .er-profile-password {
+    grid-row: auto;
+  }
+  body[data-er-page="profile"] .er-profile-danger-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 
 /* Nodes */

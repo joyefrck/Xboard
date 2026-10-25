@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V1\User;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\UserChangePassword;
+use App\Http\Requests\User\UserDeleteAccount;
 use App\Http\Requests\User\UserTransfer;
 use App\Http\Requests\User\UserUpdate;
 use App\Models\Order;
@@ -12,6 +13,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Auth\LoginService;
 use App\Services\AuthService;
+use App\Services\AccountDeletionService;
 use App\Services\Plugin\HookManager;
 use App\Services\UserService;
 use App\Utils\CacheKey;
@@ -82,6 +84,12 @@ class UserController extends Controller
         if (!$user->save()) {
             return $this->fail([400, __('Save failed')]);
         }
+        return $this->success(true);
+    }
+
+    public function deleteAccount(UserDeleteAccount $request, AccountDeletionService $service)
+    {
+        $service->delete((int) $request->user()->id, $request->input('password'));
         return $this->success(true);
     }
 
