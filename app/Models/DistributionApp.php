@@ -15,12 +15,14 @@ class DistributionApp extends Model
         'android' => 'elephant-route-android',
         'windows' => 'elephant-route-desktop',
         'macos' => 'elephant-route-desktop',
+        'linux' => 'elephant-route-desktop',
     ];
 
     private const OFFICIAL_APP_NAMES_BY_PLATFORM = [
         'android' => '大象网络官方App安卓版',
         'windows' => '大象网络官方App桌面版',
         'macos' => '大象网络官方App桌面版',
+        'linux' => '大象网络官方App桌面版',
     ];
 
     private const LEGACY_OFFICIAL_APP_KEYS = [

@@ -228,7 +228,13 @@
       <form id="package-form">
         <input type="hidden" name="app_id">
         <input type="hidden" name="channel" value="stable">
-        <input type="hidden" name="arch">
+        <label>架构
+          <select name="arch">
+            <option value="">通用 / 未指定</option>
+            <option value="arm64">ARM64（Mac M 芯片 / Android）</option>
+            <option value="x64">Intel / x64（Mac Intel / Windows / Linux）</option>
+          </select>
+        </label>
         <input type="hidden" name="min_supported_build" value="0">
         <input type="hidden" name="is_force" value="0">
         <input type="hidden" name="is_enabled" value="1">
@@ -243,7 +249,7 @@
         </label>
         <label>应用名称<input name="app_name" required placeholder="例如 Clash Verge"></label>
         <label>应用标识<input name="app_key" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="例如 elephant-route-android"></label>
-        <p class="muted">第三方 App 的名称和标识可自行维护，同一个软件的后续版本必须保持一致，且不能使用大象官方保留标识；官方 App 会按平台自动锁定名称和标识，Android 名称固定为“大象网络官方App安卓版”，Windows/macOS 共用 elephant-route-desktop，名称固定为“大象网络官方App桌面版”。</p>
+        <p class="muted">第三方 App 的名称和标识可自行维护，同一个软件的后续版本必须保持一致，且不能使用大象官方保留标识；官方 App 会按平台自动锁定名称和标识，Android 名称固定为“大象网络官方App安卓版”，Windows/macOS/Linux 共用 elephant-route-desktop，名称固定为“大象网络官方App桌面版”。</p>
         <label>版本号<input name="version" required placeholder="例如 1.1.0"></label>
         <label>构建号<input name="build_number" type="number" min="1" step="1" required placeholder="例如 20006"></label>
         <p class="muted" id="release-metadata-help">第三方 App 可使用系统生成的目录版本；大象官方 App 的版本号和构建号必须与安装包一致。</p>
@@ -476,7 +482,8 @@
         return {
           android: "elephant-route-android",
           windows: "elephant-route-desktop",
-          macos: "elephant-route-desktop"
+          macos: "elephant-route-desktop",
+          linux: "elephant-route-desktop"
         }[String(platform || "").toLowerCase()] || "";
       }
 
@@ -484,7 +491,8 @@
         return {
           android: "大象网络官方App安卓版",
           windows: "大象网络官方App桌面版",
-          macos: "大象网络官方App桌面版"
+          macos: "大象网络官方App桌面版",
+          linux: "大象网络官方App桌面版"
         }[String(platform || "").toLowerCase()] || "";
       }
 
@@ -613,7 +621,7 @@
           ].join("");
           row.children[0].innerHTML = formatAppIdentity(version);
           row.children[1].innerHTML = formatVersionLabel(version);
-          row.children[2].textContent = version.platform;
+          row.children[2].textContent = version.platform + (version.arch ? " · " + version.arch : "");
           if (version.download_url) {
             var downloadLink = document.createElement("a");
             downloadLink.href = version.download_url;

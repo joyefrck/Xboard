@@ -11,7 +11,8 @@
   var OFFICIAL_APP_KEYS = {
     android: 'elephant-route-android',
     windows: 'elephant-route-desktop',
-    macos: 'elephant-route-desktop'
+    macos: 'elephant-route-desktop',
+    linux: 'elephant-route-desktop'
   };
   var SOLID_ICONS = {
     dashboard: '<path d="M12 2.7 2.5 10.5l1.9 2.3L6 11.5V21h5v-6h2v6h5v-9.5l1.6 1.3 1.9-2.3L12 2.7Z"/>',
@@ -22,6 +23,7 @@
     android: '<path d="M7.4 7 5.7 4.1l1-.6 1.8 3.1A10 10 0 0 1 12 6c1.2 0 2.4.2 3.5.6l1.8-3.1 1 .6L16.6 7A7 7 0 0 1 20 12H4a7 7 0 0 1 3.4-5ZM8 10.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM4 13h16v7a2 2 0 0 1-2 2h-1v-5h-2v5H9v-5H7v5H6a2 2 0 0 1-2-2v-7Z"/>',
     windows: '<path d="M2 4.5 11 3v8H2V4.5Zm11-1.8L22 1v10h-9V2.7ZM2 13h9v8l-9-1.5V13Zm11 0h9v10l-9-1.7V13Z"/>',
     macos: '<path d="M17.1 12.7c0-2.4 2-3.6 2.1-3.6a4.6 4.6 0 0 0-3.6-1.9c-1.5-.2-3 1-3.8 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3-.5 7.5 1.2 10 1 1.2 2 2.6 3.3 2.5 1.3 0 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-3-1-3-4.1ZM14.6 5.6A4.5 4.5 0 0 0 15.7 2a4.6 4.6 0 0 0-3 1.5 4.3 4.3 0 0 0-1 3.4 3.8 3.8 0 0 0 2.9-1.3Z"/>',
+    linux: '<path d="M8 4a4 4 0 0 1 8 0v5l3 5 2 5-4 3-3-1h-4l-3 1-4-3 2-5 3-5V4Zm2 0v5l-3 6-1 3 2 1 3-1h2l3 1 2-1-1-3-3-6V4a2 2 0 0 0-4 0Zm1 3h2v2h-2V7Z"/>',
     ios: '<path fill-rule="evenodd" d="M8 5a7 7 0 0 0 0 14h3v-3H8a4 4 0 1 1 0-8h3V5H8Zm8 0h-3v3h3a4 4 0 1 1 0 8h-3v3h3a7 7 0 1 0 0-14Zm-8.5 5.5h9v3h-9v-3Z"/>',
     download: '<path d="M10.5 3h3v10.1l3.2-3.2 2.1 2.2-6.8 6.8-6.8-6.8 2.1-2.2 3.2 3.2V3ZM4 19h16v3H4v-3Z"/>',
     external: '<path d="M13 3h8v8h-3V8.1l-7.4 7.4-2.1-2.1L15.9 6H13V3ZM4 5h6v3H7v9h9v-3h3v6H4V5Z"/>',
@@ -97,7 +99,14 @@
     return Math.min(max, Math.max(min, value));
   }
 
-  function selectLatestOfficialArtifact(payload, platform) {
+  function normalizeDownloadArch(arch) {
+    var value = String(arch || '').toLowerCase();
+    if (['x64', 'x86_64', 'amd64'].indexOf(value) !== -1) return 'x64';
+    if (['arm64', 'aarch64', 'arm64-v8a'].indexOf(value) !== -1) return 'arm64';
+    return value;
+  }
+
+  function selectLatestOfficialArtifact(payload, platform, arch) {
     var platforms = payload && Array.isArray(payload.platforms) ? payload.platforms : [];
     var platformEntry = platforms.find(function (item) {
       return String(item && item.platform || '').toLowerCase() === String(platform || '').toLowerCase();
@@ -110,7 +119,11 @@
     });
     if (!app || !Array.isArray(app.packages) || app.packages.length === 0) return null;
 
-    return app.packages.slice().sort(function (left, right) {
+    var expectedArch = normalizeDownloadArch(arch);
+    return app.packages.filter(function (item) {
+      return item && (!item.channel || item.channel === 'stable')
+        && (!expectedArch || normalizeDownloadArch(item.arch) === expectedArch);
+    }).sort(function (left, right) {
       var buildDifference = numberOr(right && right.build_number, 0) - numberOr(left && left.build_number, 0);
       if (buildDifference !== 0) return buildDifference;
       return numberOr(right && right.published_at, 0) - numberOr(left && left.published_at, 0);
@@ -803,7 +816,9 @@
       '    <div class="er-v2-download-grid">',
       '      <button type="button" class="er-v2-download-button" data-download-platform="android"><span class="er-v2-platform-icon is-android">' + solidIcon('android') + '</span><span><strong>Android</strong><small data-download-state="android">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
       '      <button type="button" class="er-v2-download-button" data-download-platform="windows"><span class="er-v2-platform-icon is-windows">' + solidIcon('windows') + '</span><span><strong>Windows</strong><small data-download-state="windows">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
-      '      <button type="button" class="er-v2-download-button" data-download-platform="macos"><span class="er-v2-platform-icon is-macos">' + solidIcon('macos') + '</span><span><strong>macOS</strong><small data-download-state="macos">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
+      '      <button type="button" class="er-v2-download-button" data-download-platform="macos" data-download-arch="arm64"><span class="er-v2-platform-icon is-macos">' + solidIcon('macos') + '</span><span><strong>macOS · M 芯片</strong><small data-download-state="macos-arm64">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
+      '      <button type="button" class="er-v2-download-button" data-download-platform="macos" data-download-arch="x64"><span class="er-v2-platform-icon is-macos">' + solidIcon('macos') + '</span><span><strong>macOS · Intel</strong><small data-download-state="macos-x64">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
+      '      <button type="button" class="er-v2-download-button" data-download-platform="linux" data-download-arch="x64"><span class="er-v2-platform-icon is-linux">' + solidIcon('linux') + '</span><span><strong>Linux · DEB</strong><small data-download-state="linux">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
       '      <button type="button" class="er-v2-download-button" data-download-platform="ios"><span class="er-v2-platform-icon is-ios">' + solidIcon('ios') + '</span><span><strong>iOS · Karing</strong><small>App Store</small></span><span class="er-v2-download-arrow">' + solidIcon('external') + '</span></button>',
       '    </div>',
       '    <p class="er-v2-inline-error" data-error="downloads" hidden></p>',
@@ -862,7 +877,7 @@
         return;
       }
       var downloadTarget = event.target.closest('[data-download-platform]');
-      if (downloadTarget && !downloadTarget.disabled) startPlatformDownload(downloadTarget.dataset.downloadPlatform);
+      if (downloadTarget && !downloadTarget.disabled) startPlatformDownload(downloadTarget.dataset.downloadPlatform, downloadTarget.dataset.downloadArch);
     });
     root.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') closeModal();
@@ -1124,10 +1139,11 @@
 
   function renderDownloads() {
     var data = state.data.downloads;
-    ['android', 'windows', 'macos'].forEach(function (platform) {
-      var button = state.root.querySelector('[data-download-platform="' + platform + '"]');
-      var label = state.root.querySelector('[data-download-state="' + platform + '"]');
-      var artifact = data ? selectLatestOfficialArtifact(data, platform) : null;
+    Array.prototype.forEach.call(state.root.querySelectorAll('[data-download-platform]'), function (button) {
+      var platform = button.dataset.downloadPlatform;
+      if (platform === 'ios') return;
+      var label = button.querySelector('[data-download-state]');
+      var artifact = data ? selectLatestOfficialArtifact(data, platform, button.dataset.downloadArch) : null;
       if (button) button.disabled = !artifact;
       if (label) label.textContent = artifact ? 'v' + artifact.version : (data ? '暂未发布' : '加载失败');
     });
@@ -1409,13 +1425,13 @@
     if (state.data.activeInviteLink) copyText(state.data.activeInviteLink, '邀请链接已复制');
   }
 
-  function startPlatformDownload(platform) {
+  function startPlatformDownload(platform, arch) {
     if (platform === 'ios') {
       global.open(KARING_APP_STORE_URL, '_blank', 'noopener,noreferrer');
       return;
     }
     var downloads = state.data.downloads;
-    var artifact = downloads ? selectLatestOfficialArtifact(downloads, platform) : null;
+    var artifact = downloads ? selectLatestOfficialArtifact(downloads, platform, arch) : null;
     if (!artifact) {
       notify('error', '当前平台暂未发布官方安装包');
       return;

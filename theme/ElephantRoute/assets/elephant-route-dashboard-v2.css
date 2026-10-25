@@ -1081,7 +1081,7 @@
 
 .er-v2-download-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1631,7 +1631,7 @@
   }
 
   .er-v2-download-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .er-v2-all-downloads {
@@ -1945,6 +1945,7 @@
 .er-v2-platform-icon.is-android { background: linear-gradient(145deg, #36d989, #13a966); }
 .er-v2-platform-icon.is-windows { background: linear-gradient(145deg, #28a7f5, #176dd9); }
 .er-v2-platform-icon.is-macos { background: linear-gradient(145deg, #596477, #202839); }
+.er-v2-platform-icon.is-linux { background: linear-gradient(145deg, #f5ba3b, #d88319); }
 .er-v2-platform-icon.is-ios { background: linear-gradient(145deg, #8158ff, #3769f2 56%, #1bcbd2); }
 
 .er-v2-download-button {
@@ -2335,5 +2336,11 @@ header > div[ml-auto][flex][items-center] > i.n-icon.mr-5.cursor-pointer:first-c
 @media (min-width: 1280px) and (max-height: 819px) {
   .er-v2-download-heading {
     margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1499px) {
+  .er-v2-download-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

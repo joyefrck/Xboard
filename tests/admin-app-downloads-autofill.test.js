@@ -55,7 +55,7 @@ test('admin app download publish form exposes app identity and version fields', 
 
   assert.match(page, /<label>应用名称<input name="app_name"/);
   assert.match(page, /<label>应用标识<input name="app_key"/);
-  assert.match(page, /Windows\/macOS 共用 elephant-route-desktop/);
+  assert.match(page, /Windows\/macOS\/Linux 共用 elephant-route-desktop/);
   assert.match(page, /platform: packageForm\.querySelector\('\[name="platform"\]'\)\.value/);
   assert.match(page, /<label>版本号<input name="version"/);
   assert.doesNotMatch(page, /<input type="hidden" name="app_key"/);

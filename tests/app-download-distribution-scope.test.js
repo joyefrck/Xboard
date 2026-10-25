@@ -31,6 +31,7 @@ test('distribution app model owns scope and reserved identity policy', () => {
   assert.match(model, /'android'\s*=>\s*'elephant-route-android'/);
   assert.match(model, /'windows'\s*=>\s*'elephant-route-desktop'/);
   assert.match(model, /'macos'\s*=>\s*'elephant-route-desktop'/);
+  assert.match(model, /'linux'\s*=>\s*'elephant-route-desktop'/);
   assert.match(model, /LEGACY_OFFICIAL_APP_KEYS/);
   assert.match(model, /'elephant-route-mac'/);
   assert.match(model, /public static function officialAppKeyForPlatform/);

@@ -33,8 +33,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20260921privatePlan1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261022depletedTraffic1/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261025downloadPlatforms1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261025downloadPlatforms1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -76,6 +76,40 @@ test('Dashboard 2.0 exposes deterministic official artifact and invitation helpe
     helpers.buildInviteLink('https://example.com:7443', 'ABCD1234'),
     'https://example.com:7443/app#/register?code=ABCD1234'
   );
+});
+
+test('official downloads select stable packages for the requested CPU architecture', () => {
+  const helpers = require(path.join(repoRoot, 'theme/ElephantRoute/assets/elephant-route-dashboard-v2.js'));
+  const payload = {
+    platforms: [
+      {
+        platform: 'macos',
+        apps: [{
+          app_key: 'elephant-route-desktop',
+          packages: [
+            { artifact_id: 31, version: '2.0.7', build_number: 20007, arch: 'arm64', channel: 'stable' },
+            { artifact_id: 32, version: '2.0.7', build_number: 20007, arch: 'x64', channel: 'stable' },
+            { artifact_id: 33, build_number: 30000, arch: null, channel: 'stable' },
+            { artifact_id: 34, build_number: 40000, arch: 'x64', channel: 'beta' }
+          ]
+        }]
+      },
+      {
+        platform: 'linux',
+        apps: [{
+          app_key: 'elephant-route-desktop',
+          packages: [{ artifact_id: 41, version: '2.0.7', build_number: 20007, arch: 'amd64', channel: 'stable' }]
+        }]
+      }
+    ]
+  };
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'macos', 'arm64').artifact_id, 31);
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'macos', 'x64').artifact_id, 32);
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'macos', 'x86_64').artifact_id, 32);
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'linux', 'x64').artifact_id, 41);
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'linux', 'arm64'), null);
+  payload.platforms[0].apps[0].packages = payload.platforms[0].apps[0].packages.filter(item => item.arch !== 'x64');
+  assert.equal(helpers.selectLatestOfficialArtifact(payload, 'macos', 'x64'), null);
 });
 
 test('Mobile drawer is generated from the same Aurora navigation contract as desktop', () => {
