@@ -344,7 +344,7 @@ test('Dashboard 2.0 renders split traffic fields, independent progress bars, and
   assert.match(styles, /\.er-v2-traffic-metrics strong \{[\s\S]*font-size: 16px/);
   assert.match(styles, /\.er-v2-traffic-cta button \{[\s\S]*font-size: 14px/);
   assert.match(styles, /\.er-v2-subscription-footer \{[\s\S]*margin-top: auto/);
-  assert.match(styles, /grid-template-rows: minmax\(250px, max-content\) 148px 208px/);
+  assert.match(styles, /grid-template-rows: minmax\(250px, max-content\) minmax\(148px, max-content\) 208px/);
 });
 
 test('Dashboard 2.0 Telegram view model covers disabled, unbound, bound, and missing group states', () => {
