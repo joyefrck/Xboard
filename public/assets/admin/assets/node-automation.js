@@ -96,28 +96,44 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { className: 'na-actions' }, h('button', { type: 'submit', className: 'na-button na-primary', disabled: saving }, saving ? '保存中…' : '保存备用'), button('取消', cancel, saving)));
   }
 
-  function GroupRow({ group, accountsReady, perform, openLogs, queue, busy, requestBusy, pending }) {
-    const [editing, setEditing] = R.useState(null);
+  const stateBadge = group => h('span', { className: 'na-badge na-state-' + group.state + (group.enabled ? ' na-on' : '') }, label(group.state));
+
+  function GroupRow({ group, accountsReady, perform, openLogs, openIp, queue, busy, requestBusy, pending }) {
     const mayPause = !!group.enabled || !!group.pending_operation || pending;
     const locked = !!group.enabled || !!group.pending_operation || busy;
-    return h('details', { className: 'na-group' },
-      h('summary', null,
-        h('div', { className: 'na-domain' }, h('strong', null, group.domain), h('span', { className: 'na-muted' }, group.nodes.map(n => n.name).join(' / '))),
-        h('div', { className: 'na-group-status' }, h('span', { className: 'na-badge ' + (group.enabled ? 'na-on' : '') }, label(group.state)),
-          h('span', null, group.current_ip || '未匹配 DNS'), h('span', { className: 'na-muted' }, '失败 ' + group.failures + '/3 · 备用 ' + (group.backups || []).filter(b => b.enabled && b.ip !== group.current_ip).length))),
-      h('div', { className: 'na-group-body' },
-        group.reason ? h('p', { className: 'na-error', role: 'status' }, group.reason) : null,
-        group.pending_operation ? h('p', { role: 'status' }, '后台操作：' + label(group.pending_operation.status) + ' · ' + (group.pending_operation.message || '等待后台验证')) : null,
-        h('p', { className: 'na-muted' }, '最近检测：' + time(group.last_checked_at) + '　最近切换：' + time(group.last_switched_at)),
+    return h('article', { className: 'na-group', 'aria-label': group.domain },
+      h('div', { className: 'na-domain' }, h('strong', null, group.domain),
+        h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h('li', { key: n.id }, '#' + (n.display_id ?? n.id) + ' · ' + n.name)))),
+      h('div', { className: 'na-current-ip' }, h('span', { className: 'na-mobile-label na-muted' }, '当前 IP'),
+        h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS')),
+      h('div', { className: 'na-group-status' }, stateBadge(group),
+        h('span', { className: 'na-muted' }, '失败 ' + group.failures + '/3 · 备用 ' + (group.backups || []).filter(b => b.enabled && b.ip !== group.current_ip).length)),
+      h('div', { className: 'na-actions na-row-actions', 'aria-label': group.domain + ' 操作' },
+        button(mayPause ? '暂停自动化' : '验证并开启', () => mayPause ? perform('/pause', { id: group.id }) : queue(group, 'enable'), !group.id || (!mayPause && (!group.record_id || !accountsReady)) || (mayPause ? requestBusy : busy), mayPause ? '' : 'na-primary'),
+        button(group.record_id ? '重新验证配置并匹配 DNS' : '验证配置并匹配 DNS', () => perform('/save', { domain: group.domain }), locked || !accountsReady),
+        button('切换记录', () => openLogs(group), !group.id || requestBusy),
+        button('IP 管理', () => openIp(group))));
+  }
+
+  function GroupDetails({ group, perform, queue, busy, error, message, operation }) {
+    const [editing, setEditing] = R.useState(null);
+    const locked = !!group.enabled || !!group.pending_operation || busy;
+    return h('div', { className: 'na-group-body' },
+        error ? h('p', { className: 'na-alert na-error', role: 'alert' }, error) : null,
+        message ? h('p', { className: 'na-alert', role: 'status' }, message) : null,
+        group.reason ? h('p', { className: 'na-alert na-error', role: 'status' }, group.reason) : null,
+        group.pending_operation || operation ? h('p', { className: 'na-note', role: 'status' },
+          '后台操作：' + label((group.pending_operation || operation).status) + ' · ' + ((group.pending_operation || operation).message || '等待后台验证')) : null,
+        h('dl', { className: 'na-overview' },
+          [['当前 IP', h('span', { className: 'na-ip' }, group.current_ip || '未匹配 DNS')], ['自动化状态', stateBadge(group)],
+            ['最近检测', time(group.last_checked_at)], ['最近切换', time(group.last_switched_at)]].map(([title, value]) =>
+            h('div', { key: title }, h('dt', { className: 'na-muted' }, title), h('dd', null, value)))),
+        h('div', { className: 'na-detail-nodes na-muted' }, '关联节点：' + group.nodes.map(n => '#' + (n.display_id ?? n.id) + ' ' + n.name).join(' / ')),
         group.latest_check?.nodes ? h('p', { className: 'na-muted' }, '节点实测：' + group.latest_check.nodes.map(result =>
           (group.nodes.find(n => n.id === result.node_id)?.name || '节点 #' + result.node_id) + ' ' + (result.ok ? '通过' : '不可用')).join(' / ')) : null,
         group.nodes.length > 1 ? h('p', { className: 'na-note' }, '此域名共用 DNS。切换会影响以上 ' + group.nodes.length + ' 个节点，备用必须支持全部端口和协议。') : null,
-        h('div', { className: 'na-actions' },
-          button(mayPause ? '暂停自动化' : '验证并开启', () => mayPause ? perform('/pause', { id: group.id }) : queue(group, 'enable'), !group.id || (!mayPause && (!group.record_id || !accountsReady)) || (mayPause ? requestBusy : busy), mayPause ? '' : 'na-primary'),
-          button(group.record_id ? '重新验证配置并匹配 DNS' : '验证配置并匹配 DNS', () => perform('/save', { domain: group.domain }), locked || !accountsReady),
-          button('切换记录', () => openLogs(group), !group.id || requestBusy)),
         h('p', { className: 'na-muted' }, '本域名各节点按权限组使用「固定配置」中的对应检测账号。备用 V2bX 沿用原 NodeID、端口、协议和密钥。'),
-        h('div', { className: 'na-section-title' }, h('h3', null, group.domain + ' 的备用 VPS'), button('为此域名新增备用', () => setEditing({}), !group.id || locked)),
+        h('div', { className: 'na-section-title' }, h('h3', null, '备用 VPS'), button('为此域名新增备用', () => setEditing({}), !group.id || locked, 'na-primary')),
         h('p', { className: 'na-muted' }, '以下备用均关联 ' + group.domain + '，共同接替 NodeID ' + nodeIds(group) + '。请在备用 V2bX 上部署这些相同的 NodeID、端口和协议。'),
         !group.backups?.length ? h('p', { className: 'na-empty' }, '尚未配置备用。先保存「固定配置」中的公共检测账号并匹配本域名 DNS，再添加已部署 V2bX 的 VPS。') :
           h('div', { className: 'na-table-wrap' }, h('table', null,
@@ -131,7 +147,7 @@ export function createAutomationPage({ React: R, api, layout }) {
                 button('手动切换', () => queue(group, 'manual', b), busy || !b.enabled || ['active', 'needs_review'].includes(b.state)),
                 button(b.state === 'needs_review' ? '检查并加入' : '编辑', () => setEditing(b), locked || b.ip === group.current_ip),
                 button('删除', () => { if (window.confirm('删除备用「' + b.name + '」？')) perform('/backup/drop', { group_id: group.id, id: b.id }); }, locked || b.ip === group.current_ip, 'na-danger')))))))),
-        editing ? h(BackupForm, { key: editing.id || 'new', group, initial: editing.id ? editing : null, perform, cancel: () => setEditing(null) }) : null));
+        editing ? h(BackupForm, { key: editing.id || 'new', group, initial: editing.id ? editing : null, perform, cancel: () => setEditing(null) }) : null);
   }
 
   function LogList({ group = null, active = true }) {
@@ -169,7 +185,7 @@ export function createAutomationPage({ React: R, api, layout }) {
         button('下一页', () => setPage(page + 1), busy || page >= result.last_page)) : null);
   }
 
-  function LogDialog({ group, close }) {
+  function Dialog({ title, close, children, closeLabel = '关闭' }) {
     const ref = R.useRef(null);
     const titleId = R.useId();
     R.useEffect(() => {
@@ -182,13 +198,21 @@ export function createAutomationPage({ React: R, api, layout }) {
     }, []);
     return h('dialog', { ref, className: 'na-dialog', 'aria-labelledby': titleId,
       onCancel: e => { e.preventDefault(); close(); },
+      onKeyDown: e => {
+        if (e.key !== 'Tab') return;
+        const controls = [...ref.current.querySelectorAll('button, input, select, textarea, a[href], [tabindex]')]
+          .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      },
       onClick: e => {
         const rect = ref.current.getBoundingClientRect();
         if (e.target === ref.current && (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom)) close();
       } },
-      h('div', { className: 'na-section-title na-dialog-header' }, h('h3', { id: titleId }, group.domain + ' · 切换记录'),
-        button('关闭记录', close)),
-      h(LogList, { group }));
+      h('div', { className: 'na-section-title na-dialog-header' }, h('h3', { id: titleId }, title),
+        button(closeLabel, close)),
+      h('div', { className: 'na-dialog-content' }, children));
   }
 
   function Page() {
@@ -201,6 +225,9 @@ export function createAutomationPage({ React: R, api, layout }) {
     const [search, setSearch] = R.useState('');
     const [operation, setOperation] = R.useState(null);
     const [logs, setLogs] = R.useState(null);
+    const [ipDomain, setIpDomain] = R.useState(null);
+    const [loaded, setLoaded] = R.useState(false);
+    const [refreshing, setRefreshing] = R.useState(false);
     const [tab, setTab] = R.useState('pool');
     const tabs = [{ id: 'pool', name: '备用池' }, { id: 'settings', name: '固定配置' }, { id: 'logs', name: '全部切换记录' }];
     const live = R.useRef(true);
@@ -213,6 +240,7 @@ export function createAutomationPage({ React: R, api, layout }) {
           if (!zoneInitialized.current) { setZone(value.connection?.zone_name || '443ds443.com'); zoneInitialized.current = true; }
         }
       } catch (e) { if (live.current) setError(e.message || '加载失败'); }
+      finally { if (live.current) setLoaded(true); }
     }
     R.useEffect(() => {
       live.current = true; load();
@@ -250,7 +278,10 @@ export function createAutomationPage({ React: R, api, layout }) {
       return () => { cancelled = true; clearInterval(timer); };
     }, [operation?.event.id, operation?.event.status]);
     const openLogs = group => setLogs(group);
+    const openIp = group => { setError(''); setMessage(''); setIpDomain(group.domain); };
     const running = operation && !['completed', 'failed', 'cancelled'].includes(operation.event.status);
+    const ipGroup = data.groups.find(g => g.domain === ipDomain);
+    const visibleGroups = data.groups.filter(g => (g.domain + ' ' + g.nodes.map(n => (n.display_id ?? n.id) + ' ' + n.name).join(' ')).toLowerCase().includes(search.trim().toLowerCase()));
     const content = h('div', { className: 'node-automation' },
       h('header', null, h('h2', null, '自动化配置'), h('p', null, '检测节点持续不可用，验证备用后自动切换 DNS。每 60 秒检测，连续 3 轮失败触发，切换后冷却 10 分钟。')),
       error ? h('div', { role: 'alert', className: 'na-alert na-error' }, error) : null,
@@ -270,12 +301,20 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { id: 'na-panel-pool', role: 'tabpanel', 'aria-labelledby': 'na-tab-pool', className: 'na-tab-panel', hidden: tab !== 'pool' },
         !data.connection?.verified_at || !data.probe_accounts?.length ? h('p', { className: 'na-note' }, '请先在「固定配置」中验证 Cloudflare 连接并选择公共检测账号。',
           button('前往固定配置', () => setTab('settings'))) : null,
-      h('div', { className: 'na-section-title' }, h('h3', null, '节点与备用池'),
-        h('input', { 'aria-label': '筛选域名或节点', placeholder: '搜索域名或节点名称', value: search, onChange: e => setSearch(e.target.value) }), button('刷新', load, busy)),
-      !data.groups.length ? h('p', { className: 'na-empty' }, '加载后将展示使用域名的节点。IP 地址节点不支持 DNS 自动切换。') :
-        data.groups.filter(g => (g.domain + ' ' + g.nodes.map(n => n.name).join(' ')).toLowerCase().includes(search.toLowerCase()))
-          .map(g => h(GroupRow, { key: g.domain, group: g, accountsReady: g.nodes.every(n => data.probe_accounts?.some(a => n.group_ids?.map(Number).includes(a.group_id))), perform, queue, openLogs, busy: busy || running,
+      h('div', { className: 'na-pool-toolbar' },
+        h('div', null, h('h3', null, '节点与备用池'), h('p', { className: 'na-muted' }, '按节点管理顺序排列 · 同域名合并显示')),
+        h('div', { className: 'na-actions' },
+          h('input', { type: 'search', 'aria-label': '筛选域名或节点', placeholder: '搜索域名、节点名称或 NodeID', value: search, onChange: e => setSearch(e.target.value) }),
+          button(refreshing ? '刷新中…' : '刷新', async () => { setRefreshing(true); await load(); setRefreshing(false); }, busy || refreshing))),
+      h('div', { className: 'na-pool' },
+        h('div', { className: 'na-pool-heading', 'aria-hidden': true },
+          h('span', null, '域名 / 关联节点'), h('span', null, '当前 IP'), h('span', null, '状态 / 备用'), h('span', null, '操作')),
+        !loaded ? h('p', { className: 'na-empty', role: 'status' }, '正在加载节点与备用池…') :
+        !data.groups.length ? h('p', { className: 'na-empty' }, '暂无使用域名的节点。IP 地址节点不支持 DNS 自动切换。') :
+        !visibleGroups.length ? h('div', { className: 'na-empty' }, h('p', null, '未找到匹配的域名或节点'), button('清除搜索', () => setSearch(''))) :
+          visibleGroups.map(g => h(GroupRow, { key: g.domain, group: g, accountsReady: g.nodes.every(n => data.probe_accounts?.some(a => n.group_ids?.map(Number).includes(a.group_id))), perform, queue, openLogs, openIp, busy: busy || running,
             requestBusy: busy, pending: running && operation.group.id === g.id }))),
+      loaded ? h('p', { className: 'na-pool-footer na-muted' }, '显示 ' + visibleGroups.length + ' / ' + data.groups.length + ' 个域名 · 每 10 秒更新状态') : null),
       h('div', { id: 'na-panel-settings', role: 'tabpanel', 'aria-labelledby': 'na-tab-settings', className: 'na-tab-panel', hidden: tab !== 'settings' },
       h('section', { className: 'na-connection', 'aria-label': 'Cloudflare 连接' },
         h('div', { className: 'na-section-title' }, h('h3', null, 'Cloudflare 连接'), h('span', { className: 'na-badge' }, data.connection?.verified_at ? '连接已验证' : data.connection ? 'Token 已配置，待验证' : '尚未配置')),
@@ -298,7 +337,10 @@ export function createAutomationPage({ React: R, api, layout }) {
         h('p', { className: 'na-muted' }, '更换或清除账号前请先暂停所有自动化，并等待任务完成；保存后逐域名重新验证配置与备用。多权限组节点优先使用权限组 ID 较小的可用账号。'))),
       h('div', { id: 'na-panel-logs', role: 'tabpanel', 'aria-labelledby': 'na-tab-logs', className: 'na-tab-panel', hidden: tab !== 'logs' },
         h('section', { className: 'na-log', 'aria-label': '全部切换记录' }, h(LogList, { active: tab === 'logs' }))),
-      logs ? h(LogDialog, { key: logs.id, group: logs, close: () => setLogs(null) }) : null);
+      logs ? h(Dialog, { key: 'logs-' + logs.id, title: logs.domain + ' · 切换记录', close: () => setLogs(null), closeLabel: '关闭记录' }, h(LogList, { group: logs })) : null,
+      ipDomain ? h(Dialog, { key: 'ip-' + ipDomain, title: ipDomain + ' · IP 管理', close: () => setIpDomain(null), closeLabel: '关闭 IP 管理' },
+        ipGroup ? h(GroupDetails, { group: ipGroup, perform, queue, busy: busy || running, error, message,
+          operation: operation?.group.domain === ipDomain ? operation.event : null }) : h('p', { className: 'na-empty' }, '该域名已不在节点管理中，请关闭后刷新列表。')) : null);
     return h(layout.Root, null, h(layout.Header, null,
       h('div', { className: 'hidden md:block' }, h(layout.Search)),
       h('div', { className: 'ml-auto flex items-center space-x-4' }, h(layout.Language), h(layout.User))),

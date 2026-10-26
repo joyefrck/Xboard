@@ -49,6 +49,21 @@ $controller=new AutomationController($s,$dns);
 $data=payload($controller->fetch());
 expect(count($data['data']['groups'])===1&&count($data['data']['groups'][0]['nodes'])===2,'shared domain produces one API group');
 expect(!array_key_exists('api_token',$data['data']['connection']),'API never returns token');
+// Node management sorts by display NodeID, not insertion order, domain, or lexical code.
+Server::find(1)->update(['code'=>'10']);
+Server::find(2)->update(['code'=>'2']);
+foreach ([['1','z-order.example.test'],['2','a-order.example.test'],[null,'fallback.example.test'],
+    ['Node10','node10.example.test'],['node2','node2.example.test'],['1','198.51.100.9']] as [$code,$host]) {
+    Server::create(['code'=>$code,'name'=>'sorting fixture','type'=>'vless','host'=>$host,'port'=>'1001','group_ids'=>['1']]);
+}
+$ordered=payload($controller->fetch())['data']['groups'];
+expect(array_column($ordered,'domain')===['z-order.example.test',$g->domain,'a-order.example.test',
+    'fallback.example.test','node2.example.test','node10.example.test'],
+    'domain groups follow natural display NodeID order with ID fallback and stable ties, excluding IP nodes');
+expect(array_column($ordered[1]['nodes'],'id')===[2,1],
+    'shared domain is merged at its earliest node and its nodes keep node management order');
+Server::where('id','>',2)->delete();
+Server::query()->update(['code'=>null]);
 $data=payload($controller->backupSave(request(['group_id'=>$g->id,'name'=>'new','ip'=>'8.8.4.4','priority'=>0,'enabled'=>true])));
 expect($data['status']==='success'&&$g->backups()->first()->ip==='8.8.4.4','backup created and ordered by priority');
 $new=ApiBackup::find($data['data']['id']);

@@ -16,7 +16,13 @@ const groups = [{ id: 1, domain: 'us.example.test', enabled: false, state: 'paus
     { id: 2, name: '美国备用二', ip: '198.51.100.30', priority: 2, enabled: true, state: 'unchecked' },
     { id: 3, name: '原 VPS', ip: '198.51.100.40', priority: 999, enabled: false, state: 'needs_review' }] },
   { id: 2, domain: 'jp.example.test', enabled: false, state: 'unconfigured', current_ip: null, failures: 0,
-    nodes: [{ id: 11, display_id: 11, name: '日本-住宅IP01', type: 'hysteria', port: 1001, group_ids: ['2'] }], backups: [] }];
+    nodes: [{ id: 11, display_id: 11, name: '日本-住宅IP01', type: 'hysteria', port: 1001, group_ids: ['2'] }], backups: [] },
+  { id: 3, domain: 'sg.example.test', enabled: true, state: 'healthy', current_ip: '198.51.100.60', failures: 0,
+    record_id: 'fixture-sg', last_checked_at: stamp(), nodes: [{ id: 12, display_id: 12, name: '新加坡-高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }],
+    backups: [{ id: 4, name: '新加坡备用', ip: '198.51.100.61', priority: 1, enabled: true, state: 'ready', tested_at: stamp() }] },
+  { id: 4, domain: 'hk-residential.example.test', enabled: false, state: 'config_error', current_ip: '198.51.100.70', failures: 0,
+    reason: 'DNS 记录已变更，请重新验证配置并匹配 DNS。', record_id: 'fixture-hk',
+    nodes: [{ id: 13, display_id: 13, name: '香港-住宅IP高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }], backups: [] }];
 const events = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, group_id: i % 2 + 1,
   action: i % 3 ? 'auto' : 'manual', status: 'completed', created_at: new Date(Date.now() - (25 - i) * 60000).toISOString(),
   from_ip: '198.51.100.10', to_ip: '198.51.100.20', message: '演示记录：备用验证通过，DNS 回读已确认' }));

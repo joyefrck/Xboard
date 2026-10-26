@@ -70,7 +70,8 @@ class ServerService
         return $servers;
     }
 
-    private static function sortByDisplayNodeId(Collection $servers): Collection
+    /** Shared display order for node management, subscriptions, and automation groups. */
+    public static function sortByDisplayNodeId(Collection $servers): Collection
     {
         return $servers->sort(function (Server $left, Server $right): int {
             $leftDisplayId = (string) ($left->code ?: $left->id);

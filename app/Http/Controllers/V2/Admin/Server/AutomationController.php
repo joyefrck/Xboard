@@ -8,6 +8,7 @@ use App\Models\{NodeAutomationConnection as Connection, NodeAutomationGroup as G
     NodeAutomationBackup as Backup, NodeAutomationLog as Event, NodeAutomationCheck as Observation,
     NodeAutomationSetting as Setting, Server, ServerGroup, User};
 use App\Services\NodeAutomation\{AutomationService, AutomationException, CloudflareDns, ProxyProbe};
+use App\Services\ServerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB};
 use Illuminate\Support\Str;
@@ -25,7 +26,9 @@ class AutomationController extends Controller
     public function fetch()
     {
         return $this->respond(function () {
-            $nodes = Server::all(['id', 'code', 'name', 'host', 'port', 'type', 'group_ids']);
+            $nodes = ServerService::sortByDisplayNodeId(
+                Server::all(['id', 'code', 'name', 'host', 'port', 'type', 'group_ids'])
+            );
             $domains = $nodes->groupBy(fn ($node) => strtolower(rtrim($node->host, '.')))
                 ->filter(fn ($items, $domain) => $this->validDomain($domain));
             $groups = Group::with('backups')->get()->keyBy('domain');
