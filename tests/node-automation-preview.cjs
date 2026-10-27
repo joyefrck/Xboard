@@ -22,7 +22,17 @@ const groups = [{ id: 1, domain: 'us.example.test', enabled: false, state: 'paus
     backups: [{ id: 4, name: '新加坡备用', ip: '198.51.100.61', priority: 1, enabled: true, state: 'ready', tested_at: stamp() }] },
   { id: 4, domain: 'hk-residential.example.test', enabled: false, state: 'config_error', current_ip: '198.51.100.70', failures: 0,
     reason: 'DNS 记录已变更，请重新验证配置并匹配 DNS。', record_id: 'fixture-hk',
-    nodes: [{ id: 13, display_id: 13, name: '香港-住宅IP高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }], backups: [] }];
+    nodes: [{ id: 13, display_id: 13, name: '香港-住宅IP高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }], backups: [] },
+  { id: 5, domain: 'us-residential.example.test', enabled: true, state: 'healthy', current_ip: '198.51.100.80', failures: 0,
+    record_id: 'fixture-us-home', last_checked_at: stamp(),
+    nodes: [{ id: 14, display_id: 14, name: '美国-家庭宽带IP01', type: 'vless', port: 1001, group_ids: ['1'] }], backups: [] },
+  { id: 6, domain: 'de.example.test', enabled: true, state: 'no_backup', current_ip: '198.51.100.90', failures: 3,
+    record_id: 'fixture-de', reason: '没有通过测试的可用备用，DNS 未修改',
+    nodes: [{ id: 15, display_id: 15, name: '德国-高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }], backups: [] },
+  { id: 7, domain: 'kr.example.test', enabled: true, state: 'propagating', current_ip: '198.51.100.100', failures: 0,
+    record_id: 'fixture-kr', last_checked_at: stamp(),
+    nodes: [{ id: 16, display_id: 16, name: '韩国-高峰专线01', type: 'vless', port: 1001, group_ids: ['1'] }],
+    backups: [{ id: 5, name: '韩国备用', ip: '198.51.100.101', priority: 1, enabled: true, state: 'ready' }] }];
 const events = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, group_id: i % 2 + 1,
   action: i % 3 ? 'auto' : 'manual', status: 'completed', created_at: new Date(Date.now() - (25 - i) * 60000).toISOString(),
   from_ip: '198.51.100.10', to_ip: '198.51.100.20', message: '演示记录：备用验证通过，DNS 回读已确认' }));

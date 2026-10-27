@@ -7,6 +7,37 @@ export const stateLabels = {
   queued: '等待执行', running: '执行中', prepared: 'DNS 修改待确认', verifying: '验证新 VPS',
   completed: '完成', cancelled: '已取消',
 };
+
+export const statusFilters = [
+  { key: 'healthy', label: '正常' },
+  { key: 'healthy_no_backup', label: '正常 · 无备用' },
+  { key: 'error', label: '异常' },
+  { key: 'paused', label: '已暂停' },
+  { key: 'unconfigured', label: '未配置' },
+  { key: 'processing', label: '处理中' },
+  { key: 'other', label: '其他' },
+];
+
+// Keep the same enabled-standby count used by the list; this is not a test result.
+export const standbyCount = group => (group.backups || []).filter(b => b.enabled && b.ip !== group.current_ip).length;
+
+export function groupStatus(group) {
+  let key;
+  if (group.state === 'healthy') key = standbyCount(group) > 0 ? 'healthy' : 'healthy_no_backup';
+  else if (['suspect', 'no_backup', 'probe_error', 'config_error', 'dns_conflict'].includes(group.state)) key = 'error';
+  else if (['switching', 'propagating', 'dns_unknown'].includes(group.state)) key = 'processing';
+  else if (['paused', 'unconfigured'].includes(group.state)) key = group.state;
+  else key = 'other';
+  return { key, label: key === 'healthy_no_backup' ? '正常 · 无备用' : (stateLabels[group.state] || group.state || '未知状态') };
+}
+
+export function filterGroups(groups, search = '', statuses = []) {
+  const query = search.trim().toLowerCase();
+  return groups.filter(group =>
+    (group.domain + ' ' + group.nodes.map(n => (n.display_id ?? n.id) + ' ' + n.name).join(' ')).toLowerCase().includes(query)
+    && (!statuses.length || statuses.includes(groupStatus(group).key)));
+}
+
 export function createAutomationPage({ React: R, api, layout }) {
   const h = R.createElement;
   const prefix = window.settings.secure_path + '/server/automation';
@@ -96,7 +127,10 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { className: 'na-actions' }, h('button', { type: 'submit', className: 'na-button na-primary', disabled: saving }, saving ? '保存中…' : '保存备用'), button('取消', cancel, saving)));
   }
 
-  const stateBadge = group => h('span', { className: 'na-badge na-state-' + group.state + (group.enabled ? ' na-on' : '') }, label(group.state));
+  const stateBadge = group => {
+    const status = groupStatus(group);
+    return h('span', { className: 'na-badge na-status na-tone-' + status.key }, status.label);
+  };
 
   function GroupRow({ group, accountsReady, perform, openLogs, openIp, queue, busy, requestBusy, pending }) {
     const mayPause = !!group.enabled || !!group.pending_operation || pending;
@@ -107,7 +141,7 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { className: 'na-current-ip' }, h('span', { className: 'na-mobile-label na-muted' }, '当前 IP'),
         h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS')),
       h('div', { className: 'na-group-status' }, stateBadge(group),
-        h('span', { className: 'na-muted' }, '失败 ' + group.failures + '/3 · 备用 ' + (group.backups || []).filter(b => b.enabled && b.ip !== group.current_ip).length)),
+        h('span', { className: 'na-muted' }, '失败 ' + group.failures + '/3 · 备用 ' + standbyCount(group))),
       h('div', { className: 'na-actions na-row-actions', 'aria-label': group.domain + ' 操作' },
         button(mayPause ? '暂停自动化' : '验证并开启', () => mayPause ? perform('/pause', { id: group.id }) : queue(group, 'enable'), !group.id || (!mayPause && (!group.record_id || !accountsReady)) || (mayPause ? requestBusy : busy), mayPause ? '' : 'na-primary'),
         button(group.record_id ? '重新验证配置并匹配 DNS' : '验证配置并匹配 DNS', () => perform('/save', { domain: group.domain }), locked || !accountsReady),
@@ -223,6 +257,7 @@ export function createAutomationPage({ React: R, api, layout }) {
     const [message, setMessage] = R.useState('');
     const [error, setError] = R.useState('');
     const [search, setSearch] = R.useState('');
+    const [statuses, setStatuses] = R.useState([]);
     const [operation, setOperation] = R.useState(null);
     const [logs, setLogs] = R.useState(null);
     const [ipDomain, setIpDomain] = R.useState(null);
@@ -281,7 +316,14 @@ export function createAutomationPage({ React: R, api, layout }) {
     const openIp = group => { setError(''); setMessage(''); setIpDomain(group.domain); };
     const running = operation && !['completed', 'failed', 'cancelled'].includes(operation.event.status);
     const ipGroup = data.groups.find(g => g.domain === ipDomain);
-    const visibleGroups = data.groups.filter(g => (g.domain + ' ' + g.nodes.map(n => (n.display_id ?? n.id) + ' ' + n.name).join(' ')).toLowerCase().includes(search.trim().toLowerCase()));
+    const searchedGroups = filterGroups(data.groups, search);
+    const visibleGroups = filterGroups(searchedGroups, '', statuses);
+    const statusCounts = searchedGroups.reduce((counts, group) => {
+      const key = groupStatus(group).key;
+      counts[key] = (counts[key] || 0) + 1;
+      return counts;
+    }, {});
+    const toggleStatus = key => setStatuses(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key]);
     const content = h('div', { className: 'node-automation' },
       h('header', null, h('h2', null, '自动化配置'), h('p', null, '检测节点持续不可用，验证备用后自动切换 DNS。每 60 秒检测，连续 3 轮失败触发，切换后冷却 10 分钟。')),
       error ? h('div', { role: 'alert', className: 'na-alert na-error' }, error) : null,
@@ -306,12 +348,19 @@ export function createAutomationPage({ React: R, api, layout }) {
         h('div', { className: 'na-actions' },
           h('input', { type: 'search', 'aria-label': '筛选域名或节点', placeholder: '搜索域名、节点名称或 NodeID', value: search, onChange: e => setSearch(e.target.value) }),
           button(refreshing ? '刷新中…' : '刷新', async () => { setRefreshing(true); await load(); setRefreshing(false); }, busy || refreshing))),
+      h('div', { className: 'na-status-filters', role: 'group', 'aria-label': '按状态筛选' },
+        h('button', { type: 'button', className: 'na-filter na-filter-all', 'aria-pressed': statuses.length === 0,
+          onClick: () => setStatuses([]) }, '全部', h('span', { className: 'na-filter-count' }, loaded ? searchedGroups.length : '—')),
+        statusFilters.filter(item => item.key !== 'other' || statusCounts.other || statuses.includes('other')).map(item =>
+          h('button', { key: item.key, type: 'button', className: 'na-filter na-tone-' + item.key,
+            'aria-pressed': statuses.includes(item.key), onClick: () => toggleStatus(item.key) },
+            item.label, h('span', { className: 'na-filter-count' }, loaded ? (statusCounts[item.key] || 0) : '—')))),
       h('div', { className: 'na-pool' },
         h('div', { className: 'na-pool-heading', 'aria-hidden': true },
           h('span', null, '域名 / 关联节点'), h('span', null, '当前 IP'), h('span', null, '状态 / 备用'), h('span', null, '操作')),
         !loaded ? h('p', { className: 'na-empty', role: 'status' }, '正在加载节点与备用池…') :
         !data.groups.length ? h('p', { className: 'na-empty' }, '暂无使用域名的节点。IP 地址节点不支持 DNS 自动切换。') :
-        !visibleGroups.length ? h('div', { className: 'na-empty' }, h('p', null, '未找到匹配的域名或节点'), button('清除搜索', () => setSearch(''))) :
+        !visibleGroups.length ? h('div', { className: 'na-empty' }, h('p', null, '没有符合当前筛选条件的域名或节点'), button('清除筛选', () => { setSearch(''); setStatuses([]); })) :
           visibleGroups.map(g => h(GroupRow, { key: g.domain, group: g, accountsReady: g.nodes.every(n => data.probe_accounts?.some(a => n.group_ids?.map(Number).includes(a.group_id))), perform, queue, openLogs, openIp, busy: busy || running,
             requestBusy: busy, pending: running && operation.group.id === g.id }))),
       loaded ? h('p', { className: 'na-pool-footer na-muted' }, '显示 ' + visibleGroups.length + ' / ' + data.groups.length + ' 个域名 · 每 10 秒更新状态') : null),
