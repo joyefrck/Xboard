@@ -137,7 +137,7 @@ export function createAutomationPage({ React: R, api, layout }) {
     const locked = !!group.enabled || !!group.pending_operation || busy;
     return h('article', { className: 'na-group', 'aria-label': group.domain },
       h('div', { className: 'na-domain' }, h('strong', null, group.domain),
-        h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h('li', { key: n.id }, '#' + (n.display_id ?? n.id) + ' · ' + n.name)))),
+        h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h('li', { key: n.id }, '#' + (n.display_id ?? n.id) + ' · ' + n.name + (n.port ? ':' + n.port : ''))))),
       h('div', { className: 'na-current-ip' }, h('span', { className: 'na-mobile-label na-muted' }, '当前 IP'),
         h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS')),
       h('div', { className: 'na-group-status' }, stateBadge(group),
