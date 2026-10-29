@@ -132,12 +132,63 @@ export function createAutomationPage({ React: R, api, layout }) {
     return h('span', { className: 'na-badge na-status na-tone-' + status.key }, status.label);
   };
 
+  async function copyAddress(address) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(address);
+        return;
+      }
+    } catch (_) { /* Fall back when clipboard permissions are unavailable. */ }
+    const previous = document.activeElement;
+    const input = document.createElement('textarea');
+    input.value = address;
+    input.readOnly = true;
+    input.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(input);
+    try {
+      input.select();
+      if (!document.execCommand('copy')) throw new Error('复制失败');
+    } finally {
+      input.remove();
+      previous?.focus({ preventScroll: true });
+    }
+  }
+
+  function NodeAddress({ domain, node }) {
+    const [status, setStatus] = R.useState('');
+    const address = node.port ? domain + ':' + node.port : '';
+    R.useEffect(() => {
+      if (!['copied', 'error'].includes(status)) return;
+      const timer = setTimeout(() => setStatus(''), status === 'copied' ? 2000 : 4000);
+      return () => clearTimeout(timer);
+    }, [status]);
+    async function copy() {
+      if (!address) return;
+      setStatus('copying');
+      try { await copyAddress(address); setStatus('copied'); }
+      catch (_) { setStatus('error'); }
+    }
+    return h('li', null,
+      h('span', { className: 'na-node-name' }, '#' + (node.display_id ?? node.id) + ' · ' + node.name + (node.port ? ':' + node.port : '')),
+      h('button', { type: 'button', className: 'na-copy' + (status === 'copied' ? ' na-copied' : ''),
+        onClick: copy, disabled: !address || status === 'copying',
+        'aria-label': address ? '复制 ' + address : '未配置端口，无法复制',
+        title: !address ? '未配置端口，无法复制' : status === 'copied' ? '已复制 ' + address : '复制 ' + address },
+        h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
+          strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+          status === 'copied' ? h('path', { d: 'm5 12 4 4L19 6' }) :
+            [h('rect', { key: 'front', x: 9, y: 9, width: 13, height: 13, rx: 2 }),
+              h('path', { key: 'back', d: 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' })])),
+      h('span', { role: 'status', className: status === 'error' ? 'na-copy-error na-error' : 'na-sr-only' },
+        status === 'copied' ? '已复制 ' + address : status === 'error' ? '复制失败，请重试' : ''));
+  }
+
   function GroupRow({ group, accountsReady, perform, openLogs, openIp, queue, busy, requestBusy, pending }) {
     const mayPause = !!group.enabled || !!group.pending_operation || pending;
     const locked = !!group.enabled || !!group.pending_operation || busy;
     return h('article', { className: 'na-group', 'aria-label': group.domain },
       h('div', { className: 'na-domain' }, h('strong', null, group.domain),
-        h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h('li', { key: n.id }, '#' + (n.display_id ?? n.id) + ' · ' + n.name + (n.port ? ':' + n.port : ''))))),
+        h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h(NodeAddress, { key: n.id, domain: group.domain, node: n })))),
       h('div', { className: 'na-current-ip' }, h('span', { className: 'na-mobile-label na-muted' }, '当前 IP'),
         h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS')),
       h('div', { className: 'na-group-status' }, stateBadge(group),

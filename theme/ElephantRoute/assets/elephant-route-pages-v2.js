@@ -26,7 +26,8 @@
     '/order': 'order',
     '/profile': 'profile',
     '/ticket': 'ticket',
-    '/node': 'node'
+    '/node': 'node',
+    '/traffic': 'traffic'
   });
 
   var USER_SHELL_ROUTES = Object.freeze({
@@ -37,7 +38,8 @@
     '/order': true,
     '/profile': true,
     '/ticket': true,
-    '/node': true
+    '/node': true,
+    '/traffic': true
   });
 
   var mountedWindows = typeof WeakMap === 'function' ? new WeakMap() : null;
@@ -104,9 +106,27 @@
     });
   }
 
+  function normalizeTrafficPage(targetWindow) {
+    var doc = targetWindow && targetWindow.document;
+    if (resolvePageKey(targetWindow.location && targetWindow.location.hash) !== 'traffic'
+      || !doc || typeof doc.querySelector !== 'function') return;
+    var content = doc.querySelector('section.cus-scroll-y .n-card__content');
+    if (!content) return;
+    if (!content.querySelector('.er-usage-heading')) {
+      var heading = doc.createElement('header');
+      heading.className = 'er-usage-heading';
+      heading.innerHTML = '<div><h1>用量查询</h1><p>查看本月已统计的流量使用明细</p></div><span>本月明细</span>';
+      content.insertBefore(heading, content.firstChild);
+    }
+    var note = content.querySelector('.n-alert-body__content');
+    var text = '仅展示本月已统计的记录。实际上行、实际下行为原始用量，总计为按节点倍率计算的计费用量。';
+    if (note && note.textContent !== text) note.textContent = text;
+  }
+
   function syncRoutePresentation(targetWindow) {
     applyRouteMarkers(targetWindow);
     normalizeInviteCopyLabels(targetWindow);
+    normalizeTrafficPage(targetWindow);
   }
 
   function createPurchaseNotice(targetWindow) {
@@ -232,6 +252,7 @@
     isUserShellRoute: isUserShellRoute,
     applyRouteMarkers: applyRouteMarkers,
     normalizeInviteCopyLabels: normalizeInviteCopyLabels,
+    normalizeTrafficPage: normalizeTrafficPage,
     syncRoutePresentation: syncRoutePresentation,
     createPurchaseNotice: createPurchaseNotice,
     mount: mount

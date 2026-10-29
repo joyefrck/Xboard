@@ -28,6 +28,7 @@
     download: '<path d="M10.5 3h3v10.1l3.2-3.2 2.1 2.2-6.8 6.8-6.8-6.8 2.1-2.2 3.2 3.2V3ZM4 19h16v3H4v-3Z"/>',
     external: '<path d="M13 3h8v8h-3V8.1l-7.4 7.4-2.1-2.1L15.9 6H13V3ZM4 5h6v3H7v9h9v-3h3v6H4V5Z"/>',
     signal: '<path fill-rule="evenodd" d="M12 2a10 10 0 0 0-3 19.5v-3.2a7 7 0 1 1 6 0v3.2A10 10 0 0 0 12 2Zm0 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>',
+    usage: '<path d="M4 3h3v14h14v3H4V3Zm5 7h3v5H9v-5Zm5-5h3v10h-3V5Zm5 3h3v7h-3V8Z"/>',
     contact: '<path d="M19 3H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h3l4 4 4-4h3a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3ZM9 12H6V9h3v3Zm4.5 0h-3V9h3v3Zm4.5 0h-3V9h3v3Z"/>',
     knowledge: '<path d="M5 2h13a2 2 0 0 1 2 2v17H7a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1Zm2 3v11.2c.3-.1.7-.2 1-.2h9V5H7Zm1 14h9v-1H8a1 1 0 1 0 0 2h9v-1H8Z"/>',
     orders: '<path d="M5 2h14a2 2 0 0 1 2 2v18l-3-1.8-3 1.8-3-1.8L9 22l-3-1.8L3 22V4a2 2 0 0 1 2-2Zm2 5v2h10V7H7Zm0 4v2h10v-2H7Zm0 4v2h7v-2H7Z"/>',
@@ -825,7 +826,7 @@
       '  </section>',
       '  <section class="er-v2-bottom-grid">',
       '    <article class="er-v2-panel er-v2-notices er-v2-entrance" aria-labelledby="er-v2-notices-title"><div class="er-v2-card-watermark er-v2-card-watermark-notice" aria-hidden="true">' + solidIcon('noticePattern') + '</div><div class="er-v2-section-heading"><div><h2 id="er-v2-notices-title">官方公告</h2></div></div><div class="er-v2-notice-list" data-region="notices"><p class="er-v2-empty">正在加载公告</p></div></article>',
-      '    <article class="er-v2-panel er-v2-shortcuts er-v2-entrance" aria-labelledby="er-v2-shortcuts-title"><div class="er-v2-card-watermark er-v2-card-watermark-shortcut" aria-hidden="true">' + solidIcon('shortcutPattern') + '</div><div class="er-v2-section-heading"><div><h2 id="er-v2-shortcuts-title">快捷入口</h2></div></div><div class="er-v2-shortcut-list"><button type="button" data-action="nodes"><span class="er-v2-shortcut-icon">' + solidIcon('signal') + '</span><span class="er-v2-shortcut-label">节点状态</span><strong data-field="node-status">正在检查</strong></button><button type="button" data-action="orders"><span class="er-v2-shortcut-icon">' + solidIcon('orders') + '</span><span class="er-v2-shortcut-label">订单记录</span><strong data-field="order-status" data-tone="danger" hidden>有未完成订单</strong></button><button type="button" data-action="contact"><span class="er-v2-shortcut-icon">' + solidIcon('contact') + '</span><span class="er-v2-shortcut-label">联系我们</span></button><button type="button" data-action="knowledge"><span class="er-v2-shortcut-icon">' + solidIcon('knowledge') + '</span><span class="er-v2-shortcut-label">使用教程</span></button></div><p class="er-v2-inline-error" data-error="servers" hidden></p></article>',
+      '    <article class="er-v2-panel er-v2-shortcuts er-v2-entrance" aria-labelledby="er-v2-shortcuts-title"><div class="er-v2-card-watermark er-v2-card-watermark-shortcut" aria-hidden="true">' + solidIcon('shortcutPattern') + '</div><div class="er-v2-section-heading"><div><h2 id="er-v2-shortcuts-title">快捷入口</h2></div></div><div class="er-v2-shortcut-list"><button type="button" data-action="nodes"><span class="er-v2-shortcut-icon">' + solidIcon('signal') + '</span><span class="er-v2-shortcut-label">节点状态</span><strong data-field="node-status">正在检查</strong></button><button type="button" data-action="orders"><span class="er-v2-shortcut-icon">' + solidIcon('orders') + '</span><span class="er-v2-shortcut-label">订单记录</span><strong data-field="order-status" data-tone="danger" hidden>有未完成订单</strong></button><button type="button" data-action="usage"><span class="er-v2-shortcut-icon">' + solidIcon('usage') + '</span><span class="er-v2-shortcut-label">用量查询</span></button><button type="button" data-action="knowledge"><span class="er-v2-shortcut-icon">' + solidIcon('knowledge') + '</span><span class="er-v2-shortcut-label">使用教程</span></button></div><p class="er-v2-inline-error" data-error="servers" hidden></p></article>',
       '    <article class="er-v2-panel er-v2-invite er-v2-entrance" aria-labelledby="er-v2-invite-title"><div class="er-v2-invite-watermark" aria-hidden="true">' + solidIcon('invite') + '</div><div class="er-v2-section-heading"><div><h2 id="er-v2-invite-title">邀请好友赚钱</h2></div><span class="er-v2-commission-rate" data-field="commission-rate" hidden></span></div><div class="er-v2-invite-content" data-region="invite"><p class="er-v2-empty">正在加载邀请信息</p></div><p class="er-v2-inline-error" data-error="invite" hidden></p></article>',
       '  </section>',
       '</div>',
@@ -889,6 +890,7 @@
     if (action === 'buy-traffic-package') goToTrafficPackagePurchase();
     if (action === 'nodes') navigate('#/node');
     if (action === 'orders') navigate('#/order');
+    if (action === 'usage') navigate('#/traffic');
     if (action === 'knowledge') navigate('#/knowledge');
     if (action === 'all-downloads') global.open(DOWNLOAD_PAGE_URL, '_blank', 'noopener,noreferrer');
     if (action === 'import-subscription') openLegacySubscriptionImport();

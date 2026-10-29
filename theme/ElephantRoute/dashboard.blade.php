@@ -12,8 +12,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/theme/{{$theme}}/assets/apple-touch-icon.png?v={{$version}}-er20260826brandLogo1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20260622inputColor1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261025downloadPlatforms2">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261024profile1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261029usage1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261029usage1">
   <script>
     try {
       localStorage.setItem('vueuse-color-scheme', 'light');
@@ -79,8 +79,8 @@
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20260819appealType1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261025downloadPlatforms2"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261024profile1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261029usage1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261029usage1"></script>
   <script>
     (function() {
       function insertLoginLogo() {

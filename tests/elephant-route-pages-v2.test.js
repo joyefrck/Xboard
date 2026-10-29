@@ -22,8 +22,8 @@ test('Aurora user-page assets are mirrored and cache-busted in both theme views'
   assert.equal(publicView, themeView);
 
   for (const view of [themeView, publicView]) {
-    assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261024profile1/);
-    assert.match(view, /elephant-route-pages-v2\.js\?v=\{\{\$version\}\}-er20261024profile1/);
+    assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261029usage1/);
+    assert.match(view, /elephant-route-pages-v2\.js\?v=\{\{\$version\}\}-er20261029usage1/);
   }
 
   const publicIgnore = readRepoFile('public/theme/.gitignore');
@@ -40,7 +40,8 @@ test('Aurora user-page route markers are deterministic and exclude unrelated pag
     '#/order': 'order',
     '#/profile': 'profile',
     '#/ticket': 'ticket',
-    '#/node': 'node'
+    '#/node': 'node',
+    '#/traffic': 'traffic'
   };
 
   for (const [hash, page] of Object.entries(expected)) {
@@ -58,6 +59,7 @@ test('Aurora user-page route markers are deterministic and exclude unrelated pag
 
   assert.equal(helpers.isUserShellRoute('#/dashboard'), true);
   assert.equal(helpers.isUserShellRoute('#/profile'), true);
+  assert.equal(helpers.isUserShellRoute('#/traffic'), true);
   assert.equal(helpers.isUserShellRoute('#/plan/2'), true);
   assert.equal(helpers.isUserShellRoute('#/order/2026082610081951220190389'), true);
   assert.equal(helpers.isUserShellRoute('#/login'), false);

@@ -294,6 +294,42 @@ body[data-er-page] section.cus-scroll-y .n-data-table-empty {
   color: var(--er-pages-muted);
 }
 
+body[data-er-page="traffic"] .er-usage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 22px;
+}
+
+body[data-er-page="traffic"] .er-usage-heading h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+body[data-er-page="traffic"] .er-usage-heading p {
+  margin: 0;
+  color: var(--er-pages-muted);
+  font-size: 14px;
+}
+
+body[data-er-page="traffic"] .er-usage-heading > span {
+  padding: 6px 14px;
+  border: 1px solid rgba(76, 102, 231, 0.12);
+  border-radius: 999px;
+  background: rgba(76, 102, 231, 0.07);
+  color: var(--er-pages-blue);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+body[data-er-page="traffic"] section.cus-scroll-y .n-data-table-td {
+  font-variant-numeric: tabular-nums;
+}
+
 body[data-er-page] section.cus-scroll-y .n-pagination {
   padding-top: 12px;
   font-size: 14px;
