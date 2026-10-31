@@ -2391,6 +2391,38 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "flow": {
           "label": "Flow Control",
           "placeholder": "Select flow control"
+        },
+        "upgrade": {
+          "security": "Security",
+          "none": "None",
+          "transport": "Transport",
+          "flow": "Flow",
+          "visionError": "Vision requires TCP with TLS or REALITY",
+          "insecure": "Allow insecure certificates",
+          "target": "Camouflage target (defaults to SNI)",
+          "targetPort": "Target port",
+          "privateKey": "Private key",
+          "publicKey": "Public key",
+          "generateKeys": "Generate keys",
+          "replaceKeys": "Replacing these keys affects client connections. Continue?",
+          "generateId": "Generate Short ID",
+          "mode": "Mode",
+          "extra": "Advanced settings (JSON object)",
+          "jsonError": "Enter a valid JSON object",
+          "utls": "Use a specific uTLS fingerprint",
+          "fingerprint": "Client fingerprint",
+          "encryption": "Enable VLESS Encryption",
+          "clientParameter": "Client encryption parameter",
+          "serverParameter": "Server decryption parameter",
+          "importPair": "Import V2bX vlessenc --json output",
+          "import": "Import parameters",
+          "importError": "Import failed. Check the parameter pair.",
+          "backend": "Backend compatibility",
+          "backendHint": "Record the installed version after upgrading REALITY so subscriptions include the required hybrid KeyShare. Modern configurations are limited to supported clients and cannot use automatic failover probes yet.",
+          "core": "Server core",
+          "selectCore": "Select a core",
+          "release": "Installed V2bX release",
+          "showSecrets": "Show private parameters"
         }
       },
       "tuic": {

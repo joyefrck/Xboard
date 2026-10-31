@@ -4,6 +4,7 @@ namespace App\Protocols;
 
 use App\Models\Server;
 use App\Utils\Helper;
+use App\Services\VlessConfigService;
 use Illuminate\Support\Arr;
 use App\Support\AbstractProtocol;
 
@@ -127,9 +128,9 @@ class General extends AbstractProtocol
         $config = [
             'mode' => 'multi', //grpc传输模式
             'security' => '', //传输层安全 tls/reality
-            'encryption' => 'none', //加密方式
+            'encryption' => VlessConfigService::clientEncryption($protocol_settings), //加密方式
             'type' => $server['protocol_settings']['network'], //传输协议
-            'flow' => $protocol_settings['flow'] ? $protocol_settings['flow'] : null,
+            'flow' => ($protocol_settings['flow'] ?? '') === 'none' ? '' : ($protocol_settings['flow'] ?? ''),
         ];
         // 处理TLS
         switch ($server['protocol_settings']['tls']) {
@@ -146,7 +147,7 @@ class General extends AbstractProtocol
                 $config['sni'] = data_get($protocol_settings, 'reality_settings.server_name');
                 $config['servername'] = data_get($protocol_settings, 'reality_settings.server_name');
                 $config['spx'] = "/";
-                $config['fp'] = Helper::getRandFingerprint();
+                $config['fp'] = VlessConfigService::clientFingerprint($protocol_settings) ?? Helper::getRandFingerprint();
                 break;
             default:
                 break;
@@ -181,9 +182,10 @@ class General extends AbstractProtocol
                 break;
         }
 
+        if ($fingerprint = VlessConfigService::clientFingerprint($protocol_settings)) $config['fp'] = $fingerprint;
         $user = $uuid . '@' . Helper::wrapIPv6($host) . ':' . $port;
         $query = http_build_query($config);
-        $fragment = urlencode($name);
+        $fragment = rawurlencode($name);
         $link = sprintf("vless://%s?%s#%s\r\n", $user, $query, $fragment);
         return $link;
     }

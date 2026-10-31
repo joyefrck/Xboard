@@ -240,7 +240,7 @@ class SingBox extends AbstractProtocol
             "server_port" => $server['port'],
             "uuid" => $password,
             "packet_encoding" => "xudp",
-            'flow' => data_get($protocol_settings, 'flow', ''),
+            'flow' => data_get($protocol_settings, 'flow') === 'none' ? '' : data_get($protocol_settings, 'flow', ''),
         ];
 
         if ($protocol_settings['tls']) {
@@ -249,7 +249,7 @@ class SingBox extends AbstractProtocol
                 'insecure' => (bool) data_get($protocol_settings, 'tls_settings.allow_insecure'),
                 'utls' => [
                     'enabled' => true,
-                    'fingerprint' => Helper::getRandFingerprint()
+                    'fingerprint' => \App\Services\VlessConfigService::clientFingerprint($protocol_settings) ?? Helper::getRandFingerprint()
                 ]
             ];
 

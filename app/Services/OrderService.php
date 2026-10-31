@@ -28,10 +28,19 @@ class OrderService
     ];
     public $order;
     public $user;
+    private bool $paymentApplied = false;
 
     public function __construct(Order $order)
     {
         $this->order = $order;
+    }
+
+    private function lockCurrentOrderWhenStatus(int $status): ?Order
+    {
+        return Order::whereKey($this->order->id)
+            ->where('status', $status)
+            ->lockForUpdate()
+            ->first();
     }
 
     /**
@@ -141,18 +150,22 @@ class OrderService
 
     public function open(): void
     {
-        $order = $this->order;
-        $this->user = User::find($order->user_id);
-        $plan = $order->plan_id ? Plan::find($order->plan_id) : null;
-        $trafficPackage = $order->traffic_package_id ? TrafficPackage::find($order->traffic_package_id) : null;
+        $openedOrder = DB::transaction(function () {
+            $order = Order::whereKey($this->order->id)
+                ->where('status', Order::STATUS_PROCESSING)
+                ->lockForUpdate()
+                ->first();
+            if (!$order) {
+                return null;
+            }
 
-        HookManager::call('order.open.before', $order);
-
-
-        $opened = DB::transaction(function () use ($order, $plan, $trafficPackage) {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            if ((int) $lockedOrder->status !== Order::STATUS_PROCESSING) return false;
+            $plan = $order->plan_id ? Plan::find($order->plan_id) : null;
+            $trafficPackage = $order->traffic_package_id
+                ? TrafficPackage::find($order->traffic_package_id)
+                : null;
             $this->user = User::whereKey($order->user_id)->lockForUpdate()->firstOrFail();
+            HookManager::call('order.open.before', $order);
+
             if ($plan?->isExclusive() && ((int) $plan->owner_user_id !== (int) $this->user->id
                 || (int) $this->user->plan_id !== (int) $plan->id)) {
                 throw new ApiException('专属套餐归属已变更，订单不能开通，请联系管理员');
@@ -191,9 +204,14 @@ class OrderService
                 throw new \RuntimeException('订单信息保存失败');
             }
             app(TelegramGroupEligibilityService::class)->grantFromOrder($order);
-            return true;
+            return $order;
         });
-        if (!$opened) return;
+
+        if (!$openedOrder) {
+            return;
+        }
+
+        $order = $this->order = $openedOrder;
 
         $eventId = match ((int) $order->type) {
             Order::TYPE_NEW_PURCHASE => admin_setting('new_order_event_id', 0),
@@ -430,6 +448,7 @@ class OrderService
 
     public function paid(string $callbackNo)
     {
+        $this->paymentApplied = false;
         $order = $this->order;
         if ($order->status !== Order::STATUS_PENDING)
             return true;
@@ -440,6 +459,7 @@ class OrderService
             'callback_no' => $callbackNo,
         ]);
         if (!$updated) return true;
+        $this->paymentApplied = true;
         $order->refresh();
         try {
             OrderHandleJob::dispatchSync($order->trade_no);
@@ -450,27 +470,43 @@ class OrderService
         return true;
     }
 
+    public function wasPaymentApplied(): bool
+    {
+        return $this->paymentApplied;
+    }
+
     public function cancel(): bool
     {
-        $order = $this->order;
-        HookManager::call('order.cancel.before', $order);
         try {
-            DB::beginTransaction();
-            $order->status = Order::STATUS_CANCELLED;
-            if (!$order->save()) {
-                throw new \Exception('Failed to save order status.');
-            }
-            if ($order->balance_amount) {
-                $userService = new UserService();
-                if (!$userService->addBalance($order->user_id, $order->balance_amount)) {
-                    throw new \Exception('Failed to add balance.');
+            $cancelledOrder = DB::transaction(function () {
+                $order = $this->lockCurrentOrderWhenStatus(Order::STATUS_PENDING);
+                if (!$order) {
+                    return null;
                 }
+
+                HookManager::call('order.cancel.before', $order);
+                $order->status = Order::STATUS_CANCELLED;
+                if (!$order->save()) {
+                    throw new \RuntimeException('Failed to save order status.');
+                }
+                if ($order->balance_amount) {
+                    $userService = new UserService();
+                    if (!$userService->addBalance($order->user_id, $order->balance_amount)) {
+                        throw new \RuntimeException('Failed to add balance.');
+                    }
+                }
+
+                return $order;
+            });
+
+            if (!$cancelledOrder) {
+                return false;
             }
-            DB::commit();
-            HookManager::call('order.cancel.after', $order);
+
+            $this->order = $cancelledOrder;
+            HookManager::call('order.cancel.after', $cancelledOrder);
             return true;
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error($e);
             return false;
         }

@@ -6,6 +6,7 @@ use App\Jobs\SendEmailJob;
 use App\Models\User;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 
 class MailLinkService
@@ -46,7 +47,7 @@ class MailLinkService
 
         $this->sendMailLinkEmail($user, $link);
 
-        return [true, $link];
+        return [true, true];
     }
 
     /**
@@ -63,7 +64,7 @@ class MailLinkService
             'subject' => __('Login to :name', [
                 'name' => admin_setting('app_name', 'XBoard')
             ]),
-            'template_name' => 'login',
+            'template_name' => 'mailLogin',
             'template_value' => [
                 'name' => admin_setting('app_name', 'XBoard'),
                 'link' => $link,
@@ -81,9 +82,19 @@ class MailLinkService
     public function handleTokenLogin(string $token): ?int
     {
         $key = CacheKey::get('TEMP_TOKEN', $token);
-        $userId = Cache::get($key);
+        try {
+            $userId = Cache::lock($key . ':consume', 5)->block(1, function () use ($key) {
+                $userId = Cache::get($key);
+                if ($userId !== null && $userId !== false) {
+                    if (!Cache::forget($key)) return null;
+                }
+                return $userId;
+            });
+        } catch (LockTimeoutException) {
+            return null;
+        }
 
-        if (!$userId) {
+        if ($userId === null || $userId === false) {
             return null;
         }
 
@@ -93,8 +104,6 @@ class MailLinkService
             return null;
         }
 
-        Cache::forget($key);
-
-        return $userId;
+        return (int) $userId;
     }
 }

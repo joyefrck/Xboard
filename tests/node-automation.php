@@ -45,9 +45,10 @@ class FakeDns extends CloudflareDns
 class FakeProbe extends ProxyProbe
 {
     public array $script = [], $calls = [];
-    public bool $invalidUser = false, $brokenRuntime = false, $brokenTargets = false;
+    public bool $invalidUser = false, $brokenRuntime = false, $brokenTargets = false, $unsupportedVless = false;
     public string $hash = 'config-1';
     public function fingerprint(Group $group): string {
+        if ($this->unsupportedVless) throw new App\Services\NodeAutomation\UnsupportedProtocolException('增强 VLESS 不支持探针');
         if ($this->invalidUser) throw new AutomationException('测试账号过期');
         return $this->hash;
     }
@@ -116,6 +117,8 @@ foreach (['invalidUser', 'brokenRuntime', 'brokenTargets'] as $error) {
     [$g,$b,$dns,$p,$s] = fixture(); $g->update(['failures'=>2]); $p->$error = true;
     roundFor($g,$s); expect($dns->writes === 0 && $g->failures === 0, $error . ' cannot count as VPS failure');
 }
+[$g,$b,$dns,$p,$s] = fixture(); $p->unsupportedVless = true; $g->update(['failures' => 2]); roundFor($g,$s);
+expect(!$g->enabled && $g->state === 'config_error' && $g->failures === 0 && $dns->writes === 0 && $p->calls === [], 'unsupported enhanced VLESS stops automation without DNS writes or probes');
 [$g,$b,$dns,$p,$s] = fixture(); $p->hash='changed'; roundFor($g,$s);
 expect(!$g->enabled && $g->state === 'config_error' && $dns->writes === 0, 'node config drift stops automation');
 [$g,$b,$dns,$p,$s] = fixture(); $dns->record['content']='198.51.100.99'; roundFor($g,$s);

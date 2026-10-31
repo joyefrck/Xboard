@@ -4,6 +4,8 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Server;
+use App\Models\NodeAutomationGroup;
+use App\Services\VlessConfigService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ServerSave extends FormRequest
@@ -43,6 +45,19 @@ class ServerSave extends FormRequest
             'hop_interval' => 'integer|nullable',
         ],
         'vless' => [
+            'utls' => 'nullable|array',
+            'encryption' => 'nullable|array',
+            'backend' => 'nullable|array',
+            'reality_settings' => 'nullable|array',
+            'tls_settings' => 'nullable|array',
+            'utls.enabled' => 'nullable|boolean',
+            'utls.fingerprint' => 'nullable|string',
+            'encryption.enabled' => 'nullable|boolean',
+            'encryption.encryption' => 'nullable|string',
+            'encryption.decryption' => 'nullable|string',
+            'backend.core' => 'nullable|in:xray,sing',
+            'backend.release' => 'nullable|string',
+            'reality_settings.dest' => 'nullable|string',
             'tls' => 'required|integer',
             'network' => 'required|string',
             'network_settings' => 'nullable|array',
@@ -80,6 +95,7 @@ class ServerSave extends FormRequest
     private function getBaseRules(): array
     {
         return [
+            'id' => 'nullable|integer',
             'type' => 'required|in:' . implode(',', Server::VALID_TYPES),
             'spectific_key' => 'nullable|string',
             'code' => 'nullable|string',
@@ -114,6 +130,29 @@ class ServerSave extends FormRequest
         }
 
         return $rules;
+    }
+
+    private function keepsExistingProtocol(array $settings): bool
+    {
+        if (!$id = $this->input('id')) return false;
+        $existing = Server::find($id);
+        if (!$existing || $existing->type !== Server::TYPE_VLESS) return false;
+        $candidate = (new Server())->forceFill(['type' => Server::TYPE_VLESS, 'protocol_settings' => $settings]);
+        return $candidate->protocol_settings == $existing->protocol_settings;
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            if ($this->input('type') !== Server::TYPE_VLESS || $validator->errors()->isNotEmpty()) return;
+            $settings = $this->input('protocol_settings', []);
+            if (!$this->keepsExistingProtocol($settings)) {
+                foreach (VlessConfigService::errors($settings) as $field => $message) $validator->errors()->add($field, $message);
+            }
+            if ((VlessConfigService::isEnhanced($settings) || VlessConfigService::needsHybridReality($settings)) && NodeAutomationGroup::where('domain', strtolower(rtrim((string) $this->input('host'), '.')))->where('enabled', true)->exists()) {
+                $validator->errors()->add('protocol_settings.encryption.enabled', '请先停用此域名的自动切换；当前探针尚未验证增强 VLESS 或新版 REALITY');
+            }
+        });
     }
 
     public function messages()

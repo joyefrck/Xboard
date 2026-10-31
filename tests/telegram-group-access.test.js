@@ -83,7 +83,9 @@ test('routes, server-side identity and webhook authentication protect all group 
   assert.doesNotMatch(joinSource,/telegram_discuss_link/);
 });
 test('order and administrator grants are wired inside their existing transactions', () => {
-  const orders=read('app/Services/OrderService.php'); assert.match(orders,/grantFromOrder\(\$order\);\s*return true;\s*}\);/);
+  const orders=read('app/Services/OrderService.php');
+  const open=orders.slice(orders.indexOf('public function open'),orders.indexOf('public function setOrderType'));
+  assert.match(open,/DB::transaction\([\s\S]*grantFromOrder\(\$order\);[\s\S]*return \$order;/);
   const admin=read('app/Http/Controllers/V2/Admin/UserController.php'); assert.match(admin,/isAdminPlanGrant\(\$user, \$params\)/);
   assert.equal((admin.match(/'admin_plan'/g)||[]).length,3); assert.match(admin,/'admin_package'/);
   assert.doesNotMatch(read('app/Services/UserService.php'),/TelegramGroupEligibility/);

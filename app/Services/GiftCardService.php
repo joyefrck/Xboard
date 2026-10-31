@@ -15,9 +15,10 @@ use Illuminate\Support\Facades\Log;
 
 class GiftCardService
 {
-    protected readonly GiftCardCode $code;
-    protected readonly GiftCardTemplate $template;
+    protected GiftCardCode $code;
+    protected GiftCardTemplate $template;
     protected ?User $user = null;
+    protected ?User $inviteUser = null;
 
     public function __construct(string $code)
     {
@@ -106,6 +107,33 @@ class GiftCardService
         }
 
         return DB::transaction(function () use ($options) {
+            $this->code = GiftCardCode::whereKey($this->code->id)
+                ->lockForUpdate()
+                ->first()
+                ?? throw new ApiException('兑换码不存在');
+            $this->template = GiftCardTemplate::whereKey($this->code->template_id)
+                ->lockForUpdate()
+                ->first()
+                ?? throw new ApiException('该礼品卡类型不存在');
+            $reloadedUser = User::whereKey($this->user->id)->first()
+                ?? throw new ApiException('用户信息未提供');
+            $userId = $reloadedUser->id;
+            $inviteUserId = $reloadedUser->invite_user_id;
+            $userIds = array_values(array_unique(array_filter([$userId, $inviteUserId])));
+            sort($userIds, SORT_NUMERIC);
+            $users = User::whereIn('id', $userIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $this->user = $users->get($userId)
+                ?? throw new ApiException('用户信息未提供');
+            if ((int) $this->user->invite_user_id !== (int) $inviteUserId) {
+                throw new ApiException('邀请关系已变更，请重试');
+            }
+            $this->inviteUser = $inviteUserId ? $users->get($inviteUserId) : null;
+            $this->validate();
+
             $actualRewards = $this->template->calculateActualRewards($this->user);
 
             if ($this->template->type === GiftCardTemplate::TYPE_MYSTERY) {
@@ -137,7 +165,7 @@ class GiftCardService
                 'code' => $this->code->code,
                 'template_name' => $this->template->name,
             ];
-        });
+        }, 3);
     }
 
     /**
@@ -198,7 +226,7 @@ class GiftCardService
             return null;
         }
 
-        $inviteUser = User::find($this->user->invite_user_id);
+        $inviteUser = $this->inviteUser;
         if (!$inviteUser) {
             return null;
         }
@@ -212,7 +240,9 @@ class GiftCardService
         if (isset($rewards['balance']) && $rewards['balance'] > 0) {
             $inviteBalance = intval($rewards['balance'] * $rate);
             if ($inviteBalance > 0) {
-                $userService->addBalance($inviteUser->id, $inviteBalance);
+                if (!$userService->addBalance($inviteUser->id, $inviteBalance)) {
+                    throw new ApiException('邀请人余额发放失败');
+                }
                 $inviteRewards['balance'] = $inviteBalance;
             }
         }

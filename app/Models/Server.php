@@ -136,6 +136,19 @@ class Server extends Model
             'tls_settings' => ['type' => 'array', 'default' => null]
         ],
         self::TYPE_VLESS => [
+            'utls' => ['type' => 'object', 'optional' => true, 'fields' => [
+                'enabled' => ['type' => 'boolean', 'default' => false],
+                'fingerprint' => ['type' => 'string', 'default' => 'chrome'],
+            ]],
+            'encryption' => ['type' => 'object', 'optional' => true, 'fields' => [
+                'enabled' => ['type' => 'boolean', 'default' => false],
+                'encryption' => ['type' => 'string', 'default' => null],
+                'decryption' => ['type' => 'string', 'default' => null],
+            ]],
+            'backend' => ['type' => 'object', 'optional' => true, 'fields' => [
+                'core' => ['type' => 'string', 'default' => null],
+                'release' => ['type' => 'string', 'default' => null],
+            ]],
             'tls' => ['type' => 'integer', 'default' => 0],
             'tls_settings' => ['type' => 'array', 'default' => null],
             'flow' => ['type' => 'string', 'default' => null],
@@ -149,6 +162,7 @@ class Server extends Model
                     'server_name' => ['type' => 'string', 'default' => null],
                     'public_key' => ['type' => 'string', 'default' => null],
                     'private_key' => ['type' => 'string', 'default' => null],
+                    'dest' => ['type' => 'string', 'optional' => true, 'default' => null],
                     'short_id' => ['type' => 'string', 'default' => null]
                 ]
             ]
@@ -272,6 +286,7 @@ class Server extends Model
     {
         $result = [];
         foreach ($configs as $key => $config) {
+            if (($config['optional'] ?? false) && !array_key_exists($key, $settings)) continue;
             $value = $settings[$key] ?? null;
             $result[$key] = $this->castValueWithConfig($value, $config);
         }

@@ -1782,6 +1782,38 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
           "server_port": {
             "label": "포트"
           }
+        },
+        "upgrade": {
+          "security": "보안 계층",
+          "none": "없음",
+          "transport": "전송 프로토콜",
+          "flow": "흐름 제어",
+          "visionError": "Vision은 TLS 또는 REALITY와 TCP가 필요합니다",
+          "insecure": "안전하지 않은 인증서 허용",
+          "target": "위장 대상 (기본값 SNI)",
+          "targetPort": "대상 포트",
+          "privateKey": "개인 키",
+          "publicKey": "공개 키",
+          "generateKeys": "키 생성",
+          "replaceKeys": "키를 교체하면 클라이언트 연결에 영향을 줍니다. 계속할까요?",
+          "generateId": "Short ID 생성",
+          "mode": "모드",
+          "extra": "고급 설정 (JSON 객체)",
+          "jsonError": "올바른 JSON 객체를 입력하세요",
+          "utls": "지정한 uTLS 지문 사용",
+          "fingerprint": "클라이언트 지문",
+          "encryption": "VLESS Encryption 활성화",
+          "clientParameter": "클라이언트 암호화 매개변수",
+          "serverParameter": "서버 복호화 매개변수",
+          "importPair": "V2bX vlessenc --json 결과 가져오기",
+          "import": "매개변수 가져오기",
+          "importError": "매개변수 쌍을 확인하세요",
+          "backend": "백엔드 호환성",
+          "backendHint": "REALITY 업그레이드 후 실제 버전을 입력해야 혼합 KeyShare가 구독에 포함됩니다. 최신 구성은 지원 클라이언트에만 제공되며 자동 전환 프로브는 아직 지원하지 않습니다.",
+          "core": "서버 코어",
+          "selectCore": "코어 선택",
+          "release": "설치된 V2bX 릴리스",
+          "showSecrets": "비밀 매개변수 표시"
         }
       },
       "tuic": {
@@ -1818,7 +1850,9 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     }
   },
   "user": {
-    "status": { "ticket_muted": "문의 작성 제한" },
+    "status": {
+      "ticket_muted": "문의 작성 제한"
+    },
     "manage": {
       "title": "사용자 관리",
       "description": "여기에서 사용자 추가, 삭제, 편집 및 조회 작업을 수행할 수 있습니다."

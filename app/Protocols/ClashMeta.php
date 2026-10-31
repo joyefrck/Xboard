@@ -4,13 +4,14 @@ namespace App\Protocols;
 
 use App\Models\Server;
 use App\Utils\Helper;
+use App\Services\VlessConfigService;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
 use App\Support\AbstractProtocol;
 
 class ClashMeta extends AbstractProtocol
 {
-    public $flags = ['meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid'];
+    public $flags = ['meta', 'mihomo', 'verge', 'flclash', 'elephantnetwork', 'elephant network', 'nekobox', 'clashmetaforandroid'];
     const CUSTOM_TEMPLATE_FILE = 'resources/rules/custom.clashmeta.yaml';
     const CUSTOM_CLASH_TEMPLATE_FILE = 'resources/rules/custom.clash.yaml';
     const DEFAULT_TEMPLATE_FILE = 'resources/rules/default.clash.yaml';
@@ -35,6 +36,8 @@ class ClashMeta extends AbstractProtocol
                 'grpc' => '0.0.0',
                 'http' => '0.0.0',
                 'h2' => '0.0.0',
+                'httpupgrade' => '0.0.0',
+                'xhttp' => '0.0.0',
             ],
             'strict' => true,
         ],
@@ -298,7 +301,8 @@ class ClashMeta extends AbstractProtocol
             'alterId' => 0,
             'cipher' => 'auto',
             'udp' => true,
-            'flow' => data_get($protocol_settings, 'flow'),
+            'flow' => data_get($protocol_settings, 'flow') === 'none' ? '' : data_get($protocol_settings, 'flow'),
+            'encryption' => VlessConfigService::clientEncryption($protocol_settings),
             'tls' => false
         ];
 
@@ -318,13 +322,19 @@ class ClashMeta extends AbstractProtocol
                     'public-key' => data_get($protocol_settings, 'reality_settings.public_key'),
                     'short-id' => data_get($protocol_settings, 'reality_settings.short_id')
                 ];
-                $array['client-fingerprint'] = Helper::getRandFingerprint();
+                if (VlessConfigService::needsHybridReality($protocol_settings)) $array['reality-opts']['support-x25519mlkem768'] = true;
+                $array['client-fingerprint'] = VlessConfigService::clientFingerprint($protocol_settings) ?? Helper::getRandFingerprint();
                 break;
             default:
                 break;
         }
 
         switch (data_get($protocol_settings, 'network')) {
+            case 'httpupgrade':
+                $array['network'] = 'ws';
+                $array['ws-opts'] = ['v2ray-http-upgrade' => true, 'path' => data_get($protocol_settings, 'network_settings.path', '/')];
+                if ($host = data_get($protocol_settings, 'network_settings.host')) $array['ws-opts']['headers'] = ['Host' => $host];
+                break;
             case 'ws':
                 $array['network'] = 'ws';
                 if ($path = data_get($protocol_settings, 'network_settings.path'))
@@ -341,6 +351,11 @@ class ClashMeta extends AbstractProtocol
                 break;
         }
 
+        if ($fingerprint = VlessConfigService::clientFingerprint($protocol_settings)) $array['client-fingerprint'] = $fingerprint;
+        if (data_get($protocol_settings, 'network') === 'xhttp') {
+            $array['network'] = 'xhttp';
+            $array['xhttp-opts'] = VlessConfigService::clashXhttpOptions($protocol_settings);
+        }
         return $array;
     }
 

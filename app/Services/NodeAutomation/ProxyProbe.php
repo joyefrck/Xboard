@@ -59,6 +59,7 @@ class ProxyProbe
     {
         $values = [];
         foreach ($this->nodes($group) as $node) {
+            ProbeProtocol::assertSupported($node);
             $user = $this->user($group, $node);
             $values[] = [$node->id, $node->host, $node->port, $node->parent_id, $node->protocol_settings,
                 $node->type, $node->generateServerPassword($user), $user->id];

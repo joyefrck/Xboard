@@ -1,0 +1,46 @@
+name: Isolated security and VLESS checks
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      database:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: fixture-password
+          MARIADB_DATABASE: security_p0
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      SECURITY_P0_DB_USER: root
+      SECURITY_P0_DB_PASSWORD: fixture-password
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify test runtime
+        run: |
+          php -r 'foreach (["pdo_mysql", "pdo_sqlite", "pcntl", "sodium", "mbstring"] as $extension) { if (!extension_loaded($extension)) { throw new RuntimeException("Missing " . $extension); } }'
+          composer --version
+          node --version
+      - name: Install isolated dependencies without booting the application
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+      - name: Run security, protocol and queue regression gates
+        env:
+          SECURITY_P0_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=security_p0
+        run: |
+          node --test tests/security-p0.test.js tests/admin-asset-cache.test.js tests/horizon-provisioning.test.js tests/horizon-fixed-workers.test.js tests/node-automation.test.js tests/telegram-group-access.test.js
+          php scripts/version-admin-assets.php --check
+      - name: Verify VLESS changes when present
+        if: hashFiles('tests/vless-config.php') != ''
+        run: |
+          node --test tests/vless-admin-form.test.js
+          php tests/vless-config.php
+          php tests/vless-elephant-subscription.php

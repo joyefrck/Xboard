@@ -2365,6 +2365,38 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "flow": {
           "label": "流控",
           "placeholder": "选择流控"
+        },
+        "upgrade": {
+          "security": "安全层",
+          "none": "无",
+          "transport": "传输协议",
+          "flow": "流控",
+          "visionError": "Vision 仅支持 TCP 配合 TLS 或 REALITY",
+          "insecure": "允许不安全证书",
+          "target": "伪装目标（留空使用 SNI）",
+          "targetPort": "目标端口",
+          "privateKey": "私钥",
+          "publicKey": "公钥",
+          "generateKeys": "生成密钥",
+          "replaceKeys": "替换现有密钥会影响客户端连接，是否继续？",
+          "generateId": "生成 Short ID",
+          "mode": "模式",
+          "extra": "高级配置（JSON 对象）",
+          "jsonError": "请输入有效的 JSON 对象",
+          "utls": "启用指定 uTLS 指纹",
+          "fingerprint": "客户端指纹",
+          "encryption": "启用 VLESS Encryption",
+          "clientParameter": "客户端加密参数",
+          "serverParameter": "服务端解密参数",
+          "importPair": "导入 V2bX vlessenc --json 参数",
+          "import": "导入参数",
+          "importError": "参数导入失败，请检查内容",
+          "backend": "后端能力确认",
+          "backendHint": "升级 REALITY 服务端后也需登记实际版本，以输出正确的混合 KeyShare。增强配置仅向已支持客户端下发，当前暂不支持自动切换探针。",
+          "core": "服务端内核",
+          "selectCore": "请选择内核",
+          "release": "已安装的 V2bX release",
+          "showSecrets": "显示私密参数"
         }
       },
       "tuic": {

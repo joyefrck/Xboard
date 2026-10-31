@@ -154,11 +154,16 @@ class ClientController extends Controller
     private function getClientInfo(Request $request): array
     {
         $flag = strtolower($request->input('flag') ?? $request->header('User-Agent', ''));
+        $identity = strtolower($request->header('User-Agent', ''));
+        if ($identity === '' || preg_match('/\/v?\d/', $flag)) $identity = $flag;
 
         $clientName = null;
         $clientVersion = null;
 
-        if (preg_match('/([a-zA-Z0-9\-_]+)[\/\s]+(v?[0-9]+(?:\.[0-9]+){0,2})/', $flag, $matches)) {
+        if (preg_match('/^elephant network\/v(\d+\.\d+\.\d+)(?=\s|$)/', $identity, $matches)) {
+            $clientName = 'elephantnetwork';
+            $clientVersion = $matches[1];
+        } elseif (preg_match('/([a-zA-Z0-9\-_]+)[\/\s]+(v?[0-9]+(?:\.[0-9]+){0,2})/', $identity, $matches)) {
             $potentialName = strtolower($matches[1]);
             $clientVersion = preg_replace('/^v/', '', $matches[2]);
 
@@ -170,11 +175,11 @@ class ClientController extends Controller
         if (!$clientName) {
             $flags = collect(app('protocols.flags'))->sortByDesc(fn($f) => strlen($f))->values()->all();
             foreach ($flags as $name) {
-                if (stripos($flag, $name) !== false) {
+                if (stripos($identity, $name) !== false) {
                     $clientName = $name;
                     if (!$clientVersion) {
                         $pattern = '/' . preg_quote($name, '/') . '[\/\s]+(v?[0-9]+(?:\.[0-9]+){0,2})/i';
-                        if (preg_match($pattern, $flag, $vMatches)) {
+                        if (preg_match($pattern, $identity, $vMatches)) {
                             $clientVersion = preg_replace('/^v/', '', $vMatches[1]);
                         }
                     }
@@ -184,7 +189,7 @@ class ClientController extends Controller
         }
 
         if (!$clientVersion) {
-            if (preg_match('/\/v?(\d+(?:\.\d+){0,2})/', $flag, $matches)) {
+            if (preg_match('/\/v?(\d+(?:\.\d+){0,2})/', $identity, $matches)) {
                 $clientVersion = $matches[1];
             }
         }

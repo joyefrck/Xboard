@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1\Server;
 use App\Http\Controllers\Controller;
 use App\Jobs\UpdateAliveDataJob;
 use App\Services\ServerService;
+use App\Services\VlessConfigService;
 use App\Services\UserService;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
@@ -126,7 +127,8 @@ class UniProxyController extends Controller
             'vless' => [
                 ...$baseConfig,
                 'tls' => (int) $protocolSettings['tls'],
-                'flow' => $protocolSettings['flow'],
+                'flow' => ($protocolSettings['flow'] ?? '') === 'none' ? '' : ($protocolSettings['flow'] ?? ''),
+                'decryption' => VlessConfigService::serverDecryption($protocolSettings),
                 'tls_settings' =>
                         match ((int) $protocolSettings['tls']) {
                             2 => $protocolSettings['reality_settings'],

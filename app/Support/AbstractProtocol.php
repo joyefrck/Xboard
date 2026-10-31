@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Services\Plugin\HookManager;
+use App\Services\VlessConfigService;
 
 abstract class AbstractProtocol
 {
@@ -53,10 +54,16 @@ abstract class AbstractProtocol
     {
         $this->user = $user;
         $this->servers = $servers;
-        $this->clientName = $clientName;
+        $this->clientName = $clientName ?? '';
         $this->clientVersion = $clientVersion;
         $this->protocolRequirements = $this->normalizeProtocolRequirements($this->protocolRequirements);
         $this->servers = HookManager::filter('protocol.servers.filtered', $this->filterServersByVersion());
+        $renderer = (new \ReflectionClass($this))->getShortName();
+        $this->servers = array_values(array_filter($this->servers, fn($server) => ($server['type'] ?? '') !== 'vless' || VlessConfigService::supportsClient($server['protocol_settings'] ?? [], $renderer, $this->clientName, $this->clientVersion)));
+        foreach ($this->servers as &$server) {
+            if (($server['type'] ?? '') === 'vless') $server['protocol_settings'] = VlessConfigService::clientSettings($server['protocol_settings'] ?? []);
+        }
+        unset($server);
     }
 
     /**

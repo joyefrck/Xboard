@@ -74,6 +74,8 @@ test('invite assets are cache-busted and compressed variants match the source bu
   assert.equal(publicView, view);
   assert.equal(gzip, bundle);
   assert.equal(brotli, bundle);
-  assert.match(view, /umi\.js\?v=\{\{\$version\}\}-er20260921privatePlan1/);
-  assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20260914purchaseNotice1/);
+  const scriptVersion = view.match(/umi\.js\?v=\{\{\$version\}\}-er(\d{8})[A-Za-z0-9]+/);
+  assert.ok(scriptVersion && Number(scriptVersion[1]) >= 20260921, 'script cache version must include the invite-record release');
+  const styleVersion = view.match(/elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er(\d{8})[A-Za-z0-9]+/);
+  assert.ok(styleVersion && Number(styleVersion[1]) >= 20260914, 'style cache version must include the purchase-notice release');
 });

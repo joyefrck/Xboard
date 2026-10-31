@@ -7,6 +7,15 @@ use Illuminate\Support\Arr;
 
 class Helper
 {
+    private const SUBSCRIPTION_TOKEN_PATTERN = '/\A[a-f0-9]{32}\z/i';
+
+    public static function validateSubscriptionToken(mixed $token): ?string
+    {
+        return is_string($token) && preg_match(self::SUBSCRIPTION_TOKEN_PATTERN, $token) === 1
+            ? $token
+            : null;
+    }
+
     public static function uuidToBase64($uuid, $length)
     {
         return base64_encode(substr($uuid, 0, $length));

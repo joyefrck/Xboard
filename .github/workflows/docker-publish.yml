@@ -10,7 +10,12 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  security:
+    uses: ./.github/workflows/security-checks.yml
+    permissions:
+      contents: read
   build:
+    needs: security
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,6 +59,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get version
+        id: get_version
+        run: echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -68,10 +77,6 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Get version
-        id: get_version
-        run: echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
 
       - name: Update version in app.php
         run: |

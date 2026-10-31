@@ -14,8 +14,16 @@ class ProbeProtocol extends SingBox
         $this->clientVersion = '1.14.2';
     }
 
+    public static function assertSupported(Server $node): void
+    {
+        if ($node->type === Server::TYPE_VLESS && (\App\Services\VlessConfigService::isEnhanced($node->protocol_settings) || \App\Services\VlessConfigService::needsHybridReality($node->protocol_settings))) {
+            throw new UnsupportedProtocolException('当前探针未验证增强 VLESS 或新版 REALITY，请使用独立测试节点');
+        }
+    }
+
     public function outbound(Server $node, User $user, string $ip): array
     {
+        self::assertSupported($node);
         $server = $node->toArray();
         $server['port'] = (int) $node->port;
         if (!ctype_digit((string) $node->port) || $server['port'] < 1 || $server['port'] > 65535) {

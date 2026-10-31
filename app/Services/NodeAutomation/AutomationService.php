@@ -99,7 +99,11 @@ class AutomationService
 
     protected function assertConfiguration(Group $group): string
     {
-        $hash = $this->configurationHash($group);
+        try { $hash = $this->configurationHash($group); }
+        catch (UnsupportedProtocolException $e) {
+            $group->update(['enabled' => false, 'state' => 'config_error', 'failures' => 0, 'reason' => $e->getMessage()]);
+            throw $e;
+        }
         if (!$group->config_hash || !hash_equals($group->config_hash, $hash)) {
             $group->update(['enabled' => false, 'state' => 'config_error', 'reason' => '关联节点或测试身份已变化，请保存配置并重新测试']);
             throw new AutomationException('关联节点或测试身份已变化，请重新配置');
@@ -124,6 +128,7 @@ class AutomationService
                 elseif (in_array($event->action, ['manual', 'auto'], true)) $this->switch($group, $this->probe->targets(), $event, $event->action === 'manual');
                 else throw new AutomationException('未知自动化操作');
             } catch (AutomationException $e) {
+                if ($e instanceof UnsupportedProtocolException) $group->update(['enabled' => false, 'state' => 'config_error', 'failures' => 0, 'reason' => $e->getMessage()]);
                 if (!in_array($event->fresh()->status, ['prepared', 'verifying', 'dns_unknown'], true)) {
                     $event->update(['status' => 'failed', 'message' => $e->getMessage()]);
                 }
@@ -215,6 +220,7 @@ class AutomationService
                     $this->switch($group, $targets, $event, false);
                 }
             } catch (AutomationException $e) {
+                if ($e instanceof UnsupportedProtocolException) $group->update(['enabled' => false, 'state' => 'config_error', 'failures' => 0, 'reason' => $e->getMessage()]);
                 if (isset($event) && !in_array($event->fresh()->status, ['prepared', 'verifying', 'dns_unknown', 'completed', 'cancelled'], true)) {
                     $event->update(['status' => 'failed', 'message' => $e->getMessage()]);
                 }
