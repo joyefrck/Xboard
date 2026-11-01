@@ -598,5 +598,34 @@ test('ElephantRoute dashboard asset cache busting covers balanced node columns a
   assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261024profile1/);
   assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261029usage1/);
   assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260826clientLogoTypography1/);
-  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20260819appealType1/);
+  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261102downloadScope1/);
+});
+
+
+test('subscription enhancement skips dashboard downloads when locating a Clash menu entry', () => {
+  const script = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard.js');
+  const source = script.slice(script.indexOf('  function findTextElement(text) {'), script.indexOf('  function closestShortcut(element) {'));
+  const download = { closest: selector => selector.includes('.er-v2-downloads') ? {} : null };
+  const subscription = { closest: () => null };
+  const nodes = [
+    { nodeValue: 'iOS · Clash Mi', parentElement: download },
+    { nodeValue: 'Clash', parentElement: subscription }
+  ];
+  const NodeFilter = { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 };
+  const document = {
+    body: {},
+    createTreeWalker: (root, type, filter) => {
+      let index = 0;
+      return { nextNode: () => {
+        while (index < nodes.length) {
+          const node = nodes[index++];
+          if (filter.acceptNode(node) === NodeFilter.FILTER_ACCEPT) return node;
+        }
+        return null;
+      } };
+    }
+  };
+  const helpers = new Function('document', 'NodeFilter', source + '; return { findTextElement, findTextElements };')(document, NodeFilter);
+  assert.equal(helpers.findTextElement('Clash'), subscription);
+  assert.deepEqual(helpers.findTextElements('Clash'), [subscription]);
 });

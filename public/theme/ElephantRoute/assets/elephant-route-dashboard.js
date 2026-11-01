@@ -143,7 +143,7 @@
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode: function (node) {
         if (!node.nodeValue || node.nodeValue.indexOf(text) === -1) return NodeFilter.FILTER_REJECT;
-        if (node.parentElement && node.parentElement.closest('#er-dashboard-download')) return NodeFilter.FILTER_REJECT;
+        if (node.parentElement && node.parentElement.closest('#er-dashboard-download, .er-v2-downloads')) return NodeFilter.FILTER_REJECT;
         if (node.parentElement && node.parentElement.closest('#er-subscribe-action-panel')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
@@ -158,7 +158,7 @@
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode: function (node) {
         if (!node.nodeValue || node.nodeValue.indexOf(text) === -1) return NodeFilter.FILTER_REJECT;
-        if (node.parentElement && node.parentElement.closest('#er-dashboard-download')) return NodeFilter.FILTER_REJECT;
+        if (node.parentElement && node.parentElement.closest('#er-dashboard-download, .er-v2-downloads')) return NodeFilter.FILTER_REJECT;
         if (node.parentElement && node.parentElement.closest('#er-subscribe-action-panel')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
