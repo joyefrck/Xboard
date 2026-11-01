@@ -90,3 +90,54 @@ foreach (['Elephant Network/v2.0.7 clash-verge Platform/macos', 'clash-verge/v2.
     $checks++;
 }
 echo "Elephant actual subscription pipeline: {$checks} cases passed\n";
+
+$modern = $node;
+$modern['name'] = 'modern-reality';
+$modern['protocol_settings']['network'] = 'tcp';
+$modern['protocol_settings']['flow'] = 'xtls-rprx-vision';
+unset($modern['protocol_settings']['encryption'], $modern['protocol_settings']['network_settings']);
+$encrypted = $modern;
+$encrypted['name'] = 'encryption-only';
+$encrypted['protocol_settings']['encryption'] = $settings['encryption'];
+$xhttp = $modern;
+$xhttp['name'] = 'xhttp-only';
+$xhttp['protocol_settings']['network'] = 'xhttp';
+$xhttp['protocol_settings']['flow'] = '';
+$xhttp['protocol_settings']['network_settings'] = $settings['network_settings'];
+$thirdPartyNodes = [$modern, $node, $encrypted, $xhttp, $legacy];
+foreach ([
+    ['clash-verge/v2.5.8', 'meta'],
+    ['clash-verge/v2.5.8', null],
+    ['verge/2.5.8', 'meta'],
+    ['mihomo/1.19.32', 'meta'],
+] as [$ua, $flag]) {
+    $parsed = Yaml::parse(elephantSubscription($ua, $thirdPartyNodes, $template, $flag)->getContent());
+    if (array_column($parsed['proxies'], 'name') !== ['modern-reality', 'legacy']) throw new RuntimeException('Verified client must receive ordinary modern REALITY without enhanced nodes: ' . $ua);
+    if ($parsed['proxies'][0]['reality-opts']['support-x25519mlkem768'] !== true) throw new RuntimeException('Required hybrid KeyShare flag was lost');
+    if ($parsed['proxy-groups'][0]['proxies'] !== ['modern-reality', 'legacy']) throw new RuntimeException('Filtered proxy group membership is incorrect');
+    $checks++;
+}
+foreach (['clash-verge/v2.5.7', 'clash-verge', 'mihomo/1.19.31', 'unknown/2.5.8'] as $ua) {
+    $parsed = Yaml::parse(elephantSubscription($ua, $thirdPartyNodes, $template)->getContent());
+    if (array_column($parsed['proxies'], 'name') !== ['legacy']) throw new RuntimeException('Unverified client received modern REALITY: ' . $ua);
+    $checks++;
+}
+foreach (['Shadowrocket/3488', 'Shadowrocket/2.2.93'] as $ua) {
+    foreach (['shadowrocket', null] as $flag) {
+        $response = elephantSubscription($ua, $thirdPartyNodes, $template, $flag);
+        $body = base64_decode($response->getContent(), true);
+        $lines = array_values(array_filter(explode("\n", trim($body)), fn($line) => str_starts_with($line, 'vless://')));
+        if (count($lines) !== 2) throw new RuntimeException('Shadowrocket must receive modern REALITY and legacy nodes only');
+        parse_str(parse_url(trim($lines[0]), PHP_URL_QUERY), $params);
+        if ($params['remark'] !== 'modern-reality' || $params['fingerprint'] !== 'Chrome140' || $params['fp'] !== 'chrome' || $params['pbk'] !== $modern['protocol_settings']['reality_settings']['public_key'] || $params['sid'] !== '0123456789abcdef' || $params['xtls'] !== '2') throw new RuntimeException('Shadowrocket modern REALITY URI parameters are incomplete');
+        if (str_contains($body, $settings['reality_settings']['private_key']) || str_contains($body, $settings['encryption']['decryption'])) throw new RuntimeException('Shadowrocket output leaked server material');
+        $checks++;
+    }
+}
+foreach (['Shadowrocket/3487', 'Shadowrocket/2.2.92', 'Shadowrocket', 'unknown/3488'] as $ua) {
+    $body = base64_decode(elephantSubscription($ua, $thirdPartyNodes, $template, 'shadowrocket')->getContent(), true);
+    $lines = array_filter(explode("\n", trim($body)), fn($line) => str_starts_with($line, 'vless://'));
+    if (count($lines) !== 1 || !str_contains($body, 'remark=legacy')) throw new RuntimeException('Unverified Shadowrocket received unsupported nodes');
+    $checks++;
+}
+echo "Third-party actual subscription pipeline: {$checks} cases passed\n";

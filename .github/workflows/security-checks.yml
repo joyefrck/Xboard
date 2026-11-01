@@ -52,3 +52,10 @@ jobs:
           unzip -p "$RUNNER_TEMP/reality-server.zip" V2bX > "$RUNNER_TEMP/reality-server"
           chmod 755 "$RUNNER_TEMP/reality-server"
           python3 tests/node-automation-reality-runtime.py "$RUNNER_TEMP/reality-server" "$RUNNER_TEMP/reality-mihomo"
+      - name: Verify third-party Mihomo baseline with modern REALITY
+        run: |
+          curl -fLsS --connect-timeout 10 --max-time 180 --retry 2 https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-linux-amd64-v1.19.32.gz -o "$RUNNER_TEMP/mihomo-1.19.32.gz"
+          printf '8451100836c9eda194331c2babfad490b2faf30cebc1a04b0e76fd8ac2d35d10  %s\n' "$RUNNER_TEMP/mihomo-1.19.32.gz" | sha256sum -c -
+          gzip -dc "$RUNNER_TEMP/mihomo-1.19.32.gz" > "$RUNNER_TEMP/mihomo-1.19.32"
+          chmod 755 "$RUNNER_TEMP/mihomo-1.19.32"
+          python3 tests/node-automation-reality-runtime.py "$RUNNER_TEMP/reality-server" "$RUNNER_TEMP/mihomo-1.19.32"

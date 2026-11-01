@@ -48,8 +48,26 @@ class VlessConfigService
     public static function supportsClient(array $settings, string $renderer, ?string $name, ?string $version): bool
     {
         if (!self::isEnhanced($settings) && !self::needsHybridReality($settings)) return true;
-        if ($renderer !== 'ClashMeta' || !$version) return false;
-        return match (strtolower($name ?? '')) {
+        if (!$version) return false;
+        $name = strtolower($name ?? '');
+        if (!self::isEnhanced($settings)) {
+            if ($renderer === 'Shadowrocket' && $name === 'shadowrocket' && ($settings['network'] ?? 'tcp') === 'tcp') {
+                return ctype_digit($version)
+                    ? (int) $version >= 3488
+                    : (bool) preg_match('/^\d+\.\d+\.\d+$/D', $version) && version_compare($version, '2.2.93', '>=');
+            }
+            if ($renderer === 'ClashMeta') {
+                return match ($name) {
+                    'meta', 'mihomo' => version_compare($version, '1.19.32', '>='),
+                    'verge', 'clash-verge' => version_compare($version, '2.5.8', '>='),
+                    'flclash', 'elephantnetwork' => version_compare($version, '2.1.0', '>='),
+                    default => false,
+                };
+            }
+            return false;
+        }
+        if ($renderer !== 'ClashMeta') return false;
+        return match ($name) {
             'meta', 'mihomo' => version_compare($version, '1.19.33', '>='),
             'flclash', 'elephantnetwork' => version_compare($version, '2.1.0', '>='),
             default => false,

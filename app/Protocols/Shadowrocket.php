@@ -173,6 +173,9 @@ class Shadowrocket extends AbstractProtocol
                 $config['pbk'] = data_get($protocol_settings, 'reality_settings.public_key');
                 $config['sid'] = data_get($protocol_settings, 'reality_settings.short_id');
                 $config['fp'] = \App\Services\VlessConfigService::clientFingerprint($protocol_settings) ?? Helper::getRandFingerprint();
+                if (\App\Services\VlessConfigService::needsHybridReality($protocol_settings)) {
+                    $config['fingerprint'] = 'Chrome140';
+                }
                 break;
             default:
                 break;
