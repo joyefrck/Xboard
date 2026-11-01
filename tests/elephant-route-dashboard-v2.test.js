@@ -34,7 +34,7 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
   ]) {
     const view = readRepoFile(viewPath);
     assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261029usage1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261029usage1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261102clashmi1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -390,7 +390,7 @@ test('Dashboard 2.0 source contains the agreed navigation, data, modal, and fall
   assert.match(script, /Promise\.allSettled/);
   assert.match(script, /THEME_COLORS = \{[\s\S]*marsgreen: '#018B8D'/);
   assert.match(script, /--er-v2-accent/);
-  assert.match(script, /KARING_APP_STORE_URL = 'https:\/\/apps\.apple\.com\/us\/app\/karing\/id6472431552'/);
+  assert.match(script, /CLASH_MI_APP_STORE_URL = 'https:\/\/apps\.apple\.com\/us\/app\/clash-mi\/id6744321968'/);
   assert.match(script, /OFFICIAL_APP_KEYS = \{\s*android: 'elephant-route-android',\s*windows: 'elephant-route-desktop',\s*macos: 'elephant-route-desktop'/);
   assert.match(script, /global\.open\(artifact\.download_url, '_blank', 'noopener,noreferrer'\)/);
   assert.match(script, /VUE_NAIVE_ACCESS_TOKEN/);

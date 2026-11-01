@@ -7,7 +7,7 @@
   var TOPBAR_TITLE_ID = 'er-v2-topbar-title';
   var ACCESS_TOKEN_STORAGE_KEY = 'VUE_NAIVE_ACCESS_TOKEN';
   var DOWNLOAD_PAGE_URL = '/download/index.html';
-  var KARING_APP_STORE_URL = 'https://apps.apple.com/us/app/karing/id6472431552';
+  var CLASH_MI_APP_STORE_URL = 'https://apps.apple.com/us/app/clash-mi/id6744321968';
   var OFFICIAL_APP_KEYS = {
     android: 'elephant-route-android',
     windows: 'elephant-route-desktop',
@@ -820,7 +820,7 @@
       '      <button type="button" class="er-v2-download-button" data-download-platform="macos" data-download-arch="arm64"><span class="er-v2-platform-icon is-macos">' + solidIcon('macos') + '</span><span><strong>macOS · M 芯片</strong><small data-download-state="macos-arm64">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
       '      <button type="button" class="er-v2-download-button" data-download-platform="macos" data-download-arch="x64"><span class="er-v2-platform-icon is-macos">' + solidIcon('macos') + '</span><span><strong>macOS · Intel</strong><small data-download-state="macos-x64">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
       '      <button type="button" class="er-v2-download-button" data-download-platform="linux" data-download-arch="x64"><span class="er-v2-platform-icon is-linux">' + solidIcon('linux') + '</span><span><strong>Linux · DEB</strong><small data-download-state="linux">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
-      '      <button type="button" class="er-v2-download-button" data-download-platform="ios"><span class="er-v2-platform-icon is-ios">' + solidIcon('ios') + '</span><span><strong>iOS · Karing</strong><small>App Store</small></span><span class="er-v2-download-arrow">' + solidIcon('external') + '</span></button>',
+      '      <button type="button" class="er-v2-download-button" data-download-platform="ios"><span class="er-v2-platform-icon is-ios">' + solidIcon('ios') + '</span><span><strong>iOS · Clash Mi</strong><small>App Store</small></span><span class="er-v2-download-arrow">' + solidIcon('external') + '</span></button>',
       '    </div>',
       '    <p class="er-v2-inline-error" data-error="downloads" hidden></p>',
       '  </section>',
@@ -1429,7 +1429,7 @@
 
   function startPlatformDownload(platform, arch) {
     if (platform === 'ios') {
-      global.open(KARING_APP_STORE_URL, '_blank', 'noopener,noreferrer');
+      global.open(CLASH_MI_APP_STORE_URL, '_blank', 'noopener,noreferrer');
       return;
     }
     var downloads = state.data.downloads;
