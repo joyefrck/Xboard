@@ -32,7 +32,14 @@ $probe = new class($fixture) extends ProxyProbe {
     public function nodes(Group $group): array { return [$this->node]; }
     public function user(Group $group, Server $node): User { return $this->identity; }
     protected function client(): GuzzleHttp\Client {
-        return new GuzzleHttp\Client(array_replace(parent::client()->getConfig(), ['verify' => $this->fixture['certificate']]));
+        return new GuzzleHttp\Client(array_replace(parent::client()->getConfig(), [
+            'verify' => $this->fixture['certificate'],
+            'on_stats' => static function (GuzzleHttp\TransferStats $stats): void {
+                if ($stats->getHandlerErrorData()) {
+                    fwrite(STDERR, 'Fixture transport error: ' . json_encode($stats->getHandlerErrorData()) . "\n");
+                }
+            },
+        ]));
     }
 
 };
