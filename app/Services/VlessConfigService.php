@@ -60,6 +60,8 @@ class VlessConfigService
                 return match ($name) {
                     'meta', 'mihomo' => version_compare($version, '1.19.32', '>='),
                     'verge', 'clash-verge' => version_compare($version, '2.5.8', '>='),
+                    'clashmetaforandroid' => version_compare($version, '2.11.27', '>='),
+                    'clashmi' => version_compare($version, '1.0.31', '>='),
                     'flclash', 'elephantnetwork' => version_compare($version, '2.1.0', '>='),
                     default => false,
                 };

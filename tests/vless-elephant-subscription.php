@@ -110,6 +110,9 @@ foreach ([
     ['clash-verge/v2.5.8', null],
     ['verge/2.5.8', 'meta'],
     ['mihomo/1.19.32', 'meta'],
+    ['ClashMeta/1.19.32; mihomo/1.19.32', null],
+    ['ClashMetaForAndroid/2.11.27.Meta', null],
+    ['ClashMi/1.0.31', null],
 ] as [$ua, $flag]) {
     $parsed = Yaml::parse(elephantSubscription($ua, $thirdPartyNodes, $template, $flag)->getContent());
     if (array_column($parsed['proxies'], 'name') !== ['modern-reality', 'legacy']) throw new RuntimeException('Verified client must receive ordinary modern REALITY without enhanced nodes: ' . $ua);
@@ -117,7 +120,7 @@ foreach ([
     if ($parsed['proxy-groups'][0]['proxies'] !== ['modern-reality', 'legacy']) throw new RuntimeException('Filtered proxy group membership is incorrect');
     $checks++;
 }
-foreach (['clash-verge/v2.5.7', 'clash-verge', 'mihomo/1.19.31', 'unknown/2.5.8'] as $ua) {
+foreach (['clash-verge/v2.5.7', 'clash-verge', 'mihomo/1.19.31', 'unknown/2.5.8', 'ClashMetaForAndroid/2.11.26.Meta', 'ClashMi/1.0.30'] as $ua) {
     $parsed = Yaml::parse(elephantSubscription($ua, $thirdPartyNodes, $template)->getContent());
     if (array_column($parsed['proxies'], 'name') !== ['legacy']) throw new RuntimeException('Unverified client received modern REALITY: ' . $ua);
     $checks++;
