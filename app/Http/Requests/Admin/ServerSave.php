@@ -149,8 +149,8 @@ class ServerSave extends FormRequest
             if (!$this->keepsExistingProtocol($settings)) {
                 foreach (VlessConfigService::errors($settings) as $field => $message) $validator->errors()->add($field, $message);
             }
-            if ((VlessConfigService::isEnhanced($settings) || VlessConfigService::needsHybridReality($settings)) && NodeAutomationGroup::where('domain', strtolower(rtrim((string) $this->input('host'), '.')))->where('enabled', true)->exists()) {
-                $validator->errors()->add('protocol_settings.encryption.enabled', '请先停用此域名的自动切换；当前探针尚未验证增强 VLESS 或新版 REALITY');
+            if (VlessConfigService::isEnhanced($settings) && NodeAutomationGroup::where('domain', strtolower(rtrim((string) $this->input('host'), '.')))->where('enabled', true)->exists()) {
+                $validator->errors()->add('protocol_settings.encryption.enabled', '请先停用此域名的自动切换；当前探针尚未验证 VLESS Encryption 或 XHTTP');
             }
         });
     }

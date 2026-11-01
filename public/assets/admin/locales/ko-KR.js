@@ -1809,7 +1809,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
           "import": "매개변수 가져오기",
           "importError": "매개변수 쌍을 확인하세요",
           "backend": "백엔드 호환성",
-          "backendHint": "REALITY 업그레이드 후 실제 버전을 입력해야 혼합 KeyShare가 구독에 포함됩니다. 최신 구성은 지원 클라이언트에만 제공되며 자동 전환 프로브는 아직 지원하지 않습니다.",
+          "backendHint": "REALITY 업그레이드 후 실제 버전을 입력해야 혼합 KeyShare가 구독에 포함됩니다. 일반 REALITY는 자동 전환 프로브를 지원하지만 VLESS Encryption과 XHTTP는 아직 지원하지 않습니다.",
           "core": "서버 코어",
           "selectCore": "코어 선택",
           "release": "설치된 V2bX 릴리스",

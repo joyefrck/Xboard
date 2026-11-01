@@ -44,3 +44,11 @@ jobs:
           node --test tests/vless-admin-form.test.js
           php tests/vless-config.php
           php tests/vless-elephant-subscription.php
+      - name: Verify real modern REALITY probes with fixed release binaries
+        run: |
+          sh scripts/install-node-automation-mihomo.sh "$RUNNER_TEMP/reality-mihomo"
+          curl -fLsS --connect-timeout 10 --max-time 180 --retry 2 https://github.com/joyefrck/v2bx_Outbound/releases/download/core-v1.1.0/V2bX-linux-amd64.zip -o "$RUNNER_TEMP/reality-server.zip"
+          printf '87ec070fed7d9bd9ff056f7f189766e1274d9095380bf4d03a31c45eb59be2c9  %s\n' "$RUNNER_TEMP/reality-server.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/reality-server.zip" V2bX > "$RUNNER_TEMP/reality-server"
+          chmod 755 "$RUNNER_TEMP/reality-server"
+          python3 tests/node-automation-reality-runtime.py "$RUNNER_TEMP/reality-server" "$RUNNER_TEMP/reality-mihomo"

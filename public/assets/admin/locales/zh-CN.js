@@ -2392,7 +2392,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
           "import": "导入参数",
           "importError": "参数导入失败，请检查内容",
           "backend": "后端能力确认",
-          "backendHint": "升级 REALITY 服务端后也需登记实际版本，以输出正确的混合 KeyShare。增强配置仅向已支持客户端下发，当前暂不支持自动切换探针。",
+          "backendHint": "升级 REALITY 服务端后需登记实际版本，以输出正确的混合 KeyShare。普通 REALITY 支持自动切换检测；VLESS Encryption 与 XHTTP 暂不支持。",
           "core": "服务端内核",
           "selectCore": "请选择内核",
           "release": "已安装的 V2bX release",

@@ -14,15 +14,15 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-1f9805009d517463acb3" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-1f9805009d517463acb3" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/user-blacklist.css?v=admin-1f9805009d517463acb3" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-1f9805009d517463acb3" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-1f9805009d517463acb3">
-  <script defer src="/assets/admin/locales/en-US.js?v=admin-1f9805009d517463acb3"></script>
-  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-1f9805009d517463acb3"></script>
-  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-1f9805009d517463acb3"></script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-1f9805009d517463acb3"></script>
+  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-3ec370ee199b5975f304" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-3ec370ee199b5975f304" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/user-blacklist.css?v=admin-3ec370ee199b5975f304" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-3ec370ee199b5975f304" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-3ec370ee199b5975f304">
+  <script defer src="/assets/admin/locales/en-US.js?v=admin-3ec370ee199b5975f304"></script>
+  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-3ec370ee199b5975f304"></script>
+  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-3ec370ee199b5975f304"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-3ec370ee199b5975f304"></script>
   <style>
     .xboard-app-downloads-entry {
       position: fixed;

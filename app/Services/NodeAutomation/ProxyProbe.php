@@ -59,7 +59,7 @@ class ProxyProbe
     {
         $values = [];
         foreach ($this->nodes($group) as $node) {
-            ProbeProtocol::assertSupported($node);
+            ProbeProtocol::assertSupported($node, true);
             $user = $this->user($group, $node);
             $values[] = [$node->id, $node->host, $node->port, $node->parent_id, $node->protocol_settings,
                 $node->type, $node->generateServerPassword($user), $user->id];
@@ -115,7 +115,7 @@ class ProxyProbe
         $client = $this->client();
         $promises = [];
         foreach ($requests as $request) {
-            $promises[] = $client->getAsync($request['url'], ['proxy' => $request['proxy']])->then(
+            $promises[] = $client->getAsync($request['url'], ['proxy' => $request['proxy'], 'connect_timeout' => $request['connect_timeout'] ?? 3])->then(
                 fn ($response) => $response->getStatusCode() === 204,
                 fn () => false
             );
@@ -125,14 +125,16 @@ class ProxyProbe
 
     public function check(NodeAutomationGroup $group, string $ip, array $targets): array
     {
-        $this->readiness();
         $nodes = $this->nodes($group);
+        $runtime = MihomoProbeRuntime::required($nodes) ? new MihomoProbeRuntime() : null;
+        if ($runtime) $runtime->readiness(); else $this->readiness();
         $outbounds = $inbounds = $rules = $requests = $ports = [];
         // Keep sockets reserved until all ports are chosen, avoiding duplicates in a batch.
         $sockets = [];
         try {
             foreach ($nodes as $node) {
-                $outbounds[] = (new ProbeProtocol())->outbound($node, $this->user($group, $node), $ip);
+                $user = $this->user($group, $node);
+                $outbounds[] = $runtime ? $runtime->outbound($node, $user, $ip) : (new ProbeProtocol())->outbound($node, $user, $ip);
                 $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
                 if (!$socket) throw new AutomationException('无法分配回环探针端口');
                 $sockets[] = $socket;
@@ -141,13 +143,18 @@ class ProxyProbe
                 $tag = 'probe-' . $node->id;
                 $inbounds[] = ['type' => 'socks', 'tag' => $tag, 'listen' => '127.0.0.1', 'listen_port' => $port];
                 $rules[] = ['inbound' => [$tag], 'action' => 'route', 'outbound' => 'node-' . $node->id];
-                foreach ($targets as $url) $requests[] = ['url' => $url, 'proxy' => 'socks5h://127.0.0.1:' . $port];
+                foreach ($targets as $url) {
+                    $request = ['url' => $url, 'proxy' => 'socks5h://127.0.0.1:' . $port];
+                    if ($runtime) $request['connect_timeout'] = min(8, config('node_automation.request_timeout', 8));
+                    $requests[] = $request;
+                }
             }
         } finally {
             foreach ($sockets as $socket) fclose($socket);
         }
-        $config = ['log' => ['disabled' => true], 'inbounds' => $inbounds, 'outbounds' => $outbounds,
-            'route' => ['rules' => $rules, 'final' => $outbounds[0]['tag']]];
+        $config = $runtime ? $runtime->configuration($outbounds, $ports)
+            : ['log' => ['disabled' => true], 'inbounds' => $inbounds, 'outbounds' => $outbounds,
+                'route' => ['rules' => $rules, 'final' => $outbounds[0]['tag']]];
         return $this->run($config, $requests, $ports, count($targets));
     }
 
@@ -157,7 +164,7 @@ class ProxyProbe
         if (!is_dir($base) && !mkdir($base, 0700, true) && !is_dir($base)) throw new AutomationException('探针临时目录不可写');
         foreach (glob($base . '/probe-*') ?: [] as $old) {
             if (is_dir($old) && filemtime($old) < time() - 120) {
-                @unlink($old . '/config.json'); @rmdir($old);
+                $this->removeProbeFiles($old);
             }
         }
         $dir = $base . '/probe-' . bin2hex(random_bytes(12));
@@ -167,12 +174,16 @@ class ProxyProbe
         try {
             if (file_put_contents($path, json_encode($config, JSON_THROW_ON_ERROR)) === false) throw new AutomationException('探针配置不可写');
             chmod($path, 0600);
-            $check = new Process([config('node_automation.binary'), 'check', '-c', $path], timeout: 4);
+            $mihomo = isset($config['proxies']);
+            $checkCommand = $mihomo ? [config('node_automation.mihomo_binary'), '-t', '-d', $dir, '-f', $path]
+                : [config('node_automation.binary'), 'check', '-c', $path];
+            $check = new Process($checkCommand, timeout: 4);
+            $check->disableOutput();
             $check->run();
             if (!$check->isSuccessful()) throw new AutomationException('节点协议配置不兼容探针版本，请检查传输、TLS 和协议参数');
-            // timeout is an independent watchdog even if the queue worker is killed.
-            $process = new Process([config('node_automation.timeout_binary'), '-s', 'TERM', '-k', '2', '25',
-                config('node_automation.binary'), 'run', '-c', $path], timeout: 28);
+            $runCommand = $mihomo ? [config('node_automation.mihomo_binary'), '-d', $dir, '-f', $path]
+                : [config('node_automation.binary'), 'run', '-c', $path];
+            $process = new Process(array_merge([config('node_automation.timeout_binary'), '-s', 'TERM', '-k', '2', '25'], $runCommand), timeout: 28);
             $process->disableOutput();
             $process->start();
             $deadline = microtime(true) + 2;
@@ -199,7 +210,13 @@ class ProxyProbe
             throw new AutomationException('探针执行异常，本轮不计节点故障');
         } finally {
             if ($process?->isRunning()) $process->stop(1);
-            @unlink($path); @rmdir($dir);
+            $this->removeProbeFiles($dir);
         }
+    }
+
+    private function removeProbeFiles(string $dir): void
+    {
+        foreach (['config.json', 'cache.db', 'cache.db-wal', 'cache.db-shm'] as $file) @unlink($dir . '/' . $file);
+        @rmdir($dir);
     }
 }

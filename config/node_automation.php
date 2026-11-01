@@ -2,6 +2,7 @@
 
 return [
     'binary' => env('NODE_AUTOMATION_BINARY', '/usr/local/bin/sing-box'),
+    'mihomo_binary' => env('NODE_AUTOMATION_MIHOMO_BINARY', '/usr/local/bin/mihomo'),
     'timeout_binary' => env('NODE_AUTOMATION_TIMEOUT_BINARY', '/usr/bin/timeout'),
     'version' => '1.14.2',
     'targets' => ['https://www.gstatic.com/generate_204', 'https://cp.cloudflare.com/generate_204'],

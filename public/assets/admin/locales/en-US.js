@@ -2418,7 +2418,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
           "import": "Import parameters",
           "importError": "Import failed. Check the parameter pair.",
           "backend": "Backend compatibility",
-          "backendHint": "Record the installed version after upgrading REALITY so subscriptions include the required hybrid KeyShare. Modern configurations are limited to supported clients and cannot use automatic failover probes yet.",
+          "backendHint": "Record the installed version after upgrading REALITY so subscriptions include the required hybrid KeyShare. Standard REALITY supports automatic failover probes; VLESS Encryption and XHTTP are not supported yet.",
           "core": "Server core",
           "selectCore": "Select a core",
           "release": "Installed V2bX release",

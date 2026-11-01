@@ -29,7 +29,7 @@ RUN echo "Attempting to clone branch: ${BRANCH_NAME} from ${REPO_URL} with CACHE
 
 COPY .docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN sh scripts/install-node-automation-probe.sh
+RUN sh scripts/install-node-automation-probe.sh && sh scripts/install-node-automation-mihomo.sh
 
 RUN composer install --no-cache --no-dev \
     && php scripts/check-horizon-provisioning.php --environment=local \

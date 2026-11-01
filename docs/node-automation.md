@@ -18,7 +18,7 @@
 2. 在「固定配置」中的「公共检测账号」按权限组分别搜索并选择一个已有 Xboard 订阅用户，例如 level2、level3 各配置一个。账号必须属于所选权限组，且周期套餐未到期并有余额，或拥有有效且有余额的独立流量包；周期套餐到期不影响仍有余额的不限时流量包，推荐专用账号。返回「备用池」，点击各域名右侧的「验证配置并匹配 DNS」，系统按节点允许的权限组选择账号，并检查实际节点使用权限。节点允许多个权限组时，按权限组 ID 升序选择首个有效且有权限的账号；同一域名的不同节点可以使用不同账号。无需按节点配置账号。
 3. 只支持唯一、未代理的公网 IPv4 A 记录。同名 AAAA、CNAME、多条 A 或记录 ID 被替换都会阻止启用；修正 Cloudflare 配置后重新匹配。接口固定绑定 Zone ID 和 Record ID。
 4. 添加已部署 V2bX 的备用 VPS，填写名称、公网 IPv4 和优先顺序，小值优先。备用必须配置相同 NodeID、全部关联端口、协议、证书以及 Reality 等密钥。先「测试备用」，通过后再「验证并开启」。开启时会再次验证当前 VPS 和备用，将受管记录 TTL 修改为 60 秒并回读。
-5. 开启后每分钟检测，任何一个关联节点连续三轮失败即触发。每次直接连接 VPS IP，保留原域名 TLS/SNI 和协议身份，通过真实 sing-box 请求 HTTPS 204；两地址任一成功即可。备用全部关联节点连续两次通过才会选择。自动切换前复查当前 VPS，恢复则取消。
+5. 开启后每分钟检测，任何一个关联节点连续三轮失败即触发。每次直接连接 VPS IP，保留原域名 TLS/SNI 和协议身份，通过真实代理运行时请求 HTTPS 204；两地址任一成功即可。备用全部关联节点连续两次通过才会选择。自动切换前复查当前 VPS，恢复则取消。
 6. 切换后原 VPS 禁用并进入「待检查」，测试通过也不会自动重新加入。先暂停自动化，在「检查并加入」中明确确认。正常切换冷却 10 分钟；新 VPS 在切换后的即时代理测试失败时直接尝试下一台合格备用，不恢复已故障旧 VPS。
 
 Cloudflare 自动 TTL 为 300 秒。改成 60 秒不会立即清除已有客户端缓存；界面保留「等待 DNS 生效」，正常的新 IP 代理测试不会因缓存未更新消耗备用。现有连接还需要客户端重连。[Cloudflare TTL](https://developers.cloudflare.com/dns/manage-dns-records/reference/ttl/)
@@ -27,17 +27,18 @@ Cloudflare 自动 TTL 为 300 秒。改成 60 秒不会立即清除已有客户�
 
 - 默认检测地址：`https://www.gstatic.com/generate_204`、`https://cp.cloudflare.com/generate_204`，每请求超时 8 秒。先检查直连可用地址，失败代理检测后再次复核检测地址，目标异常不累计节点失败。
 - 账号无效、节点参数变化、探针不兼容、进程异常均属于配置/检测异常，不计 VPS 故障。节点参数或 DNS IP、TTL、记录结构被外部修改时会暂停策略，需要重新配置确认。
-- 支持现有订阅构建器中的 Shadowsocks、VMess、VLESS、Trojan、Hysteria、TUIC v5、AnyTLS、SOCKS、HTTP。固定端口必需。实际启用还须通过 sing-box 配置检查和真实代理测试；未支持的协议无法开启。
+- 支持现有订阅构建器中的 Shadowsocks、VMess、VLESS、Trojan、Hysteria、TUIC v5、AnyTLS、SOCKS、HTTP。固定端口必需。普通节点沿用 sing-box；登记为 Xray/core-v1.1.0 或更新的普通 REALITY 域名组使用 Mihomo 1.19.33，发送 Chrome 混合 KeyShare。域名组混合协议时使用同一运行时并逐节点指定出口，默认拒绝直连回退。VLESS Encryption 与 XHTTP 仍不可加入自动切换组。实际启用须通过所选运行时配置检查和真实代理测试。
 - 第一版不能读取 VPS 服务商剩余流量，也不能发现仍正常联网的超额收费。测试请求本身消耗少量公共检测账号流量，且每个域名最多 16 个关联节点、10 台备用。备用 V2bX 在线不等于可用，是否通过真实代理测试才是切换依据。
 - 更换或清除任一权限组的公共检测账号前，先暂停所有策略并等待后台任务完成。公共账号独立于 Cloudflare 连接保存；更换后清除旧检测结果和备用测试认证，保留 DNS 绑定及原 VPS 的待检查状态，逐组重新验证配置与备用。所有候选账号均失效、改组或权限不足时作为配置异常处理，不计 VPS 故障，绝不会回退到旧全局或逐节点账号。
 - 修改配置或全局连接前先暂停；进行中的 DNS 修改必须回读完成。DNS 结果未知时保留操作意图、禁止新切换。DNS 已确认但账号失效时结束验证并允许修复配置。暂停不会撤销已提交的 DNS 修改。
 
 ## 安装与运行
 
-镜像构建安装固定 sing-box **1.14.2**，脚本验证仓库中固定 SHA-256 后再解压安装。支持 Linux amd64/arm64 musl；开发调试另支持 Darwin arm64。手动部署在所有运行检测队列的容器/主机执行：
+镜像构建安装固定 sing-box **1.14.2** 与 Mihomo **1.19.33**，脚本验证仓库中固定 SHA-256 后再解压安装。支持 Linux amd64/arm64 musl；开发调试另支持 Darwin arm64。手动部署在所有运行检测队列的容器/主机执行：
 
 ```sh
 sh scripts/install-node-automation-probe.sh
+sh scripts/install-node-automation-mihomo.sh
 php artisan migrate --force
 php artisan config:clear
 php artisan octane:reload
@@ -46,7 +47,7 @@ php artisan horizon:terminate
 
 先备份数据库，再执行迁移。升级公共检测账号时先暂停所有自动化并解决未完成的 DNS 操作；迁移会检查这一条件。历史逐节点配置会先合并无歧义账号；按权限组升级时只将旧公共账号迁到其实际所属且仍存在的权限组，其他组由管理员明确配置。迁移清空旧全局字段，旧检测结果与备用认证失效，需要重新验证。Horizon 应由现有进程管理器自动拉起；确认 `XboardNodeAutomation` 独立 supervisor 的 2 个 worker 已运行。新连接 `node_automation` 的 retry_after 为 660 秒，worker timeout 为 540 秒；业务队列参数不受影响。Docker 镜像已安装 curl/coreutils，非镜像部署还需 PHP curl、pcntl、Redis 和 `/usr/bin/timeout`。探针只监听 `127.0.0.1`，独立 watchdog 限制单进程 25 秒，临时配置权限 0600 并及时清理。
 
-可选路径环境变量：`NODE_AUTOMATION_BINARY`、`NODE_AUTOMATION_TIMEOUT_BINARY`。共享 Redis 必须可用，分布式锁依赖面板的缓存配置。APP_KEY 必须保持稳定并随数据库备份妥善保管。
+可选路径环境变量：`NODE_AUTOMATION_BINARY`、`NODE_AUTOMATION_MIHOMO_BINARY`、`NODE_AUTOMATION_TIMEOUT_BINARY`。共享 Redis 必须可用，分布式锁依赖面板的缓存配置。APP_KEY 必须保持稳定并随数据库备份妥善保管。
 
 继续使用面板已有每分钟 Laravel 调度入口，不重复添加 cron。检查：
 
@@ -71,10 +72,13 @@ php artisan node-automation:check
 ```sh
 node --test tests/node-automation.test.js
 php tests/node-automation-probe.php
+python3 tests/node-automation-reality-runtime.py /path/to/V2bX /path/to/mihomo
 php scripts/version-admin-assets.php --check
 ```
 
 状态机/API 使用内存 SQLite，Cloudflare HTTP 使用 mock，均不加载 `.env` 或修改真实 DNS。真实探针演练用临时本地 Shadowsocks、Hysteria2 和两个 HTTPS 204 服务，保持 TLS 校验并仅为测试临时证书提供信任，覆盖停服、开放端口无代理、错误认证、未信任证书和 UDP 不可用。需要已安装探针及 openssl。`NODE_AUTOMATION_TEST_BINARY` 可指定测试二进制路径。
+
+新版 REALITY 的真实回环验收使用固定发行版 V2bX core-v1.1.0 和 Mihomo，覆盖 HTTPS 204 成功、错误 UUID、公钥错误、停服、运行时缺失、凭证及进程清理。Mihomo 的 SOCKS 建连包含远端 REALITY 握手，因此连接预算使用最多 8 秒且不超过配置的请求总时限；独立 25 秒 watchdog 保持有效。本次升级无需新增数据库迁移。
 
 后台验收可运行 `node tests/node-automation-preview.cjs`，打开 `http://127.0.0.1:7315/preview#/server/automation`；仅用于 UI 验收，数据均为内存示例，停止进程即清空，不连接真实数据库或 Cloudflare。
 

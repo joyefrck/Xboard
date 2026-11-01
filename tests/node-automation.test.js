@@ -6,6 +6,12 @@ const { spawnSync } = require('node:child_process');
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
+test('modern REALITY probe preserves hybrid authentication and blocks direct fallback', () => {
+  const run = spawnSync(process.env.PHP_BINARY || 'php', [path.join(__dirname, 'node-automation-reality.php')], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(run.stdout, /REALITY: .* checks passed/);
+});
+
 test('automation state machine reconciles crashes and failures using an isolated database', () => {
   const run = spawnSync(process.env.PHP_BINARY || 'php', [path.join(__dirname, 'node-automation.php')], { encoding: 'utf8', timeout: 30000 });
   assert.equal(run.status, 0, run.stdout + run.stderr);
