@@ -54,8 +54,8 @@ test('admin partial user update retains the observed pending order for stale-sta
       })
     };
     const api = { update: payload => { sent = payload; return { then() {} }; } };
-    new Function('u', 'Ys', 'A', 's', 't', 'a', bundle.slice(start, end))(
-      form, api, { error: message => assert.fail(message) }, key => key, () => {}, () => {}
+    new Function('u', 'Ys', 'A', 's', 't', 'a', 'identityEditing', bundle.slice(start, end))(
+      form, api, { error: message => assert.fail(message) }, key => key, () => {}, () => {}, {}
     );
     assert.deepEqual(sent, { id: 1024, plan_id: 21, expected_custom_order_id: pendingOrder });
   }

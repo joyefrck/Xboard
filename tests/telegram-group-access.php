@@ -176,7 +176,7 @@ $app->instance('url', new class { public function route($name, $parameters=[], $
 $app->instance('log', new Psr\Log\NullLogger());
 $app->instance('hash', new Illuminate\Hashing\BcryptHasher(['rounds'=>4]));
 $capsule->schema()->table('v2_user', function (Blueprint $t) {
-    foreach (['group_id','speed_limit','device_limit','invite_user_id','remind_expire','remind_traffic','balance'] as $column) $t->integer($column)->nullable();
+    foreach (['group_id','speed_limit','device_limit','invite_user_id','remind_expire','remind_traffic','balance','custom_pending_order_id'] as $column) $t->integer($column)->nullable();
     foreach (['email','password','uuid','token','remarks'] as $column) $t->string($column)->nullable();
 });
 $capsule->schema()->table('v2_order', function (Blueprint $t) {

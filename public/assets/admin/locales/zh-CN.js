@@ -2713,6 +2713,11 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "button": "编辑用户信息",
       "title": "用户管理",
       "form": {
+        "edit_field": "编辑",
+        "cancel_edit": "取消编辑",
+        "show_password": "显示密码",
+        "hide_password": "隐藏密码",
+        "password_locked_placeholder": "点击右侧编辑按钮设置新密码",
         "email": "邮箱",
         "email_placeholder": "请输入邮箱",
         "inviter_email": "邀请人邮箱",

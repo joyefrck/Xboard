@@ -321,6 +321,8 @@ class UserController extends Controller
     public function update(UserUpdate $request)
     {
         $params = $request->validated();
+        // This operation field is resolved to invite_user_id below, never persisted directly.
+        unset($params['invite_user_email']);
         $accountStatus = $params['account_status'] ?? null;
         unset($params['account_status']);
         if ($accountStatus !== null) unset($params['banned']);
@@ -359,10 +361,10 @@ class UserController extends Controller
             $params['group_id'] = $plan->group_id;
         }
         // 处理邀请用户
-        if ($request->input('invite_user_email') && $inviteUser = User::where('email', $request->input('invite_user_email'))->first()) {
-            $params['invite_user_id'] = $inviteUser->id;
-        } else {
-            $params['invite_user_id'] = null;
+        if ($request->exists('invite_user_email')) {
+            $params['invite_user_id'] = $request->filled('invite_user_email')
+                ? User::where('email', $request->input('invite_user_email'))->value('id')
+                : null;
         }
 
         if (isset($params['balance'])) {

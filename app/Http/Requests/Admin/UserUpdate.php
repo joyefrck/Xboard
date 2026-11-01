@@ -17,6 +17,7 @@ class UserUpdate extends FormRequest
             'id' => 'required|integer',
             'expected_custom_order_id' => 'nullable|integer',
             'email' => 'email:strict',
+            'invite_user_email' => 'sometimes|nullable|email:strict|exists:v2_user,email',
             'password' => 'nullable|min:8',
             'transfer_enable' => 'numeric',
             'expired_at' => 'nullable|integer',
@@ -45,6 +46,8 @@ class UserUpdate extends FormRequest
         return [
             'email.required' => '邮箱不能为空',
             'email.email' => '邮箱格式不正确',
+            'invite_user_email.email' => '邀请人邮箱格式不正确',
+            'invite_user_email.exists' => '邀请人邮箱不存在',
             'transfer_enable.numeric' => '流量格式不正确',
             'expired_at.integer' => '到期时间格式不正确',
             'banned.in' => '是否封禁格式不正确',

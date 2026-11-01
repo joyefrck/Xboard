@@ -1992,6 +1992,11 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "button": "사용자 정보 편집",
       "title": "사용자 관리",
       "form": {
+        "edit_field": "편집",
+        "cancel_edit": "편집 취소",
+        "show_password": "비밀번호 표시",
+        "hide_password": "비밀번호 숨기기",
+        "password_locked_placeholder": "오른쪽 편집 버튼을 눌러 새 비밀번호를 설정하세요",
         "email": "이메일",
         "email_placeholder": "이메일을 입력해주세요",
         "inviter_email": "초대자 이메일",

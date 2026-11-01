@@ -2697,6 +2697,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "button": "Edit User Info",
       "title": "User Management",
       "form": {
+        "edit_field": "Edit",
+        "cancel_edit": "Cancel editing",
+        "show_password": "Show password",
+        "hide_password": "Hide password",
+        "password_locked_placeholder": "Click the edit button to set a new password",
         "email": "Email",
         "email_placeholder": "Please enter email",
         "inviter_email": "Inviter Email",
