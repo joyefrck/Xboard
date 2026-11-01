@@ -49,6 +49,19 @@ function expect(bool $value, string $message): void {
     if (!$value) throw new RuntimeException($message);
     echo 'PASS: ' . $message . "\n";
 }
+if ($fixture['client_baseline'] ?? false) {
+    $listener = stream_socket_server('tcp://127.0.0.1:0');
+    $port = (int) substr(strrchr(stream_socket_get_name($listener, false), ':'), 1);
+    fclose($listener);
+    $runtime = new MihomoProbeRuntime();
+    $outbound = $runtime->outbound($probe->node, $probe->identity, '127.0.0.1');
+    $configuration = $runtime->configuration([$outbound], [4 => $port]);
+    $run = new ReflectionMethod(ProxyProbe::class, 'run');
+    $result = $run->invoke($probe, $configuration, [['url' => $fixture['target'], 'proxy' => 'socks5h://127.0.0.1:' . $port, 'connect_timeout' => 8]], [4 => $port], 1);
+    expect($result['ok'] === !($fixture['stopped'] ?? false), 'third-party client baseline preserves hybrid REALITY authentication and verified HTTPS behavior');
+    expect(!(glob($fixture['directory'] . '/app/node-automation-probes/probe-*') ?: []), 'client baseline credentials and processes are cleaned up');
+    exit;
+}
 if ($fixture['stopped'] ?? false) {
     expect(!$probe->check($group, '127.0.0.1', $targets)['ok'], 'stopped REALITY server fails instead of reaching the target directly');
 } else {

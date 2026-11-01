@@ -29,7 +29,7 @@ def stop(process):
             process.wait()
 
 
-def main(server_binary, mihomo_binary):
+def main(server_binary, mihomo_binary, client_baseline=False):
     server_binary, mihomo_binary = str(Path(server_binary).resolve()), str(Path(mihomo_binary).resolve())
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix='xboard-reality-runtime-') as temporary, ExitStack() as cleanup:
@@ -85,6 +85,16 @@ def main(server_binary, mihomo_binary):
         camouflage_log = cleanup.enter_context(open(folder / 'camouflage.log', 'wb'))
         camouflage = subprocess.Popen(['openssl', 's_server', '-accept', f'127.0.0.1:{camouflage_port}', '-cert', str(cert), '-key', str(key), '-tls1_3', '-groups', 'X25519', '-alpn', 'h2', '-www', '-quiet'], stdout=camouflage_log, stderr=subprocess.STDOUT)
         cleanup.callback(stop, camouflage)
+        for _ in range(100):
+            if camouflage.poll() is not None:
+                raise RuntimeError('REALITY camouflage fixture exited before readiness')
+            try:
+                with socket.create_connection(('127.0.0.1', camouflage_port), timeout=.1):
+                    break
+            except OSError:
+                time.sleep(.05)
+        else:
+            raise RuntimeError('REALITY camouflage fixture did not listen')
         server_config = {'Log': {'Level': 'info'}, 'Cores': [{'Type': 'xray', 'Log': {'Level': os.getenv('V2BX_TEST_LOG', 'error')}, 'AssetPath': str(folder)}], 'Nodes': [{'Core': 'xray', 'ApiHost': f'http://127.0.0.1:{panel.server_port}', 'ApiKey': 'fixture', 'NodeID': 1, 'NodeType': 'vless', 'ListenIP': '127.0.0.1', 'AllowPrivateNetwork': True}]}
         server_path = folder / 'server.json'
         server_path.write_text(json.dumps(server_config))
@@ -103,6 +113,7 @@ def main(server_binary, mihomo_binary):
         if not ready:
             raise RuntimeError('REALITY fixture did not start: ' + (folder / 'server.log').read_text()[-2000:])
         fixture = {'directory': str(folder), 'mihomo': mihomo_binary, 'timeout': shutil.which('timeout'), 'certificate': str(cert), 'uuid': uuid, 'target': f'https://127.0.0.1:{target.server_port}/generate_204', 'node': {'id': 4, 'name': 'REALITY fixture', 'type': 'vless', 'host': 'fixture.test', 'port': str(port), 'protocol_settings': {'tls': 2, 'network': 'tcp', 'flow': 'xtls-rprx-vision', 'utls': {'enabled': True, 'fingerprint': 'chrome'}, 'backend': {'core': 'xray', 'release': 'core-v1.1.0'}, 'reality_settings': {'server_name': 'fixture.test', 'public_key': public, 'short_id': '0123456789abcdef'}}}}
+        fixture['client_baseline'] = client_baseline
         def probe():
             try:
                 subprocess.run([os.getenv('PHP_BINARY', 'php'), str(root / 'tests/node-automation-reality-runtime.php')], input=json.dumps(fixture).encode(), check=True, timeout=60)
@@ -129,5 +140,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('server_binary')
     parser.add_argument('mihomo_binary')
+    parser.add_argument('--client-baseline', action='store_true')
     args = parser.parse_args()
-    main(args.server_binary, args.mihomo_binary)
+    main(args.server_binary, args.mihomo_binary, args.client_baseline)
