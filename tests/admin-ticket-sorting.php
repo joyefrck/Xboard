@@ -106,6 +106,21 @@ $check($ids($fetch(['filter' => [], 'email' => ' owner@ ', 'pageSize' => 20])), 
 $check($ids($fetch(['sort' => [['id' => 'id', 'desc' => false]]])), [10, 20], 'explicit column sorting remains available');
 $check($first['data'][0]['user']['email'], 'owner@example.test', 'ticket user response remains intact');
 $check(array_key_exists('last_user_reply_at', $first['data'][0]), false, 'sorting helper is not exposed in ticket response');
+$check($ids($fetch(['ticket_id' => '60'])), [60], 'ticket number finds a closed ticket from the pending tab');
+$check($ids($fetch(['ticket_id' => '10', 'status' => 1, 'filter' => [['id' => 'status', 'value' => '1']]])), [10], 'ticket number finds an open ticket from the closed tab');
+$check($ids($fetch(['ticket_id' => '6'])), [], 'ticket number requires an exact match');
+$check($ids($fetch(['ticket_id' => '999'])), [], 'unknown ticket number returns an empty list');
+$check($ids($fetch(['ticket_id' => '60', 'email' => 'other@example.test'])), [], 'ticket number respects the email filter');
+$check($ids($fetch(['ticket_id' => '60', 'filter' => [['id' => 'status', 'value' => '0'], ['id' => 'level', 'value' => ['2']]]])), [], 'ticket number respects the appeal type filter');
+$check($ids($fetch(['ticket_id' => '', 'filter' => [['id' => 'status', 'value' => '1']]])), [60], 'clearing ticket number restores status filtering');
+foreach (['abc', '0', '-1', '1.5', '10 OR 1=1', ['60']] as $invalidId) {
+    try {
+        $fetch(['ticket_id' => $invalidId]);
+        throw new RuntimeException('invalid ticket number was accepted');
+    } catch (Illuminate\Validation\ValidationException $error) {
+        $check(isset($error->errors()['ticket_id']), true, 'invalid ticket number is rejected');
+    }
+}
 
 // Older pending tickets must precede newer answered tickets across page boundaries.
 $db->table('v2_ticket')->whereIn('id', [20, 40])->update(['reply_status' => 0]);

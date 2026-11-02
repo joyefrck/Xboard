@@ -1988,6 +1988,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     },
     "filter": {
       "placeholder": "搜索{field}...",
+      "ticket_id_placeholder": "按工单号搜索（全部状态）",
       "email_placeholder": "按用户名搜索（用户邮箱）",
       "no_results": "未找到结果",
       "selected": "已选择 {count} 项",

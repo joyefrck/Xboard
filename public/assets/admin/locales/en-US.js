@@ -1996,6 +1996,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     },
     "filter": {
       "placeholder": "Search {field}...",
+      "ticket_id_placeholder": "Ticket number (all statuses)",
       "email_placeholder": "Search by username (user email)",
       "no_results": "No results found",
       "selected": "{count} selected",

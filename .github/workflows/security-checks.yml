@@ -37,6 +37,7 @@ jobs:
           SECURITY_P0_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=security_p0
         run: |
           node --test tests/security-p0.test.js tests/admin-asset-cache.test.js tests/admin-user-identity-edit.test.js tests/horizon-provisioning.test.js tests/horizon-fixed-workers.test.js tests/node-automation.test.js tests/telegram-group-access.test.js
+          node --test tests/admin-ticket-id-search.test.js tests/admin-ticket-user-search.test.js tests/admin-ticket-sorting.test.js
           php tests/telegram-group-access.php
           php scripts/version-admin-assets.php --check
       - name: Verify VLESS changes when present

@@ -12,11 +12,14 @@ use Illuminate\Http\Request;
 
 class TicketController extends Controller
 {
-    private function applyFiltersAndSorts(Request $request, $builder)
+    private function applyFiltersAndSorts(Request $request, $builder, bool $ignoreStatus = false)
     {
         if ($request->has('filter')) {
-            collect($request->input('filter'))->each(function ($filter) use ($builder) {
+            collect($request->input('filter'))->each(function ($filter) use ($builder, $ignoreStatus) {
                 $key = $filter['id'];
+                if ($ignoreStatus && in_array($key, ['status', 'reply_status'], true)) {
+                    return;
+                }
                 $value = $filter['value'];
                 $builder->where(function ($query) use ($key, $value) {
                     if (is_array($value)) {
@@ -71,10 +74,12 @@ class TicketController extends Controller
     private function fetchTickets(Request $request)
     {
         $request->validate([
-            'email' => 'sometimes|nullable|string|max:255'
+            'email' => 'sometimes|nullable|string|max:255',
+            'ticket_id' => 'sometimes|nullable|integer|min:1|max:2147483647'
         ]);
 
         $email = trim((string) $request->input('email', ''));
+        $ticketId = $request->filled('ticket_id') ? $request->integer('ticket_id') : null;
 
         $userReplies = TicketMessage::query()
             ->select('ticket_id')
@@ -87,10 +92,13 @@ class TicketController extends Controller
             ->leftJoinSub($userReplies, 'user_replies', function ($join) {
                 $join->on('user_replies.ticket_id', '=', 'v2_ticket.id');
             })
-            ->when($request->has('status'), function ($query) use ($request) {
+            ->when($ticketId !== null, function ($query) use ($ticketId) {
+                $query->where('v2_ticket.id', $ticketId);
+            })
+            ->when($ticketId === null && $request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->input('status'));
             })
-            ->when($request->has('reply_status'), function ($query) use ($request) {
+            ->when($ticketId === null && $request->has('reply_status'), function ($query) use ($request) {
                 $query->whereIn('reply_status', $request->input('reply_status'));
             })
             ->when($email !== '', function ($query) use ($email) {
@@ -104,7 +112,7 @@ class TicketController extends Controller
             'CASE WHEN v2_ticket.status = ? AND (v2_ticket.reply_status IS NULL OR v2_ticket.reply_status <> 0) THEN 0 ELSE 1 END',
             [Ticket::STATUS_OPENING]
         );
-        $this->applyFiltersAndSorts($request, $ticketModel);
+        $this->applyFiltersAndSorts($request, $ticketModel, $ticketId !== null);
         $tickets = $ticketModel
             // Ticket timestamps also change on admin actions and may stay stale on repeated user replies.
             ->orderByRaw('COALESCE(user_replies.last_user_reply_at, v2_ticket.created_at) DESC')

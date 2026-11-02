@@ -53,13 +53,13 @@ test('admin ticket table shows username immediately after the subject', () => {
 test('email search spans ticket statuses and clearing it restores the selected tab', () => {
   const bundle = readRepoFile('public/assets/admin/assets/index.js');
 
-  assert.match(bundle, /function Yp\(\{table:s,emailKeyword:t,onEmailKeywordChange:l\}\)/);
-  assert.match(bundle, /placeholder:n\("filter\.email_placeholder"\),value:t,onChange:a=>l\(a\.target\.value\)/);
-  assert.match(bundle, /p=E\.trim\(\),g=p!==""\?a\.filter\(v=>v\.id!=="status"\):a/);
-  assert.match(bundle, /queryKey:\["orderList",x,a,r,p\]/);
-  assert.match(bundle, /filter:g,sort:r,\.\.\.p\?\{email:p\}:\{\}/);
+  assert.match(bundle, /function Yp\(\{table:s,emailKeyword:t,onEmailKeywordChange:l,ticketIdKeyword:ticketId,onTicketIdKeywordChange:onTicketIdChange\}\)/);
+  assert.match(bundle, /placeholder:n\("filter\.email_placeholder"\),style:\{width:300,maxWidth:"100%",flexShrink:0\},value:t,onChange:a=>l\(a\.target\.value\)/);
+  assert.match(bundle, /p=E\.trim\(\),g=p!==""\|\|ticketId!==""\?a\.filter\(v=>v\.id!=="status"\):a/);
+  assert.match(bundle, /queryKey:\["orderList",x,a,r,p,ticketId\]/);
+  assert.match(bundle, /filter:g,sort:r,\.\.\.p\?\{email:p\}:\{\},\.\.\.ticketId\?\{ticket_id:ticketId\}:\{\}/);
   assert.match(bundle, /f=v=>\{T\(v\),u\(w=>\(\{\.\.\.w,pageIndex:0\}\)\)\}/);
-  assert.match(bundle, /e\.jsx\(Yp,\{table:h,emailKeyword:E,onEmailKeywordChange:f\}\)/);
+  assert.match(bundle, /e\.jsx\(Yp,\{table:h,emailKeyword:E,onEmailKeywordChange:f,ticketIdKeyword:ticketId,onTicketIdKeywordChange:changeTicketId\}\)/);
 });
 
 test('ticket username search translations are complete', () => {
