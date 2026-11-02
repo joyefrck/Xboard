@@ -52,6 +52,16 @@ class VlessConfigService
         if (!$version) return false;
         $name = strtolower($name ?? '');
         if (!self::isEnhanced($settings)) {
+            // Android 2.2.2 / Xray-core 26.6.1 verified with native TCP REALITY
+            // subscriptions. Do not extend this to Encryption, XHTTP or other
+            // renderers/transports on the strength of an app version alone.
+            if ($renderer === 'General' && $name === 'v2rayng'
+                && ($platform === null || $platform === 'android')
+                && ($settings['network'] ?? 'tcp') === 'tcp'
+                && data_get($settings, 'network_settings.header.type', 'none') === 'none') {
+                return (bool) preg_match('/^2\.\d+\.\d+$/D', $version)
+                    && version_compare($version, '2.2.2', '>=');
+            }
             // Native iOS clients verified against TCP REALITY / Vision. Their
             // macOS releases have independent version and capability histories.
             if (($settings['network'] ?? 'tcp') === 'tcp' && ($platform === null || $platform === 'ios')) {

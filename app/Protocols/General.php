@@ -45,7 +45,11 @@ class General extends AbstractProtocol
                 default => '',
             };
         }
-        return response(base64_encode($uri))->header('content-type', 'text/plain');
+        $response = response(base64_encode($uri))->header('content-type', 'text/plain');
+        if ($this->clientName === 'v2rayng') {
+            $response->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
+        }
+        return $response;
     }
 
     public static function buildShadowsocks($password, $server)

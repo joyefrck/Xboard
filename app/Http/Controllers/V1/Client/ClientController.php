@@ -178,7 +178,7 @@ class ClientController extends Controller
         $clientName = null;
         $clientVersion = null;
 
-        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash)(?=[\/\s]|$)/', $identity, $native);
+        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash|v2rayng)(?=[\/\s]|$)/', $identity, $native);
         if ($nativeClient) {
             $clientName = str_starts_with($native[1], 'quantumult') ? 'quantumultx' : $native[1];
             $versionPattern = $clientName === 'karing' ? '\d+\.\d+\.\d+(?:\.\d+)?' : '\d+\.\d+\.\d+';
@@ -219,7 +219,7 @@ class ClientController extends Controller
             }
         }
 
-        if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing'], true)) {
+        if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing', 'v2rayng'], true)) {
             // A compatibility token must not inherit some other product's version.
             $clientVersion = null;
         }
@@ -237,6 +237,9 @@ class ClientController extends Controller
             $platform = 'macos';
         } elseif (preg_match('/\b(ios|ipados|iphone|ipad)\b/', $platformIdentity)) {
             $platform = 'ios';
+        } elseif ($nativeClient && $clientName === 'v2rayng'
+            && preg_match('/\b(android|windows|linux)\b/', $platformIdentity, $matches)) {
+            $platform = $matches[1];
         }
 
         return [
