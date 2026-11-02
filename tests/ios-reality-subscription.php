@@ -61,6 +61,7 @@ $encode = fn(string $value): string => rtrim(strtr(base64_encode($value), '+/', 
 $private = $encode(random_bytes(32));
 $settings = [
     'tls' => 2, 'network' => 'tcp', 'flow' => 'xtls-rprx-vision',
+    'network_settings' => ['header' => ['type' => 'none']],
     'reality_settings' => ['server_name' => 'fixture.test', 'public_key' => $encode(random_bytes(32)), 'private_key' => $private, 'short_id' => '0123456789abcdef', 'support_x25519mlkem768' => true],
 ];
 $modern = ['name' => 'modern', 'type' => 'vless', 'host' => '127.0.0.1', 'port' => 443, 'password' => '11111111-1111-4111-8111-111111111111', 'protocol_settings' => $settings];
@@ -85,6 +86,7 @@ foreach (['Stash/3.6.5', 'Stash/3.6.5 Clash/1.11.0', 'Stash/3.6.5 Clashlike/1.0.
         check(array_column($parsed['proxies'], 'name') === ['modern', 'legacy'], 'verified Stash receives modern REALITY and legacy, without enhanced nodes');
         check($parsed['proxies'][0]['client-fingerprint'] === 'chrome', 'Stash modern REALITY receives deterministic Chrome');
         check($parsed['proxies'][0]['reality-opts']['support-x25519mlkem768'] === true, 'Stash modern REALITY emits hybrid KeyShare');
+        check(!isset($parsed['proxies'][0]['network']) && !isset($parsed['proxies'][0]['http-opts']), 'Stash plain TCP with header none never emits unsupported network none or HTTP options');
         check(!isset($parsed['proxies'][1]['reality-opts']['support-x25519mlkem768']), 'Stash legacy REALITY does not opt into hybrid handshake');
         check($parsed['proxy-groups'][0]['proxies'] === ['modern', 'legacy'], 'Stash groups contain only compatible nodes');
         check(!str_contains($response->getContent(), $private) && !str_contains($response->getContent(), 'server-decryption-never-export'), 'Stash excludes server secrets');

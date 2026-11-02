@@ -191,10 +191,18 @@ test('Stash VLESS default tcp header does not render boolean network', () => {
     network_settings: {},
   });
 
+  const explicitNoneProxy = buildStashVless({
+    tls: 0,
+    network: 'tcp',
+    network_settings: { header: { type: 'none' } },
+  });
+
   assert.notEqual(typeof explicitTcpProxy.network, 'boolean');
   assert.equal(Object.hasOwn(explicitTcpProxy, 'network'), false);
   assert.notEqual(typeof defaultTcpProxy.network, 'boolean');
   assert.equal(Object.hasOwn(defaultTcpProxy, 'network'), false);
+  assert.equal(Object.hasOwn(explicitNoneProxy, 'network'), false);
+  assert.equal(Object.hasOwn(explicitNoneProxy, 'http-opts'), false);
 });
 
 test('Stash VLESS tcp network assignment is not mixed with comparison', () => {

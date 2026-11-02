@@ -15,6 +15,7 @@
 ## 输出策略
 
 - Stash 已验证的 3.x 版本从 3.6.5 起允许普通新版 TCP REALITY；发出 `client-fingerprint: chrome` 与 `reality-opts.support-x25519mlkem768: true`。显式 uTLS 指纹通过统一配置服务选择，传统节点不自动增加混合握手开关。
+- 普通 TCP 的头部类型 `none` 或 `tcp` 不输出 `network` / `http-opts`；只有 HTTP 头部输出 `network: http`。真机启动曾发现旧渲染器错误输出 `network: none`，现由实际控制器测试和 Stash 构造器测试共同覆盖。
 - 实际 Stash 请求为 `Stash/3.6.5 Clash/1.11.0`，不包含操作系统字段。没有平台字段时仅按已验证 3.x 版本序列处理；显式 macOS 标识及 4.x 不会套用这项 iOS 放行规则。此规则不是 macOS 的验证结论。
 - Quantumult X 从已实测 1.8.1 起允许普通新版 TCP REALITY；规范 `Quantumult%20X`、`Quantumult X`、`Quantumult-X`、`QuantumultX` 标识。实际 iOS UA 为 `Quantumult%20X/1.8.1 (iPhone17,1; iOS 27.2)`。保持原生 REALITY、Vision 和 `fast-open=false` 字段，不输出 Mihomo 专有开关。显式 macOS 标识仍不放行。
 - 不因本次 TCP 对照放行 Stash / Quantumult X 的 Encryption、XHTTP、现代 REALITY 的 WS/gRPC；这些组合需要独立验证。
