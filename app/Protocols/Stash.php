@@ -7,6 +7,7 @@ use App\Utils\Helper;
 use Illuminate\Support\Facades\File;
 use App\Support\AbstractProtocol;
 use App\Models\Server;
+use App\Services\VlessConfigService;
 
 class Stash extends AbstractProtocol
 {
@@ -284,7 +285,7 @@ class Stash extends AbstractProtocol
         $array['uuid'] = $uuid;
         $array['udp'] = true;
 
-        $array['client-fingerprint'] = Helper::getRandFingerprint();
+        $array['client-fingerprint'] = VlessConfigService::clientFingerprint($protocol_settings) ?? Helper::getRandFingerprint();
 
         switch (data_get($protocol_settings, 'tls')) {
             case 1:
@@ -305,6 +306,9 @@ class Stash extends AbstractProtocol
                     'public-key' => data_get($protocol_settings, 'reality_settings.public_key'),
                     'short-id' => data_get($protocol_settings, 'reality_settings.short_id')
                 ];
+                if (VlessConfigService::needsHybridReality($protocol_settings)) {
+                    $array['reality-opts']['support-x25519mlkem768'] = true;
+                }
                 break;
         }
 

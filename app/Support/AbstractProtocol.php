@@ -27,6 +27,18 @@ abstract class AbstractProtocol
      */
     protected $clientVersion;
 
+    protected ?string $clientPlatform = null;
+
+    private int $subscriptionInputCount = 0;
+
+    private int $vlessFeatureRejections = 0;
+
+    private int $hybridRealityRejections = 0;
+
+    private int $protocolRejections = 0;
+
+    private int $versionRejections = 0;
+
     /**
      * @var array 协议标识
      */
@@ -50,20 +62,47 @@ abstract class AbstractProtocol
      * @param string|null $clientName 客户端名称
      * @param string|null $clientVersion 客户端版本
      */
-    public function __construct($user, $servers, $clientName = null, $clientVersion = null)
+    public function __construct($user, $servers, $clientName = null, $clientVersion = null, ?string $clientPlatform = null)
     {
         $this->user = $user;
         $this->servers = $servers;
         $this->clientName = $clientName ?? '';
         $this->clientVersion = $clientVersion;
+        $this->clientPlatform = $clientPlatform;
+        $this->subscriptionInputCount = count($servers);
         $this->protocolRequirements = $this->normalizeProtocolRequirements($this->protocolRequirements);
-        $this->servers = HookManager::filter('protocol.servers.filtered', $this->filterServersByVersion());
+        $versionCompatible = $this->filterServersByVersion();
+        $this->protocolRejections = $this->subscriptionInputCount - count($this->servers);
+        $this->versionRejections = count($this->servers) - count($versionCompatible);
+        $this->servers = HookManager::filter('protocol.servers.filtered', $versionCompatible);
         $renderer = (new \ReflectionClass($this))->getShortName();
-        $this->servers = array_values(array_filter($this->servers, fn($server) => ($server['type'] ?? '') !== 'vless' || VlessConfigService::supportsClient($server['protocol_settings'] ?? [], $renderer, $this->clientName, $this->clientVersion)));
+        $this->servers = array_values(array_filter($this->servers, function ($server) use ($renderer) {
+            if (($server['type'] ?? '') !== 'vless' || VlessConfigService::supportsClient($server['protocol_settings'] ?? [], $renderer, $this->clientName, $this->clientVersion, $this->clientPlatform)) {
+                return true;
+            }
+            $this->vlessFeatureRejections++;
+            if (VlessConfigService::needsHybridReality($server['protocol_settings'] ?? [])) {
+                $this->hybridRealityRejections++;
+            }
+            return false;
+        }));
         foreach ($this->servers as &$server) {
             if (($server['type'] ?? '') === 'vless') $server['protocol_settings'] = VlessConfigService::clientSettings($server['protocol_settings'] ?? []);
         }
         unset($server);
+    }
+
+    /** Counts only; never expose subscription credentials or server settings. */
+    public function subscriptionDiagnostics(): array
+    {
+        return [
+            'input_nodes' => $this->subscriptionInputCount,
+            'compatible_nodes' => count($this->servers),
+            'protocol_rejections' => $this->protocolRejections,
+            'version_rejections' => $this->versionRejections,
+            'vless_feature_rejections' => $this->vlessFeatureRejections,
+            'hybrid_reality_rejections' => $this->hybridRealityRejections,
+        ];
     }
 
     /**

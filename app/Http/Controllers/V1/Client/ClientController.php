@@ -87,10 +87,28 @@ class ClientController extends Controller
             'user' => $user,
             'servers' => $serversFiltered,
             'clientName' => $clientInfo['name'] ?? null,
-            'clientVersion' => $clientInfo['version'] ?? null
+            'clientVersion' => $clientInfo['version'] ?? null,
+            'clientPlatform' => $clientInfo['platform'] ?? null,
         ]);
 
-        return $protocolInstance->handle();
+        $diagnostics = $protocolInstance->subscriptionDiagnostics();
+        $filteredCount = $diagnostics['protocol_rejections'] + $diagnostics['version_rejections'] + $diagnostics['vless_feature_rejections'];
+        if ($diagnostics['compatible_nodes'] === 0 && $filteredCount > 0) {
+            $message = $clientInfo['name'] === 'karing' && $diagnostics['hybrid_reality_rejections'] > 0
+                ? 'Karing 当前没有兼容节点；此版本尚未通过新版 REALITY 握手验证，请使用兼容线路或支持该握手的客户端。'
+                : '当前客户端没有兼容节点，请使用已验证版本的客户端或兼容线路。';
+            return response()->json(['code' => 'NO_COMPATIBLE_NODES', 'message' => $message, 'diagnostics' => $diagnostics], 422)
+                ->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}")
+                ->header('X-Subscription-Compatible-Nodes', '0')
+                ->header('X-Subscription-Filtered-Nodes', (string) $filteredCount)
+                ->header('X-Subscription-Vless-Filtered-Nodes', (string) $diagnostics['vless_feature_rejections'])
+                ->header('Cache-Control', 'no-store');
+        }
+
+        return $protocolInstance->handle()
+            ->header('X-Subscription-Compatible-Nodes', (string) $diagnostics['compatible_nodes'])
+            ->header('X-Subscription-Filtered-Nodes', (string) $filteredCount)
+            ->header('X-Subscription-Vless-Filtered-Nodes', (string) $diagnostics['vless_feature_rejections']);
     }
 
     /**
@@ -160,7 +178,14 @@ class ClientController extends Controller
         $clientName = null;
         $clientVersion = null;
 
-        if (preg_match('/^elephant network\/v(\d+\.\d+\.\d+)(?=\s|$)/', $identity, $matches)) {
+        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash)(?=[\/\s]|$)/', $identity, $native);
+        if ($nativeClient) {
+            $clientName = str_starts_with($native[1], 'quantumult') ? 'quantumultx' : $native[1];
+            $versionPattern = $clientName === 'karing' ? '\d+\.\d+\.\d+(?:\.\d+)?' : '\d+\.\d+\.\d+';
+            if (preg_match('/^' . preg_quote($native[1], '/') . '[\/\s]+v?(' . $versionPattern . ')(?=\s|$|[;(])/', $identity, $matches)) {
+                $clientVersion = $matches[1];
+            }
+        } elseif (preg_match('/^elephant network\/v(\d+\.\d+\.\d+)(?=\s|$)/', $identity, $matches)) {
             $clientName = 'elephantnetwork';
             $clientVersion = $matches[1];
         } elseif (preg_match('/([a-zA-Z0-9\-_]+)[\/\s]+(v?[0-9]+(?:\.[0-9]+){0,2})/', $identity, $matches)) {
@@ -172,7 +197,7 @@ class ClientController extends Controller
             }
         }
 
-        if (!$clientName) {
+        if (!$clientName && !$nativeClient) {
             $flags = collect(app('protocols.flags'))->sortByDesc(fn($f) => strlen($f))->values()->all();
             foreach ($flags as $name) {
                 if (stripos($identity, $name) !== false) {
@@ -188,16 +213,37 @@ class ClientController extends Controller
             }
         }
 
-        if (!$clientVersion) {
+        if (!$clientVersion && !$nativeClient) {
             if (preg_match('/\/v?(\d+(?:\.\d+){0,2})/', $identity, $matches)) {
                 $clientVersion = $matches[1];
             }
         }
 
+        if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing'], true)) {
+            // A compatibility token must not inherit some other product's version.
+            $clientVersion = null;
+        }
+        if ($nativeClient && $request->input('flag') === null) {
+            $flag = $clientName;
+        }
+
+        // Explicit platform markers take precedence over compatibility tokens
+        // later in composite UAs (for example Karing's NekoBox/Android token).
+        $platform = null;
+        $platformIdentity = strtolower($request->header('User-Agent', '')) ?: $identity;
+        if (preg_match('/\bplatform[\/\s]+(ios|ipados|macos|windows|android|linux)\b/', $platformIdentity, $matches)) {
+            $platform = $matches[1] === 'ipados' ? 'ios' : $matches[1];
+        } elseif (preg_match('/\b(macos|macintosh|mac os x)\b/', $platformIdentity)) {
+            $platform = 'macos';
+        } elseif (preg_match('/\b(ios|ipados|iphone|ipad)\b/', $platformIdentity)) {
+            $platform = 'ios';
+        }
+
         return [
             'flag' => $flag,
             'name' => $clientName,
-            'version' => $clientVersion
+            'version' => $clientVersion,
+            'platform' => $platform,
         ];
     }
 

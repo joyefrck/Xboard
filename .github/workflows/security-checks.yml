@@ -47,6 +47,7 @@ jobs:
           node --test tests/vless-admin-form.test.js
           php tests/vless-config.php
           php tests/vless-elephant-subscription.php
+          php tests/ios-reality-subscription.php
       - name: Verify real modern REALITY probes with fixed release binaries
         run: |
           sh scripts/install-node-automation-mihomo.sh "$RUNNER_TEMP/reality-mihomo"

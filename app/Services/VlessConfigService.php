@@ -46,12 +46,24 @@ class VlessConfigService
         return $settings;
     }
 
-    public static function supportsClient(array $settings, string $renderer, ?string $name, ?string $version): bool
+    public static function supportsClient(array $settings, string $renderer, ?string $name, ?string $version, ?string $platform = null): bool
     {
         if (!self::isEnhanced($settings) && !self::needsHybridReality($settings)) return true;
         if (!$version) return false;
         $name = strtolower($name ?? '');
         if (!self::isEnhanced($settings)) {
+            // Native iOS clients verified against TCP REALITY / Vision. Their
+            // macOS releases have independent version and capability histories.
+            if (($settings['network'] ?? 'tcp') === 'tcp' && ($platform === null || $platform === 'ios')) {
+                if ($renderer === 'Stash' && $name === 'stash') {
+                    return (bool) preg_match('/^3\.\d+\.\d+$/D', $version)
+                        && version_compare($version, '3.6.5', '>=');
+                }
+                if ($renderer === 'QuantumultX' && $name === 'quantumultx') {
+                    return (bool) preg_match('/^\d+\.\d+\.\d+$/D', $version)
+                        && version_compare($version, '1.8.1', '>=');
+                }
+            }
             if ($renderer === 'Shadowrocket' && $name === 'shadowrocket' && ($settings['network'] ?? 'tcp') === 'tcp') {
                 return ctype_digit($version)
                     ? (int) $version >= 3488
