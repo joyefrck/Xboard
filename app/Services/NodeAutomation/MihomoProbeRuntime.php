@@ -4,7 +4,6 @@ namespace App\Services\NodeAutomation;
 
 use App\Models\{Server, User};
 use App\Protocols\ClashMeta;
-use App\Services\VlessConfigService;
 use Symfony\Component\Process\Process;
 
 class MihomoProbeRuntime
@@ -12,7 +11,7 @@ class MihomoProbeRuntime
     public static function required(array $nodes): bool
     {
         foreach ($nodes as $node) {
-            if ($node->type === Server::TYPE_VLESS && VlessConfigService::needsHybridReality($node->protocol_settings)) return true;
+            if ($node->type === Server::TYPE_VLESS && (int) data_get($node->protocol_settings, 'tls') === 2) return true;
         }
         return false;
     }
@@ -51,6 +50,12 @@ class MihomoProbeRuntime
             default => throw new AutomationException('当前节点协议尚不支持自动化探针'),
         };
         $proxy = ClashMeta::$method($node->generateServerPassword($user), $server, $user->toArray());
+        // A backup can run a newer core than the active VPS. Keep these client-only
+        // compatibility defaults local to the probe, independent of node metadata.
+        if ($node->type === Server::TYPE_VLESS && (int) data_get($node->protocol_settings, 'tls') === 2) {
+            $proxy['client-fingerprint'] = 'chrome';
+            $proxy['reality-opts']['support-x25519mlkem768'] = true;
+        }
         $sni = in_array($node->type, [Server::TYPE_VMESS, Server::TYPE_VLESS], true) ? 'servername' : 'sni';
         $tls = ($proxy['tls'] ?? false) || in_array($node->type, [Server::TYPE_TROJAN, Server::TYPE_HYSTERIA, Server::TYPE_TUIC, Server::TYPE_ANYTLS], true);
         if ($tls && empty($proxy[$sni])) $proxy[$sni] = $node->host;

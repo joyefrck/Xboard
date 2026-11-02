@@ -58,6 +58,7 @@ class ServerSave extends FormRequest
             'backend.core' => 'nullable|in:xray,sing',
             'backend.release' => 'nullable|string',
             'reality_settings.dest' => 'nullable|string',
+            'reality_settings.support_x25519mlkem768' => 'nullable|boolean',
             'tls' => 'required|integer',
             'network' => 'required|string',
             'network_settings' => 'nullable|array',

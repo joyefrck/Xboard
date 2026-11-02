@@ -163,6 +163,7 @@ class Server extends Model
                     'public_key' => ['type' => 'string', 'default' => null],
                     'private_key' => ['type' => 'string', 'default' => null],
                     'dest' => ['type' => 'string', 'optional' => true, 'default' => null],
+                    'support_x25519mlkem768' => ['type' => 'boolean', 'optional' => true, 'default' => false],
                     'short_id' => ['type' => 'string', 'default' => null]
                 ]
             ]

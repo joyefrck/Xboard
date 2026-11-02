@@ -27,12 +27,22 @@ Cloudflare 自动 TTL 为 300 秒。改成 60 秒不会立即清除已有客户�
 
 - 默认检测地址：`https://www.gstatic.com/generate_204`、`https://cp.cloudflare.com/generate_204`，每请求超时 8 秒。先检查直连可用地址，失败代理检测后再次复核检测地址，目标异常不累计节点失败。
 - 账号无效、节点参数变化、探针不兼容、进程异常均属于配置/检测异常，不计 VPS 故障。节点参数或 DNS IP、TTL、记录结构被外部修改时会暂停策略，需要重新配置确认。
-- 支持现有订阅构建器中的 Shadowsocks、VMess、VLESS、Trojan、Hysteria、TUIC v5、AnyTLS、SOCKS、HTTP。固定端口必需。普通节点沿用 sing-box；登记为 Xray/core-v1.1.0 或更新的普通 REALITY 域名组使用 Mihomo 1.19.33，发送 Chrome 混合 KeyShare。域名组混合协议时使用同一运行时并逐节点指定出口，默认拒绝直连回退。VLESS Encryption 与 XHTTP 仍不可加入自动切换组。实际启用须通过所选运行时配置检查和真实代理测试。
+- 支持现有订阅构建器中的 Shadowsocks、VMess、VLESS、Trojan、Hysteria、TUIC v5、AnyTLS、SOCKS、HTTP。固定端口必需。包含普通 VLESS+REALITY（`tls=2`）节点的域名组默认使用 Mihomo 1.19.33；检测无需选择服务端内核或填写 V2bX release，兼容主机和备用 VPS 使用不同核心版本。临时 REALITY 探针固定 Chrome 指纹，先使用混合 KeyShare，仅对失败的 REALITY 节点补测一次传统 KeyShare；两次都不通过才判为失败。补测保留相同账号、密钥、SNI、证书校验及 HTTPS 目标，不修改节点设置或订阅输出。其余域名组沿用 sing-box。域名组混合协议时使用同一运行时并逐节点指定出口，默认拒绝直连回退。VLESS Encryption 与 XHTTP 仍不可加入自动切换组。实际启用须通过所选运行时配置检查和真实代理测试。
 - 「搬瓦工VPS管理」已导入且同步成功的服务器，可按当前 IP 显示本周期 VPS 整机流量、额度和进度条；数据过期或同步失败会标明。此信息只用于展示，不触发 DNS 切换，也不能发现仍正常联网的超额收费。测试请求本身消耗少量公共检测账号流量，且每个域名最多 16 个关联节点、10 台备用。备用 V2bX 在线不等于可用，是否通过真实代理测试才是切换依据。
 - 更换或清除任一权限组的公共检测账号前，先暂停所有策略并等待后台任务完成。公共账号独立于 Cloudflare 连接保存；更换后清除旧检测结果和备用测试认证，保留 DNS 绑定及原 VPS 的待检查状态，逐组重新验证配置与备用。所有候选账号均失效、改组或权限不足时作为配置异常处理，不计 VPS 故障，绝不会回退到旧全局或逐节点账号。
 - 修改配置或全局连接前先暂停；进行中的 DNS 修改必须回读完成。DNS 结果未知时保留操作意图、禁止新切换。DNS 已确认但账号失效时结束验证并允许修复配置。暂停不会撤销已提交的 DNS 修改。
 
 ## 安装与运行
+
+### Mihomo 客户端新版 REALITY 订阅
+
+节点编辑的 REALITY 区域提供「手动启用新版 REALITY 兼容（混合 KeyShare）」开关。只有实际服务端需要新版握手时才开启；开启后，即使不选择服务端内核、不填写 V2bX release、不开启指定 uTLS 指纹，支持的 Mihomo 客户端也会收到 `client-fingerprint: chrome` 和 `reality-opts.support-x25519mlkem768: true`。若手动指定 uTLS 指纹，必须选择 Chrome。后台仍保留已登记新版 Xray 的自动推断。
+
+该开关影响用户订阅，不会安装或切换 VPS 核心，旧版服务端请勿启用；未开启且未登记新版后端的存量节点保持原有订阅行为。已有客户端版本筛选继续生效；普通新版 REALITY 支持已验证的 Mihomo 1.19.32 及更新版本，未知或过旧客户端不会收到该节点。VLESS Encryption/XHTTP 仍须符合原有后端能力和客户端版本要求，不因开启这个开关而放宽。
+
+保存节点协议参数后，按现有流程重新验证自动化配置与备用。自动化探针会自行兼容两种 KeyShare，无需为测试备用而开启这个订阅开关。
+
+### 探针安装
 
 镜像构建安装固定 sing-box **1.14.2** 与 Mihomo **1.19.33**，脚本验证仓库中固定 SHA-256 后再解压安装。支持 Linux amd64/arm64 musl；开发调试另支持 Darwin arm64。手动部署在所有运行检测队列的容器/主机执行：
 
@@ -78,7 +88,7 @@ php scripts/version-admin-assets.php --check
 
 状态机/API 使用内存 SQLite，Cloudflare HTTP 使用 mock，均不加载 `.env` 或修改真实 DNS。真实探针演练用临时本地 Shadowsocks、Hysteria2 和两个 HTTPS 204 服务，保持 TLS 校验并仅为测试临时证书提供信任，覆盖停服、开放端口无代理、错误认证、未信任证书和 UDP 不可用。需要已安装探针及 openssl。`NODE_AUTOMATION_TEST_BINARY` 可指定测试二进制路径。
 
-新版 REALITY 的真实回环验收使用固定发行版 V2bX core-v1.1.0 和 Mihomo，覆盖 HTTPS 204 成功、错误 UUID、公钥错误、停服、运行时缺失、凭证及进程清理。Mihomo 的 SOCKS 建连包含远端 REALITY 握手，因此连接预算使用最多 8 秒且不超过配置的请求总时限；独立 25 秒 watchdog 保持有效。本次升级无需新增数据库迁移。
+REALITY 的真实回环验收使用固定发行版 V2bX core-v1.0.2/core-v1.1.0 和 Mihomo，覆盖 HTTPS 204 成功、未登记后端及未配置指纹、节点订阅指纹为 Firefox、错误 UUID、公钥错误、停服、运行时缺失、凭证及进程清理。Mihomo 的 SOCKS 建连包含远端 REALITY 握手，因此连接预算使用最多 8 秒且不超过配置的请求总时限；每次尝试的独立 25 秒 watchdog 保持有效，传统 KeyShare 补测最多额外进行一次。本次升级无需新增数据库迁移。
 
 后台验收可运行 `node tests/node-automation-preview.cjs`，打开 `http://127.0.0.1:7315/preview#/server/automation`；仅用于 UI 验收，数据均为内存示例，停止进程即清空，不连接真实数据库或 Cloudflare。
 

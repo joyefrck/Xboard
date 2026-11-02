@@ -144,3 +144,25 @@ foreach (['Shadowrocket/3487', 'Shadowrocket/2.2.92', 'Shadowrocket', 'unknown/3
     $checks++;
 }
 echo "Third-party actual subscription pipeline: {$checks} cases passed\n";
+
+$explicit = $modern;
+$explicit['name'] = 'explicit-modern-reality';
+unset($explicit['protocol_settings']['backend'], $explicit['protocol_settings']['utls']);
+$explicit['protocol_settings']['reality_settings']['support_x25519mlkem768'] = true;
+foreach (['mihomo/1.19.32', 'mihomo/1.19.33', 'ClashMeta/1.19.33; mihomo/1.19.33'] as $ua) {
+    foreach (['meta', null] as $flag) {
+        $yaml = elephantSubscription($ua, [$explicit, $legacy], $template, $flag)->getContent();
+        $parsed = Yaml::parse($yaml);
+        if (array_column($parsed['proxies'], 'name') !== ['explicit-modern-reality', 'legacy']) throw new RuntimeException('Mihomo lost explicit modern REALITY: ' . $ua);
+        $proxy = $parsed['proxies'][0];
+        if ($proxy['client-fingerprint'] !== 'chrome' || $proxy['reality-opts']['support-x25519mlkem768'] !== true) throw new RuntimeException('Mihomo must receive Chrome and hybrid KeyShare without backend registration');
+        if (str_contains($yaml, $settings['reality_settings']['private_key']) || str_contains($yaml, 'backend:')) throw new RuntimeException('Explicit REALITY exposed server metadata');
+        $checks++;
+    }
+}
+foreach (['mihomo/1.19.31', 'mihomo', 'unknown/1.19.33'] as $ua) {
+    $parsed = Yaml::parse(elephantSubscription($ua, [$explicit, $legacy], $template)->getContent());
+    if (array_column($parsed['proxies'], 'name') !== ['legacy']) throw new RuntimeException('Unverified client received explicit modern REALITY');
+    $checks++;
+}
+echo "Mihomo explicit REALITY subscription pipeline: {$checks} cases passed\n";

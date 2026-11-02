@@ -123,10 +123,15 @@ class ProxyProbe
         return Utils::unwrap($promises);
     }
 
+    protected function runtime(array $nodes): ?MihomoProbeRuntime
+    {
+        return MihomoProbeRuntime::required($nodes) ? new MihomoProbeRuntime() : null;
+    }
+
     public function check(NodeAutomationGroup $group, string $ip, array $targets): array
     {
         $nodes = $this->nodes($group);
-        $runtime = MihomoProbeRuntime::required($nodes) ? new MihomoProbeRuntime() : null;
+        $runtime = $this->runtime($nodes);
         if ($runtime) $runtime->readiness(); else $this->readiness();
         $outbounds = $inbounds = $rules = $requests = $ports = [];
         // Keep sockets reserved until all ports are chosen, avoiding duplicates in a batch.
@@ -155,7 +160,32 @@ class ProxyProbe
         $config = $runtime ? $runtime->configuration($outbounds, $ports)
             : ['log' => ['disabled' => true], 'inbounds' => $inbounds, 'outbounds' => $outbounds,
                 'route' => ['rules' => $rules, 'final' => $outbounds[0]['tag']]];
-        return $this->run($config, $requests, $ports, count($targets));
+        $targetCount = count($targets);
+        $result = $this->run($config, $requests, $ports, $targetCount);
+        if (!$runtime || $result['ok']) return $result;
+
+        // Older REALITY servers can require the traditional authentication
+        // KeyShare. Retry only failed REALITY nodes, with the same credentials.
+        $failedIds = array_column(array_filter($result['nodes'], fn ($check) => !$check['ok']), 'node_id');
+        $retryOutbounds = $retryRequests = $retryPorts = [];
+        $nodeIds = array_keys($ports);
+        foreach ($outbounds as $i => $outbound) {
+            $nodeId = $nodeIds[$i];
+            if (!in_array($nodeId, $failedIds, true) || ($outbound['type'] ?? '') !== 'vless' || !isset($outbound['reality-opts'])) continue;
+            $outbound['reality-opts']['support-x25519mlkem768'] = false;
+            $retryOutbounds[] = $outbound;
+            $retryPorts[$nodeId] = $ports[$nodeId];
+            $retryRequests = array_merge($retryRequests, array_slice($requests, $i * $targetCount, $targetCount));
+        }
+        if (!$retryPorts) return $result;
+        $retry = $this->run($runtime->configuration($retryOutbounds, $retryPorts), $retryRequests, $retryPorts, $targetCount);
+        $retried = array_column($retry['nodes'], 'ok', 'node_id');
+        foreach ($result['nodes'] as &$check) {
+            if (array_key_exists($check['node_id'], $retried)) $check['ok'] = $retried[$check['node_id']];
+        }
+        unset($check);
+        $result['ok'] = !in_array(false, array_column($result['nodes'], 'ok'), true);
+        return $result;
     }
 
     protected function run(array $config, array $requests, array $ports, int $targetCount): array

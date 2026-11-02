@@ -78,6 +78,8 @@ export function VlessConfigFields({ React: R, form, t, generateKeys, generateSho
   if (get('flow') === 'xtls-rprx-vision' && (network !== 'tcp' || tls === 0)) children.push(h('p', { className: 'text-sm text-destructive', role: 'alert', key: 'flow-error' }, text('visionError')));
   if (tls === 1) children.push(section('TLS', [field('tls_settings.server_name', 'SNI'), toggle('tls_settings.allow_insecure', text('insecure'))]));
   if (tls === 2) children.push(section('REALITY', [
+    toggle('reality_settings.support_x25519mlkem768', text('hybridReality')),
+    h('p', { className: 'text-sm text-muted-foreground', key: 'hybrid-reality-hint' }, text('hybridRealityHint')),
     field('reality_settings.server_name', 'SNI'),
     field('reality_settings.dest', text('target')),
     field('reality_settings.server_port', text('targetPort'), { number: true, defaultValue: 443 }),

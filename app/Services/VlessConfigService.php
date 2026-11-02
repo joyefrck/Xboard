@@ -19,7 +19,8 @@ class VlessConfigService
     public static function clientFingerprint(array $settings): ?string
     {
         return data_get($settings, 'utls.enabled', false)
-            ? (string) data_get($settings, 'utls.fingerprint', 'chrome') : null;
+            ? (string) data_get($settings, 'utls.fingerprint', 'chrome')
+            : (self::needsHybridReality($settings) ? 'chrome' : null);
     }
 
     public static function isEnhanced(array $settings): bool
@@ -143,7 +144,7 @@ class VlessConfigService
             }
 
         }
-        if (self::needsHybridReality($settings) && self::clientFingerprint($settings) !== 'chrome') $add('utls.fingerprint', '新版 REALITY 需要显式启用 chrome 指纹以发送混合 KeyShare');
+        if (self::needsHybridReality($settings) && self::clientFingerprint($settings) !== 'chrome') $add('utls.fingerprint', '新版 REALITY 需要 chrome 指纹以发送混合 KeyShare；关闭指定指纹可使用默认 chrome');
         if ($tls === 2) {
             $reality = $settings['reality_settings'] ?? [];
             $short = $reality['short_id'] ?? '';
