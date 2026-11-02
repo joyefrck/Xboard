@@ -49,6 +49,7 @@ check($lookup->index() === [], 'automation tolerates pre-migration inventory');
 $migration = require dirname(__DIR__) . '/database/migrations/2026_11_02_000001_create_bandwagon_vps_table.php'; $migration->up();
 $db->schema()->create('v2_node_automation_groups', function ($t) { $t->increments('id'); $t->string('domain'); $t->string('current_ip')->nullable(); });
 $db->schema()->create('v2_node_automation_backups', function ($t) { $t->increments('id'); $t->integer('group_id'); $t->string('ip'); $t->integer('priority')->default(0); });
+$db->schema()->create('v2_server', function ($t) { $t->increments('id'); $t->string('host'); });
 $csv = "\xEF\xBB\xBFVEID,VM_TYPE,HOSTNAME,PRIMARY_IP,IS_TERMINATED,IS_2FA_ENABLED,API_KEY\r\n" .
     '123,kvm,"host, one",198.51.100.1,0,0,private_fixture_key_one' . "\r\n" .
     '124,kvm,host-two,,0,1,private_fixture_key_two' . "\r\n" .
@@ -146,14 +147,27 @@ rejected(fn () => $service->resetPassword($vps->id,'123'), 'missing reset passwo
 
 $controller = new BandwagonController($service,$importer);
 $vps->refresh()->update(['info' => VpsData::service($info)]);
-$db->table('v2_node_automation_groups')->insert([['id'=>1,'domain'=>'current.example','current_ip'=>'198.51.100.9'], ['id'=>2,'domain'=>'backup.example','current_ip'=>null]]);
-$db->table('v2_node_automation_backups')->insert([['group_id'=>2,'ip'=>'198.51.100.9','priority'=>1], ['group_id'=>1,'ip'=>'198.51.100.9','priority'=>1]]);
+$db->table('v2_server')->insert([['host'=>'CURRENT.EXAMPLE.'], ['host'=>'backup.example']]);
+$db->table('v2_node_automation_groups')->insert([['id'=>1,'domain'=>'current.example','current_ip'=>'198.51.100.9'], ['id'=>2,'domain'=>'backup.example','current_ip'=>null], ['id'=>3,'domain'=>'removed.example','current_ip'=>'198.51.100.9']]);
+$db->table('v2_node_automation_backups')->insert([['group_id'=>2,'ip'=>'198.51.100.9','priority'=>1], ['group_id'=>1,'ip'=>'198.51.100.9','priority'=>1], ['group_id'=>3,'ip'=>'198.51.100.9','priority'=>1]]);
 $response = $controller->preview(req(['csv'=>$csv]));
 check($response->headers->get('Cache-Control') === 'no-store, private' && !str_contains($response->getContent(),'private_'), 'preview API non-cacheable and secret-free');
 $data = body($controller->fetch(req(['search'=>'keep this','status'=>'all'])));
 check($data['data']['total'] === 1 && $data['data']['data'][0]['veid'] === '123', 'search and pagination use cached inventory');
-check($data['data']['data'][0]['ip_domains']['198.51.100.9'] === ['current.example','backup.example'], 'current and backup domains match and deduplicate');
+check($data['data']['data'][0]['ip_domains']['198.51.100.9'] === ['current.example','backup.example'], 'current and backup domains match, deduplicate, and exclude removed node domains');
+check(body($controller->fetch(req(['search'=>'CURRENT.EXA'])))['data']['total'] === 1, 'partial case-insensitive current domain search matches');
+check(body($controller->fetch(req(['search'=>'backup.example'])))['data']['total'] === 1, 'backup domain search matches');
+check(body($controller->fetch(req(['search'=>'removed.example'])))['data']['total'] === 0, 'removed node domain does not match search');
 check(!str_contains(json_encode($data),'private_'), 'inventory API secret-free');
+$suspendedInfo = $vps->info; $suspendedInfo['suspended'] = true;
+$vps->update(['info'=>$suspendedInfo, 'synced_at'=>now()]);
+check(body($controller->fetch(req(['search'=>'keep this'])))['data']['total'] === 0, 'suspended VPS excluded from inventory');
+check(body($controller->fetch(req(['search'=>'backup.example'])))['data']['total'] === 0, 'domain search excludes suspended VPS');
+check($lookup->find($lookup->index(),'198.51.100.9')['status'] === 'unmatched', 'suspended VPS excluded from automation IP matching');
+$vps->update(['info'=>array_merge($suspendedInfo, ['suspended'=>false])]);
+check(body($controller->fetch(req(['search'=>'keep this'])))['data']['total'] === 1, 'restored VPS reappears after successful sync');
+$vps->update(['info'=>array_merge($suspendedInfo, ['suspended'=>null])]);
+check(body($controller->fetch(req(['search'=>'keep this'])))['data']['total'] === 1, 'unknown suspension remains visible');
 $controller->rename(req(['id'=>$vps->id,'name'=>'renamed']));check($vps->fresh()->name === 'renamed','note edit persists');
 // Successful password response is no-store and remains absent from later fetches.
 $vps->refresh()->update(['reset_requested_at'=>now()->subMinutes(6)]);fakeHttp(['*'=>Http::response(['error'=>0,'password'=>'once-only-password'])]);

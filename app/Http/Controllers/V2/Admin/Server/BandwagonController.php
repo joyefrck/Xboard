@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V2\Admin\Server;
 use App\Http\Controllers\Controller;
 use App\Models\BandwagonVps;
 use App\Models\NodeAutomationGroup;
+use App\Models\Server;
 use App\Services\Bandwagon\{BandwagonException, CsvImporter, InventoryService, VpsData};
 use Illuminate\Http\Request;
 
@@ -22,29 +23,47 @@ class BandwagonController extends Controller
     public function fetch(Request $request)
     {
         $data = $request->validate(['search' => 'nullable|string|max:255',
-            'status' => 'nullable|in:all,running,stopped,suspended,error,pending', 'page' => 'nullable|integer|min:1']);
+            'status' => 'nullable|in:all,running,stopped,error,pending', 'page' => 'nullable|integer|min:1']);
         return $this->respond(function () use ($data) {
-            $query = BandwagonVps::query();
-            if ($search = trim($data['search'] ?? '')) {
-                $query->where(function ($q) use ($search) {
-                    foreach (['veid', 'name', 'hostname', 'imported_ip', 'info'] as $column) $q->orWhere($column, 'like', '%' . $search . '%');
-                });
-            }
-            switch ($data['status'] ?? 'all') {
-                case 'running': $query->where('live->ve_status', 'Running'); break;
-                case 'stopped': $query->where('live->ve_status', 'Stopped'); break;
-                case 'suspended': $query->where('info->suspended', true); break;
-                case 'error': $query->where(fn ($q) => $q->whereNotNull('last_error')->orWhereNotNull('live_error')); break;
-                case 'pending': $query->whereNull('synced_at'); break;
-            }
-            $page = $query->orderBy('id')->paginate(30, ['*'], 'page', $data['page'] ?? 1);
             $domains = [];
+            $nodeDomains = Server::all(['host'])->mapWithKeys(fn ($node) => [strtolower(rtrim($node->host ?? '', '.')) => true])->all();
             foreach (NodeAutomationGroup::with('backups')->get() as $group) {
+                if (!isset($nodeDomains[strtolower(rtrim($group->domain ?? '', '.'))])) continue;
                 foreach (array_merge([$group->current_ip], $group->backups->pluck('ip')->all()) as $ip) {
                     $key = VpsData::ipKey($ip ?? '');
                     if ($key && $group->domain) $domains[$key][$group->domain] = true;
                 }
             }
+            $query = BandwagonVps::query()->where(function ($q) {
+                $q->whereNull('info->suspended')->orWhere('info->suspended', false);
+            });
+            if ($search = trim($data['search'] ?? '')) {
+                $matchedIps = [];
+                foreach ($domains as $ip => $names) {
+                    foreach (array_keys($names) as $name) {
+                        if (mb_stripos($name, $search) !== false) { $matchedIps[$ip] = true; break; }
+                    }
+                }
+                $matchedIds = [];
+                if ($matchedIps) {
+                    foreach (BandwagonVps::all(['id', 'info', 'imported_ip']) as $vps) {
+                        foreach ($vps->info['ip_addresses'] ?? ($vps->imported_ip ? [$vps->imported_ip] : []) as $ip) {
+                            if (isset($matchedIps[VpsData::ipKey($ip) ?? ''])) { $matchedIds[] = $vps->id; break; }
+                        }
+                    }
+                }
+                $query->where(function ($q) use ($search, $matchedIds) {
+                    foreach (['veid', 'name', 'hostname', 'imported_ip', 'info'] as $column) $q->orWhere($column, 'like', '%' . $search . '%');
+                    if ($matchedIds) $q->orWhereIn('id', $matchedIds);
+                });
+            }
+            switch ($data['status'] ?? 'all') {
+                case 'running': $query->where('live->ve_status', 'Running'); break;
+                case 'stopped': $query->where('live->ve_status', 'Stopped'); break;
+                case 'error': $query->where(fn ($q) => $q->whereNotNull('last_error')->orWhereNotNull('live_error')); break;
+                case 'pending': $query->whereNull('synced_at'); break;
+            }
+            $page = $query->orderBy('id')->paginate(30, ['*'], 'page', $data['page'] ?? 1);
             $page->setCollection($page->getCollection()->map(fn ($vps) => array_merge($vps->toArray(), [
                 'usage' => VpsData::usage($vps->info), 'stale' => !$vps->synced_at || $vps->synced_at->lt(now()->subMinutes(15)),
                 'ip_domains' => collect($vps->info['ip_addresses'] ?? ($vps->imported_ip ? [$vps->imported_ip] : []))

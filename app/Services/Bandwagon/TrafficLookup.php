@@ -14,7 +14,7 @@ class TrafficLookup
         if (!Schema::hasTable('v2_bandwagon_vps')) return [];
         $index = [];
         foreach (BandwagonVps::all(['id', 'veid', 'name', 'info', 'synced_at', 'last_error']) as $vps) {
-            if (!$vps->synced_at) continue;
+            if (!$vps->synced_at || ($vps->info['suspended'] ?? null) === true) continue;
             foreach ($vps->info['ip_addresses'] ?? [] as $ip) {
                 $key = VpsData::ipKey($ip);
                 if (!$key) continue;

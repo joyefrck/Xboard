@@ -1,4 +1,4 @@
-import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-cea00d8b0af0b4239f81';
+import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-b762a6b8612c4e0eeafa';
 
 export function vpsState(vps) {
   if (vps.info?.suspended) return { label: '已暂停', tone: 'error' };
@@ -179,9 +179,9 @@ export function createBandwagonPage({ React: R, api, layout }) {
         h('div', { className: 'na-pool-toolbar' }, h('div', null, h('h3', null, '服务器列表'),
           h('p', { className: 'na-muted' }, '共 ' + (result?.total ?? '—') + ' 台 · 每 10 秒更新同步结果')),
         h('div', { className: 'na-actions bw-toolbar' },
-          h('input', { type: 'search', 'aria-label': '搜索服务器', placeholder: '搜索备注、VEID、IP 或机房', value: search, maxLength: 255, onChange: e => setSearch(e.target.value) }),
+          h('input', { type: 'search', 'aria-label': '搜索服务器', placeholder: '搜索域名、备注、VEID、IP 或机房', value: search, maxLength: 255, onChange: e => setSearch(e.target.value) }),
           h('select', { 'aria-label': '筛选服务器状态', value: status, onChange: e => { setStatus(e.target.value); setPage(1); } },
-            [['all', '全部状态'], ['running', '运行中'], ['stopped', '已关机'], ['suspended', '已暂停'], ['error', '同步异常'], ['pending', '待同步']]
+            [['all', '全部状态'], ['running', '运行中'], ['stopped', '已关机'], ['error', '同步异常'], ['pending', '待同步']]
               .map(([value, title]) => h('option', { key: value, value }, title))),
           button('同步全部', () => perform('/refresh', {}, value => '已提交 ' + value.queued + ' 台；' + value.skipped + ' 台处理中、冷却中或未提交成功'), busy || !result))),
         h('div', { className: 'bw-list' },
@@ -192,6 +192,7 @@ export function createBandwagonPage({ React: R, api, layout }) {
             const resetCooling = row.reset_requested_at && Date.now() - new Date(row.reset_requested_at).getTime() < 300000;
             return h('article', { className: 'bw-row', key: row.id, 'aria-label': 'VPS ' + row.veid },
               h('div', { className: 'bw-identity' },
+                row.name ? h('strong', null, row.name) : null,
                 ips.length ? ips.map(ip => h('div', { key: ip }, h('strong', { className: 'bw-ip' }, ip),
                   h('div', { className: 'na-muted bw-caption' }, (row.ip_domains?.[ip] || []).join('、') || '未关联域名'))) : h('span', { className: 'na-muted' }, 'IP 待同步'),
                 !row.synced_at && row.imported_ip ? h('span', { className: 'na-muted bw-caption' }, '导出 IP，待接口验证') : null),
