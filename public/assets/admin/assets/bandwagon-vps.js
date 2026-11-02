@@ -1,4 +1,4 @@
-import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-33ace58ccbb04801f264';
+import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-cea00d8b0af0b4239f81';
 
 export function vpsState(vps) {
   if (vps.info?.suspended) return { label: '已暂停', tone: 'error' };
@@ -20,6 +20,10 @@ export function createBandwagonPage({ React: R, api, layout }) {
   const h = R.createElement, TrafficMeter = createTrafficMeter(R);
   const prefix = window.settings.secure_path + '/server/bandwagon';
   const time = value => value ? new Date(value).toLocaleString('zh-CN') : '—';
+  const resetDate = value => {
+    const seconds = Number(value), date = new Date(seconds * 1000);
+    return value != null && seconds > 0 && Number.isFinite(date.getTime()) ? date.toLocaleDateString('zh-CN') : '未提供';
+  };
   const messageOf = e => e.response?.data?.message || e.message || '请求失败，请稍后再试';
   const button = (label, onClick, disabled = false, kind = '') => h('button', {
     type: 'button', className: 'na-button ' + kind, onClick, disabled }, label);
@@ -181,17 +185,17 @@ export function createBandwagonPage({ React: R, api, layout }) {
               .map(([value, title]) => h('option', { key: value, value }, title))),
           button('同步全部', () => perform('/refresh', {}, value => '已提交 ' + value.queued + ' 台；' + value.skipped + ' 台处理中、冷却中或未提交成功'), busy || !result))),
         h('div', { className: 'bw-list' },
-          h('div', { className: 'bw-list-heading', 'aria-hidden': true }, ['服务器 / IP', '机房 / 套餐', '本周期流量', '运行 / 同步状态', '操作'].map(label => h('span', { key: label }, label))),
+          h('div', { className: 'bw-list-heading', 'aria-hidden': true }, ['IP / 关联域名', '机房 / 套餐', '本周期流量', '运行 / 同步状态', '操作'].map(label => h('span', { key: label }, label))),
           !result ? h('p', { className: 'na-empty', role: 'status' }, '正在加载服务器…') : !result.data.length ? h('p', { className: 'na-empty' }, query || status !== 'all' ? '没有符合筛选条件的服务器' : '暂无服务器，请先粘贴 CSV 并导入') : result.data.map(row => {
             const state = vpsState(row), ips = row.info?.ip_addresses || (row.imported_ip ? [row.imported_ip] : []);
             const queued = syncPending(row);
             const resetCooling = row.reset_requested_at && Date.now() - new Date(row.reset_requested_at).getTime() < 300000;
             return h('article', { className: 'bw-row', key: row.id, 'aria-label': 'VPS ' + row.veid },
-              h('div', { className: 'bw-identity' }, h('strong', null, row.name || row.hostname || 'VPS ' + row.veid),
-                h('span', { className: 'na-muted' }, 'VEID ' + row.veid + (row.vm_type ? ' · ' + row.vm_type.toUpperCase() : '')),
-                ips.length ? ips.map(ip => h('span', { key: ip, className: 'bw-ip' }, ip)) : h('span', { className: 'na-muted' }, 'IP 待同步'),
+              h('div', { className: 'bw-identity' },
+                ips.length ? ips.map(ip => h('div', { key: ip }, h('strong', { className: 'bw-ip' }, ip),
+                  h('div', { className: 'na-muted bw-caption' }, (row.ip_domains?.[ip] || []).join('、') || '未关联域名'))) : h('span', { className: 'na-muted' }, 'IP 待同步'),
                 !row.synced_at && row.imported_ip ? h('span', { className: 'na-muted bw-caption' }, '导出 IP，待接口验证') : null),
-              h('div', { className: 'bw-location' }, h('span', null, row.info?.node_location || '机房待同步'), h('span', { className: 'na-muted' }, row.info?.plan || '套餐待同步')),
+              h('div', { className: 'bw-location' }, h('span', null, row.info?.node_location || '机房待同步'), h('span', { className: 'na-muted' }, row.info?.plan || '套餐待同步'), h('span', { className: 'na-muted bw-caption' }, '流量重置：' + resetDate(row.info?.data_next_reset))),
               h(TrafficMeter, { traffic: trafficOf(row) }),
               h('div', { className: 'bw-sync' }, h('span', { className: 'na-badge na-status na-tone-' + state.tone }, state.label),
                 row.queued_at ? h('span', { className: 'na-muted' }, queued ? '同步排队中' : '同步排队超时，请重试') : null,

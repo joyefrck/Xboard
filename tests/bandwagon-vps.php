@@ -47,6 +47,8 @@ function body($response): array { return $response->getData(true); }
 $lookup = new TrafficLookup;
 check($lookup->index() === [], 'automation tolerates pre-migration inventory');
 $migration = require dirname(__DIR__) . '/database/migrations/2026_11_02_000001_create_bandwagon_vps_table.php'; $migration->up();
+$db->schema()->create('v2_node_automation_groups', function ($t) { $t->increments('id'); $t->string('domain'); $t->string('current_ip')->nullable(); });
+$db->schema()->create('v2_node_automation_backups', function ($t) { $t->increments('id'); $t->integer('group_id'); $t->string('ip'); $t->integer('priority')->default(0); });
 $csv = "\xEF\xBB\xBFVEID,VM_TYPE,HOSTNAME,PRIMARY_IP,IS_TERMINATED,IS_2FA_ENABLED,API_KEY\r\n" .
     '123,kvm,"host, one",198.51.100.1,0,0,private_fixture_key_one' . "\r\n" .
     '124,kvm,host-two,,0,1,private_fixture_key_two' . "\r\n" .
@@ -143,10 +145,14 @@ fakeHttp(['*'=>Http::response(['error'=>0])]);
 rejected(fn () => $service->resetPassword($vps->id,'123'), 'missing reset password is unknown');check(Http::recorded()->count() === 1, 'supplier request count');
 
 $controller = new BandwagonController($service,$importer);
+$vps->refresh()->update(['info' => VpsData::service($info)]);
+$db->table('v2_node_automation_groups')->insert([['id'=>1,'domain'=>'current.example','current_ip'=>'198.51.100.9'], ['id'=>2,'domain'=>'backup.example','current_ip'=>null]]);
+$db->table('v2_node_automation_backups')->insert([['group_id'=>2,'ip'=>'198.51.100.9','priority'=>1], ['group_id'=>1,'ip'=>'198.51.100.9','priority'=>1]]);
 $response = $controller->preview(req(['csv'=>$csv]));
 check($response->headers->get('Cache-Control') === 'no-store, private' && !str_contains($response->getContent(),'private_'), 'preview API non-cacheable and secret-free');
 $data = body($controller->fetch(req(['search'=>'keep this','status'=>'all'])));
 check($data['data']['total'] === 1 && $data['data']['data'][0]['veid'] === '123', 'search and pagination use cached inventory');
+check($data['data']['data'][0]['ip_domains']['198.51.100.9'] === ['current.example','backup.example'], 'current and backup domains match and deduplicate');
 check(!str_contains(json_encode($data),'private_'), 'inventory API secret-free');
 $controller->rename(req(['id'=>$vps->id,'name'=>'renamed']));check($vps->fresh()->name === 'renamed','note edit persists');
 // Successful password response is no-store and remains absent from later fetches.

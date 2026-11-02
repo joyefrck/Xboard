@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V2\Admin\Server;
 
 use App\Http\Controllers\Controller;
 use App\Models\BandwagonVps;
+use App\Models\NodeAutomationGroup;
 use App\Services\Bandwagon\{BandwagonException, CsvImporter, InventoryService, VpsData};
 use Illuminate\Http\Request;
 
@@ -37,8 +38,17 @@ class BandwagonController extends Controller
                 case 'pending': $query->whereNull('synced_at'); break;
             }
             $page = $query->orderBy('id')->paginate(30, ['*'], 'page', $data['page'] ?? 1);
+            $domains = [];
+            foreach (NodeAutomationGroup::with('backups')->get() as $group) {
+                foreach (array_merge([$group->current_ip], $group->backups->pluck('ip')->all()) as $ip) {
+                    $key = VpsData::ipKey($ip ?? '');
+                    if ($key && $group->domain) $domains[$key][$group->domain] = true;
+                }
+            }
             $page->setCollection($page->getCollection()->map(fn ($vps) => array_merge($vps->toArray(), [
                 'usage' => VpsData::usage($vps->info), 'stale' => !$vps->synced_at || $vps->synced_at->lt(now()->subMinutes(15)),
+                'ip_domains' => collect($vps->info['ip_addresses'] ?? ($vps->imported_ip ? [$vps->imported_ip] : []))
+                    ->mapWithKeys(fn ($ip) => [$ip => array_keys($domains[VpsData::ipKey($ip) ?? ''] ?? [])])->all(),
             ])));
             return $page;
         });
