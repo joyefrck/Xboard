@@ -15,7 +15,7 @@ function adminAssetVersionPlan(string $root): array
 
     // index and vendor import each other. Normalize their URLs to avoid hashing
     // the previous version into the next one (and changing it on every run).
-    $moduleReference = '~((?:\./)?(?:index|vendor|node-automation|user-blacklist|vless-config)\.js)\?v=[A-Za-z0-9_-]+~';
+    $moduleReference = '~((?:\./)?(?:index|vendor|node-automation|user-blacklist|vless-config|bandwagon-vps|bandwagon-traffic)\.js)\?v=[A-Za-z0-9_-]+~';
     $fontReference = '~(\./codicon\.ttf)(?:\?v=[A-Za-z0-9_-]+)?~';
     $hash = hash_init('sha256');
     foreach ($files as $path => $content) {
@@ -27,7 +27,8 @@ function adminAssetVersionPlan(string $root): array
     }
     $version = 'admin-' . substr(hash_final($hash), 0, 20);
     $changes = [];
-    foreach (['assets/index.js', 'assets/vendor.js', 'assets/vendor.css'] as $asset) {
+    foreach (array_merge(array_map(fn ($path) => substr($path, strlen('public/assets/admin/')),
+        array_filter(array_keys($files), fn ($path) => str_ends_with($path, '.js') && str_contains($path, '/assets/'))), ['assets/vendor.css']) as $asset) {
         $path = 'public/assets/admin/' . $asset;
         if (!isset($files[$path])) {
             throw new RuntimeException('Missing admin asset: ' . $path);
@@ -35,7 +36,7 @@ function adminAssetVersionPlan(string $root): array
         $content = $files[$path];
         $pattern = str_ends_with($asset, '.css') ? $fontReference : $moduleReference;
         $updated = preg_replace($pattern, '$1?v=' . $version, $content, -1, $count);
-        if ($count === 0) {
+        if ($count === 0 && in_array($asset, ['assets/index.js', 'assets/vendor.js', 'assets/vendor.css'], true)) {
             throw new RuntimeException('Expected versioned dependency in ' . $path);
         }
         if ($updated !== $content) {

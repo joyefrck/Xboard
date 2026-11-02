@@ -161,6 +161,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "permissionGroupManagement": "Permission Group",
     "routeManagement": "Route Management",
     "automationConfiguration": "Automation",
+    "bandwagonVpsManagement": "Bandwagon VPS",
     "subscriptionManagement": "Subscription",
     "planManagement": "Plan Management",
     "orderManagement": "Order Management",

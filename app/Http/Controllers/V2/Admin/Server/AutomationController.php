@@ -9,6 +9,7 @@ use App\Models\{NodeAutomationConnection as Connection, NodeAutomationGroup as G
     NodeAutomationSetting as Setting, Server, ServerGroup, User};
 use App\Services\NodeAutomation\{AutomationService, AutomationException, CloudflareDns, ProxyProbe};
 use App\Services\ServerService;
+use App\Services\Bandwagon\TrafficLookup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB};
 use Illuminate\Support\Str;
@@ -35,12 +36,15 @@ class AutomationController extends Controller
             $pending = Event::whereIn('status', ['queued', 'running', 'prepared', 'verifying', 'dns_unknown'])
                 ->oldest('id')->get(['id', 'group_id', 'action', 'status', 'message'])->keyBy('group_id');
             $checks = Observation::all()->groupBy('group_id');
+            $traffic = app(TrafficLookup::class);
+            $trafficIndex = $traffic->index();
             $rows = [];
             foreach ($domains as $domain => $items) {
                 $group = $groups->get($domain);
                 $rows[] = array_merge($group?->toArray() ?? ['id' => null, 'domain' => $domain, 'enabled' => false,
                     'state' => 'unconfigured', 'failures' => 0, 'backups' => []],
                     ['pending_operation' => $group ? $pending->get($group->id) : null,
+                        'provider_traffic' => $traffic->find($trafficIndex, $group?->current_ip),
                         'latest_check' => $group ? $checks->get($group->id)?->firstWhere('ip', $group->current_ip) : null,
                         'nodes' => $items->map(fn ($n) => ['id' => $n->id, 'display_id' => $n->code ?: $n->id,
                         'name' => $n->name, 'port' => $n->port, 'type' => $n->type, 'group_ids' => $n->group_ids])->values()->all()]);

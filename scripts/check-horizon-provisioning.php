@@ -51,7 +51,7 @@ $required = [
     'redis:default', 'redis:traffic_fetch', 'redis:stat', 'redis:online_sync',
     'redis:order_handle', 'redis:send_telegram', 'redis:send_ticket_telegram',
     'redis:send_email', 'redis:send_email_mass', 'telegram_group:telegram_group',
-    'node_automation:node_automation',
+    'node_automation:node_automation', 'redis:bandwagon',
 ];
 $missing = array_values(array_diff($required, $provisioned));
 $ok = $missing === [] && $invalidLeases === [];

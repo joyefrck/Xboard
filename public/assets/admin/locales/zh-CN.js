@@ -161,6 +161,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     "permissionGroupManagement": "权限组管理",
     "routeManagement": "路由管理",
     "automationConfiguration": "自动化配置",
+    "bandwagonVpsManagement": "搬瓦工VPS管理",
     "subscriptionManagement": "订阅管理",
     "planManagement": "套餐管理",
     "orderManagement": "订单管理",

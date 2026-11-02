@@ -1,9 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const source = fs.readFileSync(path.join(__dirname, '../public/assets/admin/assets/node-automation.js'), 'utf8');
-const moduleReady = import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const moduleReady = require('./admin-module-loader.cjs')('node-automation.js');
 const group = (state, backups = []) => ({ state, current_ip: '198.51.100.1', backups, domain: 'node.example.test', nodes: [] });
 
 test('green healthy status requires at least one enabled standby distinct from the current IP', async () => {

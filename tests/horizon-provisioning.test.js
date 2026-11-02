@@ -57,6 +57,16 @@ test('release gate rejects a configured business worker with zero processes', t 
   assert.ok(report.missing_queues.includes('redis:send_telegram'));
 });
 
+test('release gate requires the Bandwagon inventory queue consumer', t => {
+  const source = `<?php
+  $c = require ${JSON.stringify(horizonPath)};
+  unset($c['environments']['local']['XboardBandwagon']);
+  return $c;`;
+  const { status, report } = check(fixture(t, source));
+  assert.equal(status, 1);
+  assert.ok(report.missing_queues.includes('redis:bandwagon'));
+});
+
 test('release gate rejects worker timeout reaching the Redis retry lease', t => {
   const source = `<?php
   $c = require ${JSON.stringify(horizonPath)};

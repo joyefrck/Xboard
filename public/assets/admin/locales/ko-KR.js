@@ -158,6 +158,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
     "permissionGroupManagement": "권한 그룹",
     "routeManagement": "경로 관리",
     "automationConfiguration": "자동화 설정",
+    "bandwagonVpsManagement": "Bandwagon VPS 관리",
     "subscriptionManagement": "구독",
     "planManagement": "플랜 관리",
     "orderManagement": "주문 관리",

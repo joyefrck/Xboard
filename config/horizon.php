@@ -170,6 +170,17 @@ return [
 
     'environments' => [
         'local' => [
+            'XboardBandwagon' => [
+                'connection' => 'redis',
+                'queue' => ['bandwagon'],
+                'balance' => false,
+                'minProcesses' => 2,
+                'maxProcesses' => 2,
+                'tries' => 2,
+                'timeout' => 55,
+                'maxJobs' => 100,
+                'maxTime' => 1800,
+            ],
             'XboardNodeAutomation' => [
                 'connection' => 'node_automation',
                 'queue' => ['node_automation'],

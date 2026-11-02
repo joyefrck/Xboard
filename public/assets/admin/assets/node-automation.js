@@ -1,3 +1,4 @@
+import { createTrafficMeter } from './bandwagon-traffic.js?v=admin-33ace58ccbb04801f264';
 // Readable source module for the compiled admin shell; no separate React runtime.
 export const stateLabels = {
   unconfigured: '未配置', paused: '已暂停', healthy: '正常', suspect: '疑似故障',
@@ -40,6 +41,7 @@ export function filterGroups(groups, search = '', statuses = []) {
 
 export function createAutomationPage({ React: R, api, layout }) {
   const h = R.createElement;
+  const TrafficMeter = createTrafficMeter(R);
   const prefix = window.settings.secure_path + '/server/automation';
   const time = value => value ? new Date(value).toLocaleString() : '—';
   const label = value => stateLabels[value] || value;
@@ -190,7 +192,8 @@ export function createAutomationPage({ React: R, api, layout }) {
       h('div', { className: 'na-domain' }, h('strong', null, group.domain),
         h('ul', { className: 'na-node-list na-muted' }, group.nodes.map(n => h(NodeAddress, { key: n.id, domain: group.domain, node: n })))),
       h('div', { className: 'na-current-ip' }, h('span', { className: 'na-mobile-label na-muted' }, '当前 IP'),
-        h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS')),
+        h('span', { className: group.current_ip ? 'na-ip' : 'na-muted' }, group.current_ip || '未匹配 DNS'),
+        group.current_ip ? h(TrafficMeter, { traffic: group.provider_traffic, compact: true }) : null),
       h('div', { className: 'na-group-status' }, stateBadge(group),
         h('span', { className: 'na-muted' }, '失败 ' + group.failures + '/3 · 备用 ' + standbyCount(group))),
       h('div', { className: 'na-actions na-row-actions', 'aria-label': group.domain + ' 操作' },

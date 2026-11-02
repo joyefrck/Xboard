@@ -4,6 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const { handleBandwagon, providerTraffic } = require('./bandwagon-preview.cjs');
 const stamp = () => new Date().toISOString();
 const connection = { id: 1, zone_name: 'example.test', zone_id: 'fixture-zone', verified_at: stamp() };
 const permissionGroups = [{ id: 1, name: 'level2' }, { id: 2, name: 'level3' }];
@@ -42,9 +43,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith('/api/')) {
     let body = ''; for await (const chunk of req) body += chunk;
     const data = body ? JSON.parse(body) : Object.fromEntries(url.searchParams);
+    if (url.pathname.includes('/server/bandwagon/')) return handleBandwagon(url.pathname.split('/server/bandwagon')[1], data, json,
+      message => { res.writeHead(422, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ status: 'fail', message })); });
     const group = groups.find(g => g.id === Number(data.group_id || data.id) || g.domain === data.domain);
     const action = url.pathname.split('/server/automation')[1];
-    if (action === '/fetch') return json({ connection, groups, probe_accounts: probeAccounts, permission_groups: permissionGroups });
+    if (action === '/fetch') return json({ connection, groups: groups.map(group => ({ ...group, provider_traffic: providerTraffic(group.current_ip) })), probe_accounts: probeAccounts, permission_groups: permissionGroups });
     if (action === '/users') return json([{ id: 5, email: 'probe@example.test', banned: false, group_id: 1 }, { id: 6, email: 'probe2@example.test', banned: false, group_id: 2 }].filter(u => u.group_id === Number(data.group_id)));
     if (action === '/connection/save') { connection.zone_name = data.zone_name; connection.verified_at = null; return json(connection); }
     if (action === '/connection/verify') { connection.verified_at = stamp(); return json(connection); }
@@ -95,4 +98,5 @@ const server = http.createServer(async (req, res) => {
   html = html.replace('<div id="root"></div>', '<script>localStorage.setItem("XBOARD_ACCESS_TOKEN", JSON.stringify({value:"fixture-only",time:Date.now(),expire:null}));localStorage.setItem("i18nextLng","zh-CN");</script><div id="root"></div>');
   res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' }); res.end(html);
 });
-server.listen(7315, '127.0.0.1', () => console.log('Disposable admin preview: http://127.0.0.1:7315/preview#/server/automation'));
+const port = Number(process.env.ADMIN_PREVIEW_PORT) || 7315;
+server.listen(port, '127.0.0.1', () => console.log(`Disposable admin preview: http://127.0.0.1:${port}/preview#/server/automation`));

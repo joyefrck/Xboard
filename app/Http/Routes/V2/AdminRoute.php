@@ -7,6 +7,7 @@ use App\Http\Controllers\V2\Admin\Server\GroupController;
 use App\Http\Controllers\V2\Admin\Server\RouteController;
 use App\Http\Controllers\V2\Admin\Server\ManageController;
 use App\Http\Controllers\V2\Admin\Server\AutomationController;
+use App\Http\Controllers\V2\Admin\Server\BandwagonController;
 use App\Http\Controllers\V2\Admin\OrderController;
 use App\Http\Controllers\V2\Admin\UserController;
 use App\Http\Controllers\V2\Admin\StatController;
@@ -72,6 +73,15 @@ class AdminRoute
             });
 
             // Server
+            $router->group(['prefix' => 'server/bandwagon'], function ($router) {
+                $router->get('/fetch', [BandwagonController::class, 'fetch']);
+                $router->post('/preview', [BandwagonController::class, 'preview'])->middleware('throttle:20,1');
+                $router->post('/import', [BandwagonController::class, 'import'])->middleware('throttle:10,1');
+                $router->post('/refresh', [BandwagonController::class, 'refresh'])->middleware('throttle:10,1');
+                $router->post('/rename', [BandwagonController::class, 'rename']);
+                $router->post('/drop', [BandwagonController::class, 'drop']);
+                $router->post('/reset-password', [BandwagonController::class, 'resetPassword'])->middleware('throttle:6,1');
+            });
             $router->group(['prefix' => 'server/automation'], function ($router) {
                 $router->get('/fetch', [AutomationController::class, 'fetch']);
                 $router->get('/users', [AutomationController::class, 'users']);
