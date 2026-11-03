@@ -49,6 +49,7 @@ jobs:
           php tests/vless-elephant-subscription.php
           php tests/ios-reality-subscription.php
           php tests/v2rayng-reality-subscription.php
+          php tests/passwall-reality-subscription.php
       - name: Verify real modern REALITY probes with fixed release binaries
         run: |
           sh scripts/install-node-automation-mihomo.sh "$RUNNER_TEMP/reality-mihomo"

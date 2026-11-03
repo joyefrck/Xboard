@@ -49,6 +49,15 @@ class VlessConfigService
     public static function supportsClient(array $settings, string $renderer, ?string $name, ?string $version, ?string $platform = null): bool
     {
         if (!self::isEnhanced($settings) && !self::needsHybridReality($settings)) return true;
+        // Passwall's UA identifies the subscription importer, not its selected
+        // core. Restore standard TCP REALITY imports (including versionless
+        // UAs); a recent Xray core is still required for the hybrid handshake.
+        if (!self::isEnhanced($settings) && $renderer === 'General'
+            && in_array(strtolower($name ?? ''), ['passwall', 'passwall2'], true)
+            && ($settings['network'] ?? 'tcp') === 'tcp'
+            && data_get($settings, 'network_settings.header.type', 'none') === 'none') {
+            return true;
+        }
         if (!$version) return false;
         $name = strtolower($name ?? '');
         if (!self::isEnhanced($settings)) {

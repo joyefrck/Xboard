@@ -178,7 +178,7 @@ class ClientController extends Controller
         $clientName = null;
         $clientVersion = null;
 
-        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash|v2rayng)(?=[\/\s]|$)/', $identity, $native);
+        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash|v2rayng|passwall2?)(?=[\/\s]|$)/', $identity, $native);
         if ($nativeClient) {
             $clientName = str_starts_with($native[1], 'quantumult') ? 'quantumultx' : $native[1];
             $versionPattern = $clientName === 'karing' ? '\d+\.\d+\.\d+(?:\.\d+)?' : '\d+\.\d+\.\d+';
@@ -219,6 +219,13 @@ class ClientController extends Controller
             }
         }
 
+        if (in_array($clientName, ['passwall', 'passwall2'], true)
+            && !preg_match('/^passwall2?(?=[\/\s]|$)/i', $request->header('User-Agent', ''))) {
+            // A format flag or a compatibility token is not a Passwall identity.
+            $clientName = null;
+            $clientVersion = null;
+            $nativeClient = false;
+        }
         if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing', 'v2rayng'], true)) {
             // A compatibility token must not inherit some other product's version.
             $clientVersion = null;
