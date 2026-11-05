@@ -23,7 +23,9 @@
       // The interface remains light through the stylesheet when storage is unavailable.
     }
   </script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261024profile1"></script>
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105wallet1">
+  <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105wallet1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261105wallet1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -80,7 +82,7 @@
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261102downloadScope1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261102clashmi1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261029usage1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261105wallet1"></script>
   <script>
     (function() {
       function insertLoginLogo() {
@@ -96,8 +98,8 @@
         if (document.getElementById('custom-sidebar-brand-row')) return;
 
         // Try multiple selectors
-        let titleEl = document.querySelector('.title-text') ||
-                      document.querySelector('h2');
+        let titleEl = document.querySelector('.n-layout-sider .title-text') ||
+                      document.querySelector('.n-layout-sider h2');
 
         // Fallback: finding the sidebar content container if title specific class missing
         if (!titleEl) {

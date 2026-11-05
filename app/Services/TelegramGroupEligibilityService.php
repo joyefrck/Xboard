@@ -11,7 +11,8 @@ class TelegramGroupEligibilityService
 {
     public static function isPaidOrder(Order $order): bool
     {
-        return in_array((int) $order->status, [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED], true)
+        return (int) $order->type !== Order::TYPE_RECHARGE
+            && in_array((int) $order->status, [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED], true)
             && (int) $order->paid_at > 0
             && (int) $order->total_amount + (int) $order->balance_amount > 0;
     }
@@ -19,6 +20,7 @@ class TelegramGroupEligibilityService
     public function paidOrders(): Builder
     {
         return Order::whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED])
+            ->where('type', '!=', Order::TYPE_RECHARGE)
             ->where('paid_at', '>', 0)
             ->whereRaw('(COALESCE(total_amount, 0) + COALESCE(balance_amount, 0)) > 0');
     }
@@ -33,6 +35,7 @@ class TelegramGroupEligibilityService
 
     public function grantFromOrder(Order $order): void
     {
+        if ((int) $order->type === Order::TYPE_RECHARGE) return;
         if (self::isPaidOrder($order)) {
             $this->grant((int) $order->user_id, 'paid_order', (int) $order->id);
         } elseif ($order->callback_no === 'manual_operation' && (int) $order->status === Order::STATUS_COMPLETED) {

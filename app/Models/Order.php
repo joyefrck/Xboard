@@ -74,7 +74,10 @@ class Order extends Model
     const TYPE_UPGRADE = 3; // 升级
     const TYPE_RESET_TRAFFIC = 4; //流量重置包
     const TYPE_TRAFFIC_PACKAGE = 5; //流量包
+    const TYPE_RECHARGE = 6; // 余额充值
     const PERIOD_TRAFFIC_PACKAGE = 'traffic_package';
+    const PERIOD_RECHARGE = 'recharge';
+    const RECHARGE_AMOUNTS = [10000, 20000, 50000];
 
     public static $typeMap = [
         self::TYPE_NEW_PURCHASE => '新购',
@@ -82,7 +85,13 @@ class Order extends Model
         self::TYPE_UPGRADE => '升级',
         self::TYPE_RESET_TRAFFIC => '流量重置',
         self::TYPE_TRAFFIC_PACKAGE => '流量包',
+        self::TYPE_RECHARGE => '余额充值',
     ];
+
+    public function isRecharge(): bool
+    {
+        return (int) $this->type === self::TYPE_RECHARGE && $this->period === self::PERIOD_RECHARGE;
+    }
 
     /**
      * 获取与订单关联的支付方式

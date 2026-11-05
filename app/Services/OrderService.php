@@ -148,6 +148,31 @@ class OrderService
         });
     }
 
+    public static function createRechargeFromRequest(User $user, int $amount): Order
+    {
+        if (!in_array($amount, Order::RECHARGE_AMOUNTS, true)) {
+            throw new ApiException('充值金额仅支持 100、200、500 元');
+        }
+
+        return DB::transaction(function () use ($user, $amount) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if (app(UserService::class)->isNotCompleteOrderByUserId($user->id)) {
+                throw new ApiException(__('You have an unpaid or pending order, please try again later or cancel it'));
+            }
+
+            return Order::create([
+                'user_id' => $user->id,
+                'plan_id' => null,
+                'period' => Order::PERIOD_RECHARGE,
+                'type' => Order::TYPE_RECHARGE,
+                'trade_no' => Helper::generateOrderNo(),
+                'total_amount' => $amount,
+                'balance_amount' => 0,
+                'commission_balance' => 0,
+            ]);
+        });
+    }
+
     public function open(): void
     {
         $openedOrder = DB::transaction(function () {
@@ -157,6 +182,23 @@ class OrderService
                 ->first();
             if (!$order) {
                 return null;
+            }
+
+            if ($order->isRecharge()) {
+                if (!in_array((int) $order->total_amount, Order::RECHARGE_AMOUNTS, true)
+                    || $order->plan_id || $order->traffic_package_id || $order->balance_amount) {
+                    throw new ApiException('充值订单金额或关联信息无效');
+                }
+                $user = User::whereKey($order->user_id)->lockForUpdate()->firstOrFail();
+                $user->balance = (int) $user->balance + (int) $order->total_amount;
+                if (!$user->save()) {
+                    throw new \RuntimeException('充值余额保存失败');
+                }
+                $order->status = Order::STATUS_COMPLETED;
+                if (!$order->save()) {
+                    throw new \RuntimeException('充值订单保存失败');
+                }
+                return $order;
             }
 
             $plan = $order->plan_id ? Plan::find($order->plan_id) : null;
@@ -212,6 +254,11 @@ class OrderService
         }
 
         $order = $this->order = $openedOrder;
+
+        // Recharge has no subscription, commission or entitlement side effects.
+        if ($order->isRecharge()) {
+            return;
+        }
 
         $eventId = match ((int) $order->type) {
             Order::TYPE_NEW_PURCHASE => admin_setting('new_order_event_id', 0),
@@ -311,6 +358,7 @@ class OrderService
     private function haveValidOrder(User $user): Order|null
     {
         return Order::where('user_id', $user->id)
+            ->where('type', '!=', Order::TYPE_RECHARGE)
             ->whereNotIn('status', [Order::STATUS_PENDING, Order::STATUS_CANCELLED])
             ->first();
     }

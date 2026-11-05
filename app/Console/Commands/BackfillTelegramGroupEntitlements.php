@@ -37,6 +37,7 @@ class BackfillTelegramGroupEntitlements extends Command
         } else {
             $count = 0;
             Order::whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED])
+                ->where('type', '!=', Order::TYPE_RECHARGE)
                 ->where(function ($query) {
                     $query->where(function ($paid) {
                         $paid->where('paid_at', '>', 0)->whereRaw('(COALESCE(total_amount, 0) + COALESCE(balance_amount, 0)) > 0');
@@ -54,7 +55,7 @@ class BackfillTelegramGroupEntitlements extends Command
             // Only current evidence can identify candidates; removed historical grants need manual IDs.
             User::whereNotIn('id', TelegramGroupEntitlement::select('user_id'))
                 ->whereNotIn('id', $service->paidOrders()->select('user_id'))
-                ->whereNotIn('id', Order::select('user_id')->whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED])->where('callback_no', 'manual_operation'))
+                ->whereNotIn('id', Order::select('user_id')->where('type', '!=', Order::TYPE_RECHARGE)->whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED])->where('callback_no', 'manual_operation'))
                 ->where(function ($query) {
                     $query->whereNotNull('plan_id')->orWhereIn('id', UserTrafficPackage::select('user_id')->whereNull('order_id'));
                 })->orderBy('id')->chunkById(500, function ($users) {

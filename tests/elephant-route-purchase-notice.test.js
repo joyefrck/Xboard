@@ -77,6 +77,15 @@ test('direct order entry, another plan, and another order each show a notice', (
   assert.equal(h.dialogs.length, 4);
 });
 
+test('recharge consent happens before payment and never covers the resulting QR dialog', () => {
+  const h = harness('#/wallet/recharge');
+  assert.equal(h.dialogs.length, 1);
+  h.dialogs[0].buttons.get('[data-er-notice-continue]')();
+  h.navigate('#/order/recharge-order');
+  assert.equal(h.dialogs.length, 1);
+  assert.equal(h.attributes.size, 0);
+});
+
 test('back and Escape return to the store without continuing the purchase', () => {
   const h = harness('#/plan/4');
   h.dialogs[0].buttons.get('[data-er-notice-back]')();

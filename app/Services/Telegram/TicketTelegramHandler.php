@@ -303,6 +303,7 @@ class TicketTelegramHandler
             /** @var Plan|null $plan */
             $plan = $order->plan;
             $product = match (true) {
+                $order->isRecharge() => '余额充值',
                 $trafficPackage !== null => $trafficPackage->name,
                 $plan !== null => $plan->name,
                 default => '未知商品',

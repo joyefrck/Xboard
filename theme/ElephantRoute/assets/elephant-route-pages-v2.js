@@ -25,6 +25,7 @@
     '/knowledge': 'knowledge',
     '/order': 'order',
     '/profile': 'profile',
+    '/wallet/recharge': 'recharge',
     '/ticket': 'ticket',
     '/node': 'node',
     '/traffic': 'traffic'
@@ -37,6 +38,7 @@
     '/knowledge': true,
     '/order': true,
     '/profile': true,
+    '/wallet/recharge': true,
     '/ticket': true,
     '/node': true,
     '/traffic': true
@@ -159,12 +161,12 @@
       previousRoute = route;
       close();
 
-      if (page !== 'checkout' && page !== 'order-detail') {
+      if (page !== 'checkout' && page !== 'recharge' && page !== 'order-detail') {
         acknowledged = false;
         return;
       }
       // Creating an order after acknowledging its checkout is one purchase flow.
-      if (acknowledged && previousPage === 'checkout' && page === 'order-detail') return;
+      if (acknowledged && (previousPage === 'checkout' || previousPage === 'recharge') && page === 'order-detail') return;
       acknowledged = false;
 
       dialog = doc.createElement('dialog');

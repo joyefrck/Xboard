@@ -50,7 +50,7 @@ class OrderController extends Controller
             return $this->fail([400, __('Order does not exist or has been paid')]);
         }
         $order['try_out_plan_id'] = (int) admin_setting('try_out_plan_id');
-        if (!$order->plan && !$order->trafficPackage) {
+        if (!$order->isRecharge() && !$order->plan && !$order->trafficPackage) {
             return $this->fail([400, __('Subscription plan does not exist')]);
         }
         if ($order->surplus_order_ids) {
@@ -91,6 +91,15 @@ class OrderController extends Controller
             $request->input('coupon_code')
         );
 
+        return $this->success($order->trade_no);
+    }
+
+    public function recharge(Request $request)
+    {
+        $data = $request->validate([
+            'amount' => 'required|integer|in:10000,20000,50000',
+        ]);
+        $order = OrderService::createRechargeFromRequest($request->user(), (int) $data['amount']);
         return $this->success($order->trade_no);
     }
 
