@@ -23,7 +23,7 @@
       // The interface remains light through the stylesheet when storage is unavailable.
     }
   </script>
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletCompact2">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
   <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261105wallet1"></script>
 

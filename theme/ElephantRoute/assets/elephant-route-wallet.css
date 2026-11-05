@@ -2,6 +2,16 @@
 .er-wallet-shortcut strong { color:#172137; font-weight:700; font-variant-numeric:tabular-nums; }
 .er-wallet-shortcut .n-button, .er-wallet-page .n-button { min-height:36px; padding:0 16px; font-size:14px; border-radius:12px; }
 .er-wallet-shortcut .n-button--primary-type, .er-wallet-page .n-button--primary-type { background:linear-gradient(110deg,#00a9bd,#7955f6); border:0; color:#fff; }
+/* Use one border on each option; Naive UI's inset layers otherwise draw a second rounded outline. */
+.er-wallet-amount>:is(.n-button__border,.n-button__state-border),
+.er-wallet-method>:is(.n-button__border,.n-button__state-border),
+.er-wallet-shortcut .n-button>:is(.n-button__border,.n-button__state-border),
+.er-profile-wallet-actions .n-button--primary-type>:is(.n-button__border,.n-button__state-border),
+.er-wallet-pay>:is(.n-button__border,.n-button__state-border) { display:none !important; }
+.er-wallet-shortcut .n-button--primary-type,
+.er-profile-wallet-actions .n-button--primary-type,
+.er-wallet-page .n-button--primary-type { --n-border:0 !important; --n-border-hover:0 !important; --n-border-pressed:0 !important; --n-border-focus:0 !important; border:0 !important; }
+.er-wallet-shortcut .n-button:focus-visible { outline:3px solid rgba(76,102,231,.22); outline-offset:3px; }
 .er-wallet-page { width:min(840px,100%); margin:0 auto; padding:0 0 max(40px,calc(env(safe-area-inset-bottom,0px) + 24px)); box-sizing:border-box; color:#172137; font-size:14px; }
 .er-wallet-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
 .er-wallet-heading h1 { margin:0 0 4px; font-size:22px; font-weight:750; }
@@ -14,12 +24,12 @@
 .er-wallet-step h2 { display:flex; align-items:center; gap:8px; font-size:15px; margin:0 0 12px; font-weight:700; }
 .er-wallet-step-number { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:8px; background:#e7eaff; color:#5364e7; font-size:14px; }
 .er-wallet-amounts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-.er-wallet-page .er-wallet-amount { height:48px; background:rgba(255,255,255,.65); font-size:16px; font-weight:700; border:1px solid #dfe4ef; }
-.er-wallet-page .is-selected { border:2px solid #6570ed; background:#f0f2ff; color:#4354d6; }
+.er-wallet-page .er-wallet-amount { height:48px; background:rgba(255,255,255,.65); font-size:16px; font-weight:700; border:2px solid rgba(72,90,132,.13); }
 .er-wallet-methods { display:grid; gap:10px; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .er-wallet-page .er-wallet-method,
-body[data-er-page="recharge"] section.cus-scroll-y .er-wallet-method { height:auto !important; min-height:54px !important; padding:8px 12px !important; border:2px solid transparent; text-align:left; }
-body[data-er-page="recharge"] section.cus-scroll-y .er-wallet-method.is-selected { border-color:#6570ed; }
+body[data-er-page="recharge"] section.cus-scroll-y .er-wallet-method { height:auto !important; min-height:54px !important; padding:8px 12px !important; border:2px solid rgba(72,90,132,.13); text-align:left; }
+body[data-er-page="recharge"] section.cus-scroll-y :is(.er-wallet-amount,.er-wallet-method):hover { border-color:rgba(101,112,237,.55); }
+body[data-er-page="recharge"] section.cus-scroll-y :is(.er-wallet-amount,.er-wallet-method).is-selected { border-color:#6570ed; background:#f0f2ff !important; color:#4354d6 !important; }
 .er-wallet-method>.n-button__content { width:100%; white-space:normal; }
 .er-wallet-method-content { display:flex; align-items:center; gap:10px; width:100%; min-width:0; }
 .er-wallet-method-name { flex:1; min-width:0; white-space:normal; overflow-wrap:anywhere; line-height:1.45; }
