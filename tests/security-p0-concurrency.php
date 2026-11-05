@@ -130,6 +130,7 @@ $schema = static function (Capsule $capsule): void {
         $t->increments('id'); $t->integer('user_id'); $t->integer('plan_id')->nullable(); $t->integer('payment_id')->nullable();
         $t->string('period'); $t->string('trade_no')->unique(); $t->integer('total_amount')->default(0); $t->integer('balance_amount')->default(0);
         $t->integer('refund_amount')->default(0); $t->integer('surplus_amount')->default(0); $t->integer('discount_amount')->default(0);
+        $t->integer('commission_balance')->default(0);
         $t->integer('status')->default(0); $t->integer('type')->default(1); $t->boolean('no_proration')->default(false);
         $t->text('surplus_order_ids')->nullable(); $t->integer('paid_at')->nullable(); $t->string('callback_no')->nullable();
         $t->integer('created_at')->nullable(); $t->integer('updated_at')->nullable();
@@ -189,6 +190,14 @@ if (($argv[1] ?? '') === 'worker') {
             Cache::swap(new Repository(new FileStore(new Filesystem(), $cachePath)));
             $service = new \App\Services\Auth\MailLinkService();
             $writeResult(['user_id' => $service->handleTokenLogin((string) ($argv[4] ?? ''))]);
+        }
+        if ($operation === 'recharge-create') {
+            $order = OrderService::createRechargeFromRequest(User::findOrFail((int) $argv[3]), (int) $argv[4]);
+            $writeResult(['ok' => true, 'id' => $order->id]);
+        }
+        if ($operation === 'recharge-open') {
+            (new OrderService(Order::findOrFail((int) $argv[3])))->open();
+            $writeResult(['ok' => true]);
         }
     } catch (Throwable $error) {
         $writeResult(['ok' => false, 'error' => $error->getMessage()]);
@@ -300,4 +309,29 @@ if (($crossStatus === Order::STATUS_COMPLETED && $crossHookCount !== 1) || ($cro
     throw new RuntimeException('cancel-paid winner hook mismatch');
 }
 
+// Real InnoDB contention: duplicate recharge creation, callbacks and completion jobs.
+$rechargeUser = User::create(['email' => 'wallet@test', 'balance' => 190]);
+$createOne = $start(['worker', 'recharge-create', (string) $rechargeUser->id, '10000'], $environment);
+$createTwo = $start(['worker', 'recharge-create', (string) $rechargeUser->id, '20000'], $environment);
+$created = [$collect($createOne), $collect($createTwo)];
+if (count(array_filter($created, fn ($r) => $r['ok'] ?? false)) !== 1
+    || Order::where('user_id', $rechargeUser->id)->count() !== 1) throw new RuntimeException('concurrent recharge create guard failed');
+$recharge = Order::where('user_id', $rechargeUser->id)->firstOrFail();
+$walletHook = tempnam(sys_get_temp_dir(), 'wallet-paid-');
+$callbackOne = $start(['worker', 'paid', $recharge->trade_no, 'wallet-one', $walletHook], $environment);
+$callbackTwo = $start(['worker', 'paid', $recharge->trade_no, 'wallet-two', $walletHook], $environment);
+$callbacks = [$collect($callbackOne), $collect($callbackTwo)];
+$walletHooks = count(file($walletHook, FILE_IGNORE_NEW_LINES)); unlink($walletHook);
+if (count(array_filter($callbacks, fn ($r) => $r['ok'] ?? false)) !== 2 || $walletHooks !== 1
+    || (int) $rechargeUser->fresh()->balance !== 190 + (int) $recharge->total_amount
+    || (int) $recharge->fresh()->status !== Order::STATUS_COMPLETED) throw new RuntimeException('concurrent recharge callbacks double credited');
+$jobUser = User::create(['email' => 'wallet-jobs@test', 'balance' => 0]);
+$jobOrder = OrderService::createRechargeFromRequest($jobUser, 50000);
+$jobOrder->status = Order::STATUS_PROCESSING; $jobOrder->save();
+$jobOne = $start(['worker', 'recharge-open', (string) $jobOrder->id], $environment);
+$jobTwo = $start(['worker', 'recharge-open', (string) $jobOrder->id], $environment);
+$jobs = [$collect($jobOne), $collect($jobTwo)];
+if (count(array_filter($jobs, fn ($r) => $r['ok'] ?? false)) !== 2 || (int) $jobUser->fresh()->balance !== 50000
+    || (int) $jobOrder->fresh()->status !== Order::STATUS_COMPLETED) throw new RuntimeException('concurrent recharge jobs double credited');
+echo "wallet recharge real-service MariaDB concurrency checks passed\n";
 echo "security-p0 real-service MariaDB concurrency checks passed\n";

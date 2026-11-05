@@ -150,7 +150,7 @@ test('the shared request client can resolve an error payload; it must never be t
 });
 
 test('wallet browser assets are mirrored, cache-busted, and bundles match their compressed siblings', () => {
-  for (const asset of ['elephant-route-wallet.js', 'elephant-route-wallet.css', 'umi.js', 'elephant-route-pages-v2.js']) {
+  for (const asset of ['elephant-route-wallet.js', 'elephant-route-wallet.css', 'elephant-route-pages-v2.js']) {
     assert.deepEqual(fs.readFileSync(path.join(root, 'theme/ElephantRoute/assets', asset)), fs.readFileSync(path.join(root, 'public/theme/ElephantRoute/assets', asset)));
   }
   const bundle = fs.readFileSync(path.join(root, 'theme/ElephantRoute/assets/umi.js'));

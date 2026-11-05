@@ -40,6 +40,8 @@ jobs:
           node --test tests/bandwagon-vps.test.js
           node --test tests/admin-ticket-id-search.test.js tests/admin-ticket-user-search.test.js tests/admin-ticket-sorting.test.js
           php tests/telegram-group-access.php
+          php tests/wallet-recharge.php
+          node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js
           php scripts/version-admin-assets.php --check
       - name: Verify VLESS changes when present
         if: hashFiles('tests/vless-config.php') != ''
