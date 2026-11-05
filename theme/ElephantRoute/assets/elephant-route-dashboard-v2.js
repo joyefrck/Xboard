@@ -747,7 +747,7 @@
       existing.id = TOPBAR_TITLE_ID;
       existing.className = 'er-v2-topbar-title';
       existing.setAttribute('aria-label', '仪表盘问候');
-      existing.innerHTML = '<strong><span data-er-v2-topbar-field="greeting">欢迎回来</span>，<span data-er-v2-topbar-field="email">用户</span></strong>';
+      existing.innerHTML = '<strong><span data-er-v2-topbar-field="greeting">欢迎回来</span></strong>';
       host.appendChild(existing);
     }
     breadcrumb.dataset.erV2TopbarHidden = 'true';
@@ -756,7 +756,6 @@
     state.topbarTitle = existing;
     state.topbarBreadcrumb = breadcrumb;
     renderGreeting();
-    renderUser();
     return true;
   }
 
@@ -1010,7 +1009,6 @@
         }
       });
       state.data.telegramAccount = null;
-      renderUser();
       renderSubscription();
       renderTelegram();
       renderDownloads();
@@ -1031,14 +1029,6 @@
         return orders.concat(getOrderItems(getResponseData(response)));
       }, []);
     });
-  }
-
-  function renderUser() {
-    var user = state.data.user || {};
-    if (state.topbarTitle) {
-      var node = state.topbarTitle.querySelector('[data-er-v2-topbar-field="email"]');
-      if (node) node.textContent = user.email || '用户';
-    }
   }
 
   function renderTrafficPackageCta() {
