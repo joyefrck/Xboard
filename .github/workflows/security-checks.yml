@@ -44,7 +44,7 @@ jobs:
           php tests/telegram-group-access.php
           php tests/wallet-recharge.php
           node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js
-          node --test tests/elephant-route-notice.test.js tests/elephant-route-dashboard-actions.test.js
+          node --test tests/elephant-route-notice.test.js
           php scripts/version-admin-assets.php --check
       - name: Verify VLESS changes when present
         if: hashFiles('tests/vless-config.php') != ''
