@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "chokidar": "^4.0.3"
+  },
+  "devDependencies": {
+    "jsdom": "27.4.0"
   }
 }

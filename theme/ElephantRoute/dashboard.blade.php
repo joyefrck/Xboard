@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/theme/{{$theme}}/assets/apple-touch-icon.png?v={{$version}}-er20260826brandLogo1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20261106auth1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106scholar1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106notice1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261029usage1">
   <script>
     try {
@@ -80,8 +80,10 @@
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261106auth1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261106support1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106scholar1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261106notice1"></script>
+  <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
+  <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106notice1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261105wallet1"></script>
   <script>
     (function() {

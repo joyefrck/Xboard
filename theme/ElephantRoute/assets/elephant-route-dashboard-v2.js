@@ -393,6 +393,20 @@
     return (container.textContent || '').replace(/[\t ]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
 
+  function renderNoticeContent(content, value) {
+    var source = String(value || '暂无详情');
+    if (!global.marked || !global.DOMPurify || !global.DOMPurify.isSupported) {
+      content.textContent = source;
+      return;
+    }
+    content.innerHTML = global.DOMPurify.sanitize(global.marked.parse(source, { gfm: true, breaks: true }), {
+      ALLOWED_TAGS: ['p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'hr', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'start', 'colspan', 'rowspan'],
+      ALLOW_DATA_ATTR: false,
+      ALLOW_ARIA_ATTR: false
+    });
+  }
+
   function copyTextWithExecCommand(text) {
     var textarea = document.createElement('textarea');
     textarea.value = text;
@@ -1438,7 +1452,7 @@
   function openNotice(notice) {
     openModal(notice.title || '公告详情', formatNoticeDate(notice.created_at), function (body, footer) {
       var content = createElement('div', 'er-v2-notice-content');
-      content.textContent = stripMarkup(notice.content || '暂无详情');
+      renderNoticeContent(content, notice.content);
       body.appendChild(content);
       addModalCloseButton(footer);
     });

@@ -574,17 +574,20 @@
   }
 
   function findSubscribeMenuItem(text) {
-    var targetText = findTextElement(text);
-    if (!targetText) return null;
-
-    return targetText.closest('button, a, [role="button"], .cursor-pointer, .n-list-item') || closestShortcut(targetText);
+    return findSubscribeListItem(text);
   }
 
   function findSubscribeListItem(text) {
-    var targetText = findTextElement(text);
-    if (!targetText) return null;
-
-    return targetText.closest('.n-list-item, li, [role="listitem"]') || findSubscribeMenuItem(text);
+    var items = document.querySelectorAll('.n-list-item, .n-dropdown-option, [role="menuitem"]');
+    for (var index = 0; index < items.length; index += 1) {
+      var item = items[index];
+      if (item.closest('.er-v2-notice-content, .markdown-body, #er-dashboard-download, .er-v2-downloads')) continue;
+      var label = getNodeText(item);
+      if (label.indexOf(text) === -1) continue;
+      if (text === 'Clash' && !/(?:^|\s)Clash(?:\s|$)/.test(label)) continue;
+      return item;
+    }
+    return null;
   }
 
   function hideUnsupportedSurgeOption() {

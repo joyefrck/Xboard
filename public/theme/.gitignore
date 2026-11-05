@@ -9,6 +9,9 @@ ElephantRoute/assets/*
 !ElephantRoute/assets/elephant-route-dashboard.js
 !ElephantRoute/assets/elephant-route-dashboard-v2.css
 !ElephantRoute/assets/elephant-route-dashboard-v2.js
+!ElephantRoute/assets/notice-marked.umd.js
+!ElephantRoute/assets/notice-purify.min.js
+!ElephantRoute/assets/notice-vendor-LICENSE.txt
 !ElephantRoute/assets/elephant-route-pages-v2.css
 !ElephantRoute/assets/elephant-route-pages-v2.js
 !ElephantRoute/assets/elephant-route-auth.js
