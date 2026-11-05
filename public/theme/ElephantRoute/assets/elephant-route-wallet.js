@@ -113,8 +113,9 @@
                 !loading.value && !methods.value.length && !error.value ? h('p', { class: 'er-wallet-hint' }, '暂无可用支付通道') : null,
                 h('div', { class: 'er-wallet-methods', role: 'group', 'aria-label': '支付通道' }, methods.value.map(function (method) {
                   return button(h('span', { class: 'er-wallet-method-content' }, [
+                    h('span', { class: 'er-wallet-method-name' }, method.name),
                     method.icon ? h('img', { src: method.icon, alt: '', onError: function (event) { event.target.hidden = true; } }) : null,
-                    h('span', null, method.name), h('span', { class: 'er-wallet-method-check', 'aria-hidden': 'true' }, selected.value === method ? '✓' : '')
+                    h('span', { class: 'er-wallet-method-check', 'aria-hidden': 'true' }, selected.value === method ? '✓' : '')
                   ]), {
                     class: 'er-wallet-method' + (selected.value === method ? ' is-selected' : ''),
                     'aria-pressed': selected.value === method, disabled: busy.value,
@@ -127,8 +128,10 @@
                 trade.value ? button('查看订单', { onClick: function () { router.push('/order/' + trade.value); } }) : null
               ]) : null,
               h('footer', { class: 'er-wallet-summary' }, [
-                row('充值金额', '¥ ' + money(amount.value)), row('支付手续费', '¥ ' + money(handling)),
-                row('实付金额', '¥ ' + money(amount.value + handling), 'er-wallet-total'),
+                h('div', { class: 'er-wallet-summary-grid' }, [
+                  row('充值金额', '¥ ' + money(amount.value)), row('支付手续费', '¥ ' + money(handling)),
+                  row('实付金额', '¥ ' + money(amount.value + handling), 'er-wallet-total')
+                ]),
                 h('p', { class: 'er-wallet-hint' }, '到账 ¥ ' + money(amount.value) + '，手续费按所选支付通道配置收取'),
                 button(trade.value ? '继续支付' : '支付', { class: 'er-wallet-pay', type: 'primary', loading: busy.value,
                   disabled: busy.value || loading.value || !selected.value, onClick: submit })

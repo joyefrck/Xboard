@@ -8,8 +8,12 @@ const user = { id: 10, email: 'preview@example.test', balance: 190, commission_b
   remind_expire: true, remind_traffic: true, telegram_id: 123456789, u: 0, d: 0,
   transfer_enable: 0, created_at: 1700000000, expired_at: 0, plan_id: null, uuid: 'fixture-uuid' };
 const requests = [];
-const methods = [{ id: 9, name: '支付宝', payment: 'fixture', icon: '', handling_fee_fixed: 123, handling_fee_percent: 1.234 },
-  { id: 2, name: '微信支付', payment: 'fixture', icon: '', handling_fee_fixed: 0, handling_fee_percent: 0 }];
+const methods = [
+  { id: 9, name: '支付宝1（手续费4%）', payment: 'fixture', icon: '/assets/payment-icons/alipay.png', handling_fee_fixed: 0, handling_fee_percent: 4 },
+  { id: 2, name: '微信1（手续费5%）', payment: 'fixture', icon: '/assets/payment-icons/wechat.png', handling_fee_fixed: 0, handling_fee_percent: 5 },
+  { id: 12, name: '微信（备用·手续费5%）', payment: 'fixture', icon: '/assets/payment-icons/wechat.png', handling_fee_fixed: 0, handling_fee_percent: 5 },
+  { id: 6, name: 'USDT支付', payment: 'fixture', icon: '/assets/payment-icons/usdt.png', handling_fee_fixed: 0, handling_fee_percent: 0 }
+];
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
@@ -58,6 +62,10 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/fixture-widget.js') {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
     return res.end("if (!document.getElementById('dify-chatbot-bubble-button')) { const b = document.createElement('button'); b.id = 'dify-chatbot-bubble-button'; b.hidden = true; document.body.appendChild(b); }");
+  }
+  if (/^\/assets\/payment-icons\/(alipay|wechat|usdt)\.png$/.test(url.pathname)) {
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
+    return fs.createReadStream(path.join(root, 'public', url.pathname)).pipe(res);
   }
   if (url.pathname.startsWith('/theme/ElephantRoute/')) {
     const file = path.resolve(root, 'public' + decodeURIComponent(url.pathname));

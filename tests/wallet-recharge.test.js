@@ -61,6 +61,27 @@ test('page keeps server channel order, supports every amount and updates totals'
   assert.ok(ui.nodes().some(node => ui.text(node) === '实付金额¥ 500.00'));
 });
 
+test('four configured channels retain icons, names, order and their own fees', async () => {
+  const channels = [
+    { id: 9, name: '支付宝1（手续费4%）', icon: '/assets/payment-icons/alipay.png', handling_fee_percent: 4 },
+    { id: 2, name: '微信1（手续费5%）', icon: '/assets/payment-icons/wechat.png', handling_fee_percent: 5 },
+    { id: 12, name: '微信（备用·手续费5%）', icon: '/assets/payment-icons/wechat.png', handling_fee_percent: 5 },
+    { id: 6, name: 'USDT支付', icon: '/assets/payment-icons/usdt.png', handling_fee_percent: 0 }
+  ];
+  const ui = harness({ channels }); await ui.mount();
+  assert.deepEqual(ui.nodes().filter(node => node.props?.class === 'er-wallet-method-name').map(ui.text), channels.map(method => method.name));
+  const icons = ui.nodes().filter(node => node.type === 'img');
+  assert.deepEqual(icons.map(node => node.props.src), channels.map(method => method.icon));
+  for (const [index, channel] of channels.entries()) {
+    ui.button(channel.name + (index === 0 ? '✓' : '')).props.onClick();
+    assert.ok(ui.nodes().some(node => ui.text(node) === '实付金额¥ ' + wallet.money(10000 + wallet.fee(10000, channel))));
+  }
+  const brokenIcon = { hidden: false };
+  icons[0].props.onError({ target: brokenIcon });
+  assert.equal(brokenIcon.hidden, true, 'broken image does not show a browser error icon');
+  assert.ok(ui.button('USDT支付✓'), 'image failure does not affect payment selection');
+});
+
 test('busy submit creates one order, uses selected channel and hands QR to existing order detail once', async () => {
   let resolveCreate;
   const ui = harness({ post: async endpoint => endpoint.endsWith('/recharge') ? new Promise(resolve => { resolveCreate = resolve; }) : { type: 0, data: 'fixture-qr' } });
@@ -136,6 +157,6 @@ test('wallet browser assets are mirrored, cache-busted, and bundles match their 
   assert.deepEqual(zlib.gunzipSync(fs.readFileSync(path.join(root, 'theme/ElephantRoute/assets/umi.js.gz'))), bundle);
   assert.deepEqual(zlib.brotliDecompressSync(fs.readFileSync(path.join(root, 'theme/ElephantRoute/assets/umi.js.br'))), bundle);
   const view = fs.readFileSync(path.join(root, 'theme/ElephantRoute/dashboard.blade.php'), 'utf8');
-  assert.match(view, /elephant-route-wallet\.js\?v=\{\{\$version\}\}-er20261105wallet1/);
+  assert.match(view, /elephant-route-wallet\.js\?v=\{\{\$version\}\}-er20261105walletCompact2/);
   assert.ok(view.indexOf('elephant-route-wallet.js') < view.indexOf('type="module"'));
 });
