@@ -10,9 +10,9 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/theme/{{$theme}}/assets/favicon-16x16.png?v={{$version}}-er20260826brandLogo1">
   <link rel="icon" href="/theme/{{$theme}}/assets/favicon.ico?v={{$version}}-er20260826brandLogo1" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/theme/{{$theme}}/assets/apple-touch-icon.png?v={{$version}}-er20260826brandLogo1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20260622inputColor1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20261106auth1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261029usage1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106scholar1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261029usage1">
   <script>
     try {
@@ -25,7 +25,7 @@
   </script>
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261105wallet1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261106auth1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -79,9 +79,9 @@
   </script>
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
-  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20260826brandLogo1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261102downloadScope1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261105greeting1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261106auth1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261106support1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106scholar1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261105wallet1"></script>
   <script>
     (function() {

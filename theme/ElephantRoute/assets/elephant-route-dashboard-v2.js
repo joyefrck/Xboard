@@ -65,8 +65,7 @@
     downloads: '/api/v1/app-downloads',
     telegramBot: '/api/v1/user/telegram/getBotInfo',
     telegramBinding: '/api/v1/user/telegram/binding',
-    telegramGroup: '/api/v1/user/telegram/join-group',
-    dify: '/api/v1/user/support/dify-context'
+    telegramGroup: '/api/v1/user/telegram/join-group'
   };
   var NAV_ITEMS = [
     { route: '#/dashboard', label: '仪表盘', iconName: 'dashboard' },
@@ -518,6 +517,21 @@
     if (label) button.textContent = label;
   }
 
+  function buildAppealScene(appeal, isMobile) {
+    var scene = createElement('div', 'er-v2-appeal-scene' + (isMobile ? ' er-v2-mobile-appeal-scene' : ''));
+    scene.appendChild(appeal);
+    var scholar = createElement('img', 'er-v2-appeal-scholar');
+    scholar.src = '/theme/ElephantRoute/assets/appeal-scholar.webp';
+    scholar.alt = '';
+    scholar.setAttribute('aria-hidden', 'true');
+    scholar.width = 512;
+    scholar.height = 768;
+    scholar.decoding = 'async';
+    scholar.draggable = false;
+    scene.appendChild(scholar);
+    return scene;
+  }
+
   function buildSidebar() {
     var sidebar = createElement('nav', 'er-v2-sidebar');
     sidebar.id = SIDEBAR_ID;
@@ -548,7 +562,7 @@
     appealCopy.appendChild(createElement('small', '', '提交后将在 3 小时内回复'));
     appeal.appendChild(appealIcon);
     appeal.appendChild(appealCopy);
-    sidebar.appendChild(appeal);
+    sidebar.appendChild(buildAppealScene(appeal, false));
     return sidebar;
   }
 
@@ -614,7 +628,7 @@
       navigate('#/ticket');
       if (nativeCloseButton && typeof nativeCloseButton.click === 'function') nativeCloseButton.click();
     });
-    sidebar.appendChild(appeal);
+    sidebar.appendChild(buildAppealScene(appeal, true));
     return sidebar;
   }
 
@@ -992,8 +1006,7 @@
       ['comm', requestJson(ENDPOINTS.comm)],
       ['invite', requestJson(ENDPOINTS.invite)],
       ['orders', requestUnfinishedOrders()],
-      ['downloads', requestJson(ENDPOINTS.downloads, { auth: false })],
-      ['dify', requestJson(ENDPOINTS.dify)]
+      ['downloads', requestJson(ENDPOINTS.downloads, { auth: false })]
     ];
 
     Promise.allSettled(requests.map(function (item) { return item[1]; })).then(function (results) {
@@ -1382,15 +1395,6 @@
   }
 
   function openContact() {
-    var button = document.getElementById('dify-chatbot-bubble-button');
-    if (button && typeof button.click === 'function') {
-      button.click();
-      return;
-    }
-    if (state.data.dify) {
-      global.location.assign('/support/ai?open_ai_support=1');
-      return;
-    }
     navigate('#/ticket');
   }
 

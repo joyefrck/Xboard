@@ -396,8 +396,8 @@
 
   function ensureFormCopy(card, copy) {
     var content = card.querySelector('.n-card__content') || card;
-    var originalTitle = content.querySelector(':scope > div:not(.er-auth-form-copy) > h1');
-    var originalSubtitle = content.querySelector(':scope > div:not(.er-auth-form-copy) > h5');
+    var originalTitle = content.querySelector(':scope > :is(div, form):not(.er-auth-form-copy) > h1');
+    var originalSubtitle = content.querySelector(':scope > :is(div, form):not(.er-auth-form-copy) > h5');
     var resolvedTitle = originalTitle && originalTitle.textContent.trim() ? originalTitle.textContent.trim() : copy.formTitle;
     var resolvedSubtitle = originalSubtitle && originalSubtitle.textContent.trim() ? originalSubtitle.textContent.trim() : copy.formSubtitle;
     var existing = content.querySelector('.er-auth-form-copy');

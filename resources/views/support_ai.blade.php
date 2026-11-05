@@ -6,13 +6,13 @@
   <title>{{ $title }}</title>
   <script>
     (function () {
-      window.location.replace('/app?open_ai_support=1');
+      window.location.replace('/app#/ticket');
     })();
   </script>
 </head>
 <body>
   <noscript>
-    <a href="/app?open_ai_support=1">进入 AI 客服</a>
+    <a href="/app#/ticket">进入问题申诉</a>
   </noscript>
 </body>
 </html>

@@ -101,7 +101,7 @@ Route::get('/welcome', function (Request $request) use ($isAllowedAppHost) {
 
 Route::get('/support/ai', function () {
     return view('support_ai', [
-        'title' => admin_setting('app_name', 'XBoard') . ' AI 客服',
+        'title' => admin_setting('app_name', 'XBoard') . ' 问题申诉',
     ]);
 });
 

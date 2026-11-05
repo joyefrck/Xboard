@@ -68,8 +68,8 @@ body.er-auth-page .n-card.n-card--bordered.mx-auto.max-w-md .n-card__content {
   padding: 30px !important;
 }
 
-body.er-auth-page .n-card.n-card--bordered.mx-auto.max-w-md .n-card__content > div:not(.er-auth-form-copy) > h1,
-body.er-auth-page .n-card.n-card--bordered.mx-auto.max-w-md .n-card__content > div:not(.er-auth-form-copy) > h5 {
+body.er-auth-page .n-card.n-card--bordered.mx-auto.max-w-md .n-card__content > :is(div, form):not(.er-auth-form-copy) > h1,
+body.er-auth-page .n-card.n-card--bordered.mx-auto.max-w-md .n-card__content > :is(div, form):not(.er-auth-form-copy) > h5 {
   display: none !important;
 }
 

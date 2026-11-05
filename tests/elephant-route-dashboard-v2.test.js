@@ -33,8 +33,8 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
     'public/theme/ElephantRoute/dashboard.blade.php'
   ]) {
     const view = readRepoFile(viewPath);
-    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261029usage1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261105greeting1/);
+    assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261106scholar1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261106scholar1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });
@@ -381,7 +381,6 @@ test('Dashboard 2.0 source contains the agreed navigation, data, modal, and fall
     '/api/v1/user/comm/config',
     '/api/v1/user/invite/fetch',
     '/api/v1/user/order/fetch',
-    '/api/v1/user/support/dify-context',
     '/api/v1/app-downloads'
   ]) {
     assert.match(script, new RegExp(endpoint.replaceAll('/', '\\/')));
@@ -399,8 +398,8 @@ test('Dashboard 2.0 source contains the agreed navigation, data, modal, and fall
   assert.match(script, /document\.execCommand\('copy'\)/);
   assert.match(script, /\/api\/v1\/user\/invite\/save/);
   assert.match(script, /\/bind /);
-  assert.match(script, /open_ai_support=1/);
-  assert.match(script, /if \(state\.data\.dify\)[\s\S]*open_ai_support=1[\s\S]*navigate\('#\/ticket'\)/);
+  assert.match(script, /function openContact\(\) \{\s*navigate\('#\/ticket'\);\s*\}/);
+  assert.doesNotMatch(script, /dify-context|dify-chatbot|difyChatbotConfig|open_ai_support/);
 
   for (const route of ['#/dashboard', '#/plan', '#/invite', '#/knowledge', '#/order', '#/ticket', '#/profile']) {
     assert.match(script, new RegExp(route.replace('/', '\\/')));

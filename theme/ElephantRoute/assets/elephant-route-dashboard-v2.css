@@ -2344,3 +2344,50 @@ header > div[ml-auto][flex][items-center] > i.n-icon.mr-5.cursor-pointer:first-c
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* The scholar's level palms meet the underside of the live appeal card. */
+.er-v2-appeal-scene {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  margin-top: clamp(56px, 10vh, 100px);
+}
+
+.er-v2-appeal-scene .er-v2-sidebar-appeal {
+  margin-top: 0;
+}
+
+.er-v2-appeal-scholar {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: -7px auto 0;
+  pointer-events: none;
+  user-select: none;
+  mix-blend-mode: multiply;
+  opacity: 0.82;
+}
+
+@media (max-width: 767px) {
+  .er-v2-mobile-appeal-scene {
+    margin-top: auto;
+    padding-top: 24px;
+  }
+
+  .er-v2-mobile-appeal-scene .er-v2-mobile-sidebar-appeal {
+    position: relative;
+    z-index: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .er-v2-mobile-appeal-scene .er-v2-appeal-scholar {
+    width: min(100%, 210px);
+  }
+
+  .er-v2-appeal-scene:not(.er-v2-mobile-appeal-scene) {
+    margin-top: 24px;
+  }
+}
