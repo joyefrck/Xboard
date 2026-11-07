@@ -75,6 +75,7 @@ class AdminRoute
             // Server
             $router->group(['prefix' => 'server/bandwagon'], function ($router) {
                 $router->get('/fetch', [BandwagonController::class, 'fetch']);
+                $router->post('/sync-settings', [BandwagonController::class, 'saveSyncSettings']);
                 $router->post('/preview', [BandwagonController::class, 'preview'])->middleware('throttle:20,1');
                 $router->post('/import', [BandwagonController::class, 'import'])->middleware('throttle:10,1');
                 $router->post('/refresh', [BandwagonController::class, 'refresh'])->middleware('throttle:10,1');

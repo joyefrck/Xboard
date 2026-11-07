@@ -1,4 +1,4 @@
-import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-6351665e42c684347255';
+import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-e4644bda520fa7f3da82';
 
 export function vpsState(vps) {
   if (vps.info?.suspended) return { label: '已暂停', tone: 'error' };
@@ -119,6 +119,7 @@ export function createBandwagonPage({ React: R, api, layout }) {
     const [csv, setCsv] = R.useState(''), [preview, setPreview] = R.useState(null);
     const [result, setResult] = R.useState(null), [busy, setBusy] = R.useState(false), [error, setError] = R.useState(''), [message, setMessage] = R.useState('');
     const [loadError, setLoadError] = R.useState('');
+    const [autoSync, setAutoSync] = R.useState(null), syncStatusId = R.useId();
     const [autoRefresh, setAutoRefresh] = R.useState(() => {
       try { return window.localStorage.getItem(autoRefreshKey) !== 'false'; }
       catch { return true; }
@@ -134,6 +135,7 @@ export function createBandwagonPage({ React: R, api, layout }) {
         const data = await call('/fetch', { search: filter.query, status: filter.status, page: filter.page }, true);
         if (alive.current && sequence === request.current) {
           setLoadError('');
+          setAutoSync(typeof data.auto_sync_enabled === 'boolean' ? data.auto_sync_enabled : null);
           if (data.current_page > data.last_page) setPage(data.last_page);
           else setResult(data);
         }
@@ -160,7 +162,9 @@ export function createBandwagonPage({ React: R, api, layout }) {
     const done = () => load();
     const current = dialog && result?.data.find(row => row.id === dialog.row.id) || dialog?.row;
     const content = h('div', { className: 'node-automation bandwagon-vps' },
-      h('header', null, h('h2', null, '搬瓦工VPS管理'), h('p', null, '批量导入服务器，查看流量、资源与运行状态。每 5 分钟自动同步，支持手动刷新。')),
+      h('header', null, h('h2', null, '搬瓦工VPS管理'), h('p', null, '批量导入服务器，查看流量、资源与运行状态。',
+        h('span', { id: syncStatusId }, autoSync === null ? '正在读取后台自动同步设置…' : autoSync ?
+          '后台每 5 分钟自动同步，支持手动刷新。' : '后台自动同步已暂停，仍可手动刷新。'))),
       error || loadError ? h('div', { role: 'alert', className: 'na-alert na-error' }, error || loadError) : null,
       message ? h('div', { role: 'status', className: 'na-alert' }, message) : null,
       h('section', { className: 'na-connection bw-import', 'aria-label': '批量导入 VPS' },
@@ -184,7 +188,8 @@ export function createBandwagonPage({ React: R, api, layout }) {
                 row.status === 'valid' ? row.existing ? '更新现有服务器' : '新增服务器' : row.reason)))))),
           h('div', { className: 'na-actions bw-dialog-actions' }, button('导入 ' + (summary.valid || 0) + ' 台服务器', async () => {
             const value = await perform('/import', { csv }, value => '已新增 ' + value.created + ' 台、更新 ' + value.updated + ' 台、跳过 ' + value.skipped + ' 条' +
-              (value.busy ? '；' + value.busy + ' 条未完成，请稍后重新识别并导入' : '，同步任务已提交'));
+              (value.busy ? '；' + value.busy + ' 条未完成，请稍后重新识别并导入' : value.auto_sync_enabled ?
+                '，同步任务已提交' : '；后台自动同步已暂停，可手动刷新'));
             if (value && !value.busy) { setCsv(''); setPreview(null); setPage(1); }
           }, busy || !summary.valid, 'na-primary'))) : null),
       h('section', { 'aria-label': '服务器列表' },
@@ -196,6 +201,13 @@ export function createBandwagonPage({ React: R, api, layout }) {
           h('select', { 'aria-label': '筛选服务器状态', value: status, onChange: e => { setStatus(e.target.value); setPage(1); } },
             [['all', '全部状态'], ['running', '运行中'], ['stopped', '已关机'], ['error', '同步异常'], ['pending', '待同步']]
               .map(([value, title]) => h('option', { key: value, value }, title))),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': autoSync === true, 'aria-describedby': syncStatusId,
+            'aria-busy': autoSync === null, className: 'na-button bw-auto-refresh', disabled: busy || autoSync === null,
+            onClick: () => perform('/sync-settings', { enabled: !autoSync }, value => {
+              setAutoSync(value.auto_sync_enabled);
+              return value.auto_sync_enabled ? '已开启后台自动同步，将按原有每 5 分钟的调度执行' :
+                '已暂停后台自动同步；已发出的请求可以完成，仍可手动刷新';
+            }) }, '自动同步', h('span', { className: 'bw-switch-track', 'aria-hidden': true })),
           h('button', { type: 'button', role: 'switch', 'aria-checked': autoRefresh, 'aria-describedby': refreshStatusId,
             className: 'na-button bw-auto-refresh', onClick: () => { setAutoRefresh(!autoRefresh); if (!autoRefresh) load(); } },
             '自动刷新', h('span', { className: 'bw-switch-track', 'aria-hidden': true })),

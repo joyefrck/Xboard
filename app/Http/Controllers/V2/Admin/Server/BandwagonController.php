@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BandwagonVps;
 use App\Models\NodeAutomationGroup;
 use App\Models\Server;
-use App\Services\Bandwagon\{BandwagonException, CsvImporter, InventoryService, VpsData};
+use App\Services\Bandwagon\{BandwagonException, CsvImporter, InventoryService, VpsData, SyncSettings};
 use Illuminate\Http\Request;
 
 class BandwagonController extends Controller
@@ -69,8 +69,14 @@ class BandwagonController extends Controller
                 'ip_domains' => collect($vps->info['ip_addresses'] ?? ($vps->imported_ip ? [$vps->imported_ip] : []))
                     ->mapWithKeys(fn ($ip) => [$ip => array_keys($domains[VpsData::ipKey($ip) ?? ''] ?? [])])->all(),
             ])));
-            return $page;
+            return array_merge($page->toArray(), ['auto_sync_enabled' => SyncSettings::enabled()]);
         });
+    }
+
+    public function saveSyncSettings(Request $request)
+    {
+        $data = $request->validate(['enabled' => 'required|boolean']);
+        return $this->respond(fn () => ['auto_sync_enabled' => SyncSettings::save((bool) $data['enabled'])]);
     }
 
     public function preview(Request $request)
@@ -86,7 +92,8 @@ class BandwagonController extends Controller
     public function import(Request $request)
     {
         $data = $request->validate(['csv' => 'required|string|max:262144']);
-        return $this->respond(fn () => $this->service->import($this->importer->parse($data['csv'])));
+        return $this->respond(fn () => array_merge($this->service->import($this->importer->parse($data['csv'])),
+            ['auto_sync_enabled' => SyncSettings::enabled()]));
     }
 
     public function refresh(Request $request)

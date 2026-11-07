@@ -3,7 +3,9 @@ declare(strict_types=1);
 // Isolated: no Laravel boot, .env, provider calls or production database.
 require dirname(__DIR__) . '/vendor/autoload.php';
 use App\Models\BandwagonVps;
-use App\Services\Bandwagon\{CsvImporter, KiwiVmClient, InventoryService, TrafficLookup, VpsData, BandwagonException};
+use App\Services\Bandwagon\{CsvImporter, KiwiVmClient, InventoryService, TrafficLookup, VpsData, BandwagonException, SyncSettings};
+use App\Console\Commands\BandwagonSync;
+use App\Jobs\BandwagonSyncJob;
 use App\Http\Controllers\V2\Admin\Server\BandwagonController;
 use Illuminate\Container\Container;
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -16,10 +18,12 @@ use Illuminate\Contracts\Routing\ResponseFactory;
 
 $app = new Container; Container::setInstance($app); Facade::setFacadeApplication($app);
 $app->instance('app', $app);
-$app->instance('config', new Illuminate\Config\Repository());
+$app->instance('config', new Illuminate\Config\Repository(['cache' => ['default'=>'array', 'stores'=>[
+    'array'=>['driver'=>'array'], 'redis'=>['driver'=>'array'],
+]]]));
 $db = new Capsule($app); $db->addConnection(['driver' => 'sqlite', 'database' => ':memory:']); $db->setAsGlobal(); $db->bootEloquent();
 $app->instance('db', $db->getDatabaseManager()); $app->instance('db.schema', $db->schema());
-$app->instance('cache', new Illuminate\Cache\Repository(new Illuminate\Cache\ArrayStore()));
+$app->instance('cache', new Illuminate\Cache\CacheManager($app));
 $app->instance(ResponseFactory::class, new class extends Illuminate\Routing\ResponseFactory { public function __construct() {} });
 Model::encryptUsing(new Illuminate\Encryption\Encrypter(random_bytes(32), 'AES-256-CBC'));
 $bus = new class($app) extends Illuminate\Bus\Dispatcher {
@@ -47,6 +51,9 @@ function body($response): array { return $response->getData(true); }
 $lookup = new TrafficLookup;
 check($lookup->index() === [], 'automation tolerates pre-migration inventory');
 $migration = require dirname(__DIR__) . '/database/migrations/2026_11_02_000001_create_bandwagon_vps_table.php'; $migration->up();
+require dirname(__DIR__) . '/database/migrations/2023_08_14_221234_create_v2_settings_table.php';
+(new CreateV2SettingsTable)->up();
+check(SyncSettings::enabled(), 'automatic sync defaults to enabled');
 $db->schema()->create('v2_node_automation_groups', function ($t) { $t->increments('id'); $t->string('domain'); $t->string('current_ip')->nullable(); });
 $db->schema()->create('v2_node_automation_backups', function ($t) { $t->increments('id'); $t->integer('group_id'); $t->string('ip'); $t->integer('priority')->default(0); });
 $db->schema()->create('v2_server', function ($t) { $t->increments('id'); $t->string('host'); });
@@ -174,6 +181,72 @@ $vps->refresh()->update(['reset_requested_at'=>now()->subMinutes(6)]);fakeHttp([
 $response = $controller->resetPassword(req(['id'=>$vps->id,'confirm_veid'=>'123']));
 check(body($response)['data']['password'] === 'once-only-password' && str_contains($response->headers->get('Cache-Control'),'no-store'), 'password endpoint response is non-cacheable');
 check(!str_contains($controller->fetch(req([]))->getContent(),'once-only-password'), 'later inventory reads cannot retrieve password');
+
+// Use the same services across saves, as a long-running worker would.
+BandwagonVps::query()->update(['queued_at'=>null,'sync_token'=>null,'attempted_at'=>null]);
+$beforeJobs = count($bus->jobs);
+check(SyncSettings::save(false) === false && !SyncSettings::enabled(), 'automatic sync pause persists');
+check(body($controller->saveSyncSettings(req(['enabled'=>false])))['data']['auto_sync_enabled'] === false, 'settings endpoint accepts an explicit false value');
+check(body($controller->fetch(req([])))['data']['auto_sync_enabled'] === false, 'inventory exposes authoritative backend setting');
+(new BandwagonSync)->handle($service);
+check(count($bus->jobs) === $beforeJobs && !$service->enqueue($vps->id, true), 'paused scheduler and automatic enqueue submit no work');
+$service->import([$updated]);
+check(count($bus->jobs) === $beforeJobs, 'paused imports do not implicitly contact provider');
+
+$vps->refresh()->update(['queued_at'=>now(),'sync_token'=>'paused-auto','attempted_at'=>null]);
+$lastInfo = $vps->info; $lastError = $vps->last_error;
+fakeHttp(['*'=>Http::response($info)]);
+(new BandwagonSyncJob($vps->id,'paused-auto',true))->handle($service);
+$vps->refresh();
+check(Http::recorded()->isEmpty() && $vps->queued_at === null && $vps->sync_token === null, 'paused queued auto job skips HTTP and clears own pending state');
+check($vps->attempted_at === null && $vps->info === $lastInfo && $vps->last_error === $lastError, 'pause preserves snapshots, failures and attempt time');
+
+$legacyJob = new BandwagonSyncJob($vps->id,'legacy-auto'); unset($legacyJob->automatic);
+$legacyJob = unserialize(serialize($legacyJob));
+check($legacyJob->automatic === true, 'legacy serialized jobs without origin are treated as automatic');
+$vps->update(['queued_at'=>now(),'sync_token'=>'legacy-auto']);
+$legacyJob->handle($service);
+check(Http::recorded()->isEmpty() && !$vps->fresh()->queued_at, 'legacy automatic work also respects pause');
+$vps->refresh()->update(['queued_at'=>now(),'sync_token'=>'new-manual']);
+(new BandwagonSyncJob($vps->id,'superseded-auto',true))->handle($service);
+check($vps->fresh()->sync_token === 'new-manual', 'stale automatic token cannot clear a newer manual request');
+$vps->update(['queued_at'=>null,'sync_token'=>null]);
+
+check($service->enqueue($vps->id), 'explicit manual refresh remains available while paused');
+$manualJob = end($bus->jobs);
+check($manualJob->automatic === false, 'new manual jobs carry an explicit manual origin');
+fakeHttp(['*/getServiceInfo'=>Http::response($info),'*/getLiveServiceInfo'=>Http::response($live)]);
+$manualJob->handle($service);
+check(Http::recorded()->count() === 2 && !$vps->fresh()->queued_at, 'manual job calls both provider endpoints while automatic sync is paused');
+$vps->refresh()->update(['attempted_at'=>null]);
+$manualResponse = body($controller->refresh(req(['id'=>$vps->id])));
+check($manualResponse['data']['queued'] === 1 && end($bus->jobs)->automatic === false, 'manual admin endpoint queues an explicit manual job while paused');
+end($bus->jobs)->handle($service);
+check(Http::recorded()->count() === 4, 'manual admin refresh still retrieves both provider snapshots');
+
+SyncSettings::save(true);
+$vps->refresh()->update(['queued_at'=>now(),'sync_token'=>'pause-between-calls','attempted_at'=>null]);
+fakeHttp(function ($request) use ($info, $live) {
+    if (str_ends_with($request->url(),'/getServiceInfo')) { SyncSettings::save(false); return Http::response($info); }
+    return Http::response($live);
+});
+(new BandwagonSyncJob($vps->id,'pause-between-calls',true))->handle($service);
+check(Http::recorded()->count() === 1 && !$vps->fresh()->queued_at, 'disabling during info request prevents the subsequent automatic live request');
+
+$held = Cache::lock('bandwagon:auto-sync-settings',10); $held->get();
+rejected(fn () => SyncSettings::save(true), 'concurrent settings saves are serialized'); $held->release();
+check(!SyncSettings::enabled(), 'rejected save leaves backend pause in effect');
+try { $controller->saveSyncSettings(req(['enabled'=>'not-a-boolean'])); throw new RuntimeException('invalid setting accepted'); }
+catch (Illuminate\Validation\ValidationException $e) { check(true, 'settings endpoint rejects invalid boolean'); }
+$response = $controller->saveSyncSettings(req(['enabled'=>true]));
+check(body($response)['data']['auto_sync_enabled'] === true && str_contains($response->headers->get('Cache-Control'),'no-store'), 'settings endpoint saves and returns uncached server state');
+check(App\Models\Setting::where('name',SyncSettings::KEY)->count() === 1, 'repeated toggles update one stored setting');
+check(count($bus->jobs) === $beforeJobs+2, 'resuming does not immediately flood provider jobs');
+BandwagonVps::query()->update(['queued_at'=>null,'sync_token'=>null,'attempted_at'=>null]);
+$beforeJobs = count($bus->jobs);
+(new BandwagonSync)->handle($service);
+check(count($bus->jobs) === $beforeJobs+2 && end($bus->jobs)->automatic === true, 'next scheduled pass resumes tagged automatic work');
+
 $controller->drop(req(['id'=>$vps->id]));check(!BandwagonVps::find($vps->id),'remove drops local record only');
 check(Http::recorded()->count() === 1, 'supplier request count');
 $service->sync($vps->id,'deleted-token');check(Http::recorded()->count() === 1, 'supplier request count');

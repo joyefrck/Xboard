@@ -15,13 +15,17 @@ class BandwagonSyncJob implements ShouldQueue
 
     public $tries = 2;
     public $timeout = 55;
-    public function __construct(public int $vpsId, public string $token)
+    // Old serialized payloads have no origin: treat them as automatic work.
+    public bool $automatic = true;
+
+    public function __construct(public int $vpsId, public string $token, bool $automatic = false)
     {
+        $this->automatic = $automatic;
         $this->onConnection('redis')->onQueue('bandwagon');
     }
     public function handle(InventoryService $service): void
     {
-        try { $service->sync($this->vpsId, $this->token); }
+        try { $service->sync($this->vpsId, $this->token, $this->automatic); }
         catch (BandwagonException $e) { $this->release(15); }
     }
     public function failed(?\Throwable $e): void

@@ -34,29 +34,31 @@ class InventoryService
                     $vps->fill(['api_key' => $row['api_key'], 'hostname' => $row['hostname'],
                         'vm_type' => $row['vm_type'], 'imported_ip' => $row['ip'] ?: null])->save();
                     $result[$created ? 'created' : 'updated']++;
-                    $this->enqueueUnlocked($vps);
+                    $this->enqueueUnlocked($vps, true);
                 });
             } catch (BandwagonException $e) { $result['busy']++; }
         }
         return $result;
     }
 
-    public function enqueue(int $id): bool
+    public function enqueue(int $id, bool $automatic = false): bool
     {
+        if ($automatic && !SyncSettings::enabled()) return false;
         $vps = BandwagonVps::find($id);
         if (!$vps) return false;
-        return $this->locked($vps->veid, function () use ($vps) {
+        return $this->locked($vps->veid, function () use ($vps, $automatic) {
             $current = $vps->fresh();
-            return $current ? $this->enqueueUnlocked($current) : false;
+            return $current ? $this->enqueueUnlocked($current, $automatic) : false;
         });
     }
 
-    private function enqueueUnlocked(BandwagonVps $vps): bool
+    private function enqueueUnlocked(BandwagonVps $vps, bool $automatic = false): bool
     {
+        if ($automatic && !SyncSettings::enabled()) return false;
         if ($vps->queued_at?->gt(now()->subMinutes(10)) || $vps->attempted_at?->gt(now()->subSeconds(30))) return false;
         $token = (string) Str::uuid();
         $vps->update(['queued_at' => now(), 'sync_token' => $token]);
-        try { BandwagonSyncJob::dispatch($vps->id, $token); }
+        try { BandwagonSyncJob::dispatch($vps->id, $token, $automatic); }
         catch (\Throwable $e) {
             $vps->update(['queued_at' => null, 'sync_token' => null, 'last_error' => '同步任务提交失败，请检查队列后重试']);
             throw new BandwagonException('同步任务提交失败，请检查队列后重试');
@@ -64,18 +66,23 @@ class InventoryService
         return true;
     }
 
-    public function sync(int $id, string $token): void
+    public function sync(int $id, string $token, bool $automatic = false): void
     {
         $vps = BandwagonVps::find($id);
         if (!$vps) return;
-        $this->locked($vps->veid, function () use ($vps, $token) {
+        $this->locked($vps->veid, function () use ($vps, $token, $automatic) {
             $vps->refresh();
             if ($vps->sync_token !== $token) return;
+            if ($automatic && !SyncSettings::enabled()) {
+                $vps->update(['queued_at' => null, 'sync_token' => null]);
+                return;
+            }
             $vps->update(['attempted_at' => now()]);
             try {
                 $info = VpsData::service($this->client->call($vps, 'getServiceInfo'));
                 $vps->update(['info' => $info, 'synced_at' => now(), 'last_error' => null,
                     'hostname' => $info['hostname'] ?? $vps->hostname, 'vm_type' => $info['vm_type'] ?? $vps->vm_type]);
+                if ($automatic && !SyncSettings::enabled()) return;
                 try {
                     $vps->update(['live' => VpsData::live($this->client->call($vps, 'getLiveServiceInfo')),
                         'live_synced_at' => now(), 'live_error' => null]);

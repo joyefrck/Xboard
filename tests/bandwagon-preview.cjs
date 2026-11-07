@@ -21,6 +21,7 @@ let inventory = [instance(1, '美国 · 高峰专线', '198.51.100.10', 'US, Los
   instance(3, '德国 · 备用服务器', '198.51.100.90', 'DE, Frankfurt', 97)];
 inventory[1].live.ve_status = 'Stopped';
 inventory[2].live_error = '搬瓦工接口限流，请稍后刷新';
+let autoSyncEnabled = true;
 function providerTraffic(ip) {
   const matches = inventory.filter(row => row.info?.ip_addresses.includes(ip));
   if (!matches.length) return { status: 'unmatched' };
@@ -30,6 +31,11 @@ function providerTraffic(ip) {
 }
 function handleBandwagon(action, data, json, fail) {
   const row = inventory.find(row => row.id === Number(data.id));
+  if (action === '/sync-settings') {
+    if (typeof data.enabled !== 'boolean') return fail('自动同步设置必须为布尔值');
+    autoSyncEnabled = data.enabled;
+    return json({ auto_sync_enabled: autoSyncEnabled });
+  }
   if (action === '/fetch') {
     let rows = inventory.filter(row => !data.search || JSON.stringify(row).toLowerCase().includes(data.search.toLowerCase()));
     if (data.status === 'running') rows = rows.filter(row => row.live?.ve_status === 'Running');
@@ -38,7 +44,7 @@ function handleBandwagon(action, data, json, fail) {
     if (data.status === 'error') rows = rows.filter(row => row.last_error || row.live_error);
     if (data.status === 'pending') rows = rows.filter(row => !row.synced_at);
     const page = Number(data.page) || 1;
-    return json({ data: rows.slice((page-1)*30,page*30), current_page: page, last_page: Math.max(1,Math.ceil(rows.length/30)), total: rows.length });
+    return json({ data: rows.slice((page-1)*30,page*30), current_page: page, last_page: Math.max(1,Math.ceil(rows.length/30)), total: rows.length, auto_sync_enabled: autoSyncEnabled });
   }
   if (action === '/preview' || action === '/import') {
     const code = `require getcwd().'/vendor/autoload.php'; $p=new App\\Services\\Bandwagon\\CsvImporter; try { echo json_encode($p->preview($p->parse(stream_get_contents(STDIN)))); } catch (Throwable $e) { echo json_encode(['error'=>$e->getMessage()]); }`;
@@ -53,10 +59,13 @@ function handleBandwagon(action, data, json, fail) {
       let old = inventory.find(row => row.veid === item.veid);
       if (old) result.updated++;
       else { old = instance(Math.max(0,...inventory.map(row=>row.id))+1,'',item.ip || '198.51.100.150','US, Los Angeles',21); inventory.push(old); result.created++; }
-      old.veid = item.veid; old.hostname = item.hostname; old.queued_at = stamp();
-      setTimeout(()=>{ old.queued_at=null;old.synced_at=stamp(); },800);
+      old.veid = item.veid; old.hostname = item.hostname;
+      if (autoSyncEnabled) {
+        old.queued_at = stamp();
+        setTimeout(()=>{ old.queued_at=null;old.synced_at=stamp(); },800);
+      }
     }
-    return json(result);
+    return json({ ...result, auto_sync_enabled: autoSyncEnabled });
   }
   if (action === '/refresh') {
     const rows = data.id ? [row].filter(Boolean) : inventory;
