@@ -1,4 +1,4 @@
-import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-f05198ef4d4924e7ab59';
+import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-6351665e42c684347255';
 
 export function vpsState(vps) {
   if (vps.info?.suspended) return { label: '已暂停', tone: 'error' };
@@ -19,6 +19,7 @@ export function syncPending(row, now = Date.now()) {
 export function createBandwagonPage({ React: R, api, layout }) {
   const h = R.createElement, TrafficMeter = createTrafficMeter(R);
   const prefix = window.settings.secure_path + '/server/bandwagon';
+  const autoRefreshKey = 'xboard.bandwagon.autoRefresh.' + window.settings.secure_path;
   const time = value => value ? new Date(value).toLocaleString('zh-CN') : '—';
   const resetDate = value => {
     const seconds = Number(value), date = new Date(seconds * 1000);
@@ -118,6 +119,11 @@ export function createBandwagonPage({ React: R, api, layout }) {
     const [csv, setCsv] = R.useState(''), [preview, setPreview] = R.useState(null);
     const [result, setResult] = R.useState(null), [busy, setBusy] = R.useState(false), [error, setError] = R.useState(''), [message, setMessage] = R.useState('');
     const [loadError, setLoadError] = R.useState('');
+    const [autoRefresh, setAutoRefresh] = R.useState(() => {
+      try { return window.localStorage.getItem(autoRefreshKey) !== 'false'; }
+      catch { return true; }
+    });
+    const refreshStatusId = R.useId();
     const [search, setSearch] = R.useState(''), [query, setQuery] = R.useState(''), [status, setStatus] = R.useState('all'), [page, setPage] = R.useState(1);
     const [dialog, setDialog] = R.useState(null), alive = R.useRef(false), request = R.useRef(0), filters = R.useRef({ query, status, page });
     filters.current = { query, status, page };
@@ -135,7 +141,13 @@ export function createBandwagonPage({ React: R, api, layout }) {
     }
     R.useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
     R.useEffect(() => { const id = setTimeout(() => { setQuery(search); setPage(1); }, 300); return () => clearTimeout(id); }, [search]);
-    R.useEffect(() => { load(); const id = setInterval(() => { if (!document.hidden) load(); }, 10000); return () => clearInterval(id); }, [query, status, page]);
+    R.useEffect(() => { load(); }, [query, status, page]);
+    R.useEffect(() => {
+      try { window.localStorage.setItem(autoRefreshKey, String(autoRefresh)); } catch { /* Storage is optional. */ }
+      if (!autoRefresh) return;
+      const id = setInterval(() => { if (!document.hidden) load(); }, 10000);
+      return () => clearInterval(id);
+    }, [autoRefresh]);
     async function perform(action, data, success) {
       setBusy(true); setError(''); setMessage('');
       try {
@@ -177,12 +189,16 @@ export function createBandwagonPage({ React: R, api, layout }) {
           }, busy || !summary.valid, 'na-primary'))) : null),
       h('section', { 'aria-label': '服务器列表' },
         h('div', { className: 'na-pool-toolbar' }, h('div', null, h('h3', null, '服务器列表'),
-          h('p', { className: 'na-muted' }, '共 ' + (result?.total ?? '—') + ' 台 · 每 10 秒更新同步结果')),
+          h('p', { className: 'na-muted', id: refreshStatusId }, '共 ' + (result?.total ?? '—') + ' 台 · ' +
+            (autoRefresh ? '每 10 秒更新同步结果' : '自动刷新已暂停'))),
         h('div', { className: 'na-actions bw-toolbar' },
           h('input', { type: 'search', 'aria-label': '搜索服务器', placeholder: '搜索域名、备注、VEID、IP 或机房', value: search, maxLength: 255, onChange: e => setSearch(e.target.value) }),
           h('select', { 'aria-label': '筛选服务器状态', value: status, onChange: e => { setStatus(e.target.value); setPage(1); } },
             [['all', '全部状态'], ['running', '运行中'], ['stopped', '已关机'], ['error', '同步异常'], ['pending', '待同步']]
               .map(([value, title]) => h('option', { key: value, value }, title))),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': autoRefresh, 'aria-describedby': refreshStatusId,
+            className: 'na-button bw-auto-refresh', onClick: () => { setAutoRefresh(!autoRefresh); if (!autoRefresh) load(); } },
+            '自动刷新', h('span', { className: 'bw-switch-track', 'aria-hidden': true })),
           button('同步全部', () => perform('/refresh', {}, value => '已提交 ' + value.queued + ' 台；' + value.skipped + ' 台处理中、冷却中或未提交成功'), busy || !result))),
         h('div', { className: 'bw-list' },
           h('div', { className: 'bw-list-heading', 'aria-hidden': true }, ['IP / 关联域名', '机房 / 套餐', '本周期流量', '运行 / 同步状态', '操作'].map(label => h('span', { key: label }, label))),
