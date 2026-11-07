@@ -61,6 +61,6 @@ php artisan bandwagon:sync
 
 ## 后台自动同步开关验证（2026-11-07）
 
-- `php tests/bandwagon-vps.php`：100 项隔离 SQLite/fake HTTP 检查通过，覆盖设置默认/持久化、旧任务、关闭后自动任务与导入跳过、手动 API 仍执行、接口之间关闭、并发保存、非法输入及恢复调度。全程未调用真实搬瓦工接口。
+- `php tests/bandwagon-vps.php`：102 项隔离 SQLite/fake HTTP 检查通过，覆盖设置默认/持久化、旧任务、关闭后自动任务与导入跳过、手动 API 仍执行、接口之间关闭、并发保存、非法输入及恢复调度。暂停任务即使遇到其他实例操作占锁，也按 token 原子清理自身排队标记，不误报失败、不取消较新的任务。全程未调用真实搬瓦工接口。
 - 相关搬瓦工、后台资源缓存、Horizon 与节点自动化 Node 回归 30 项通过；PHP 语法、真实 provisioning、静态资源版本与差异检查通过。
 - Playwright 验证两个开关相互独立、后台设置重新载入后保留、关闭时手动同步可用、模拟保存失败后不改变开关、键盘切换，以及 1440px 桌面和 390px 手机明暗布局。模拟失败产生的一条 HTTP 422 日志为预期，未出现脚本异常。截图位于本地 `output/playwright/bandwagon-auto-sync-*.png`。

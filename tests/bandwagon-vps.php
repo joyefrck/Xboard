@@ -207,6 +207,12 @@ check($legacyJob->automatic === true, 'legacy serialized jobs without origin are
 $vps->update(['queued_at'=>now(),'sync_token'=>'legacy-auto']);
 $legacyJob->handle($service);
 check(Http::recorded()->isEmpty() && !$vps->fresh()->queued_at, 'legacy automatic work also respects pause');
+$vps->refresh()->update(['queued_at'=>now(),'sync_token'=>'paused-busy']);
+$held = Cache::lock('bandwagon:vps:123',65); $held->get();
+try { (new BandwagonSyncJob($vps->id,'paused-busy',true))->handle($service); }
+finally { $held->release(); }
+check(Http::recorded()->isEmpty() && !$vps->fresh()->queued_at, 'paused automatic work clears its token even while another operation holds the VPS lock');
+check($vps->fresh()->last_error === $lastError, 'busy cancellation is not reported as a provider or queue failure');
 $vps->refresh()->update(['queued_at'=>now(),'sync_token'=>'new-manual']);
 (new BandwagonSyncJob($vps->id,'superseded-auto',true))->handle($service);
 check($vps->fresh()->sync_token === 'new-manual', 'stale automatic token cannot clear a newer manual request');

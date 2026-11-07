@@ -68,6 +68,12 @@ class InventoryService
 
     public function sync(int $id, string $token, bool $automatic = false): void
     {
+        if ($automatic && !SyncSettings::enabled()) {
+            // Cancellation need not wait for a password/manual operation's lock.
+            // Compare the token atomically so newer work cannot be cancelled.
+            BandwagonVps::whereKey($id)->where('sync_token', $token)->update(['queued_at' => null, 'sync_token' => null]);
+            return;
+        }
         $vps = BandwagonVps::find($id);
         if (!$vps) return;
         $this->locked($vps->veid, function () use ($vps, $token, $automatic) {
