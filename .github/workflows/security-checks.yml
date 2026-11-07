@@ -56,6 +56,9 @@ jobs:
           php tests/v2rayng-reality-subscription.php
           php tests/passwall-reality-subscription.php
       - name: Verify real modern REALITY probes with fixed release binaries
+        env:
+          V2BX_TEST_LOG: debug
+          REALITY_FIXTURE_DEBUG: '1'
         run: |
           sh scripts/install-node-automation-mihomo.sh "$RUNNER_TEMP/reality-mihomo"
           curl -fLsS --connect-timeout 10 --max-time 180 --retry 2 https://github.com/joyefrck/v2bx_Outbound/releases/download/core-v1.1.0/V2bX-linux-amd64.zip -o "$RUNNER_TEMP/reality-server.zip"

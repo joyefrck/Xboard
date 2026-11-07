@@ -119,8 +119,8 @@ def main(server_binary, mihomo_binary, client_baseline=False, subscription_basel
             try:
                 subprocess.run([os.getenv('PHP_BINARY', 'php'), str(root / 'tests/node-automation-reality-runtime.php')], input=json.dumps(fixture).encode(), check=True, timeout=120)
             except subprocess.CalledProcessError:
-                print((folder / 'server.log').read_text()[-2000:])
-                print((folder / 'camouflage.log').read_text()[-2000:])
+                print((folder / 'server.log').read_text()[-12000:])
+                print((folder / 'camouflage.log').read_text()[-4000:])
                 raise
 
         probe()

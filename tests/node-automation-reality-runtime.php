@@ -34,6 +34,7 @@ $probe = new class($fixture) extends ProxyProbe {
     protected function client(): GuzzleHttp\Client {
         return new GuzzleHttp\Client(array_replace(parent::client()->getConfig(), [
             'verify' => $this->fixture['certificate'],
+            'debug' => getenv('REALITY_FIXTURE_DEBUG') === '1' ? STDERR : false,
             'on_stats' => static function (GuzzleHttp\TransferStats $stats): void {
                 if ($stats->getHandlerErrorData()) {
                     fwrite(STDERR, 'Fixture transport error: ' . json_encode($stats->getHandlerErrorData()) . "\n");
