@@ -38,9 +38,11 @@ jobs:
         env:
           SECURITY_P0_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=security_p0
         run: |
+          node tests/prepare-theme-assets.cjs
           node --test tests/security-p0.test.js tests/admin-asset-cache.test.js tests/admin-user-identity-edit.test.js tests/horizon-provisioning.test.js tests/horizon-fixed-workers.test.js tests/node-automation.test.js tests/telegram-group-access.test.js
           node --test tests/bandwagon-vps.test.js
           node --test tests/admin-ticket-id-search.test.js tests/admin-ticket-user-search.test.js tests/admin-ticket-sorting.test.js
+          php tests/admin-ticket-pending-stats.php
           php tests/telegram-group-access.php
           php tests/wallet-recharge.php
           node --test tests/order-balance-refund.test.js tests/refund-user-order.test.js

@@ -166,17 +166,7 @@
       "before": "02d5d50d99d2fdf720da5890e99f3220b9168299c37e2c054d66f3475e422fbc",
       "after": "33d6da608d7b0eccee6c56e1a5fb653fd108dbda3be0119115123fab2fce1698"
     },
-    "public/theme/Xboard/assets/umi.js": {
-      "source": "theme/Xboard/assets/umi.js",
-      "before": "02d5d50d99d2fdf720da5890e99f3220b9168299c37e2c054d66f3475e422fbc",
-      "after": "33d6da608d7b0eccee6c56e1a5fb653fd108dbda3be0119115123fab2fce1698"
-    },
     "theme/Xboard/assets/umi.js.br": {
-      "source": "theme/Xboard/assets/umi.js.br",
-      "before": "f0d04ee5ea4c5dcaf4a7815dc6a9eb89d40864ca6b69f634ea3898234bb1d8d5",
-      "after": "674ed44bceabe696e12f4df86e62e7ad46239de470240cff26912ce98021ff99"
-    },
-    "public/theme/Xboard/assets/umi.js.br": {
       "source": "theme/Xboard/assets/umi.js.br",
       "before": "f0d04ee5ea4c5dcaf4a7815dc6a9eb89d40864ca6b69f634ea3898234bb1d8d5",
       "after": "674ed44bceabe696e12f4df86e62e7ad46239de470240cff26912ce98021ff99"
@@ -186,17 +176,7 @@
       "before": "59e73b9fea538382a08fcf993928ae25660b5dee676e7bdb6b28f1738be14257",
       "after": "2a1d623d2789c67b145803b74460780556372b12dca68769e1b51a9823abca03"
     },
-    "public/theme/Xboard/assets/umi.js.gz": {
-      "source": "theme/Xboard/assets/umi.js.gz",
-      "before": "59e73b9fea538382a08fcf993928ae25660b5dee676e7bdb6b28f1738be14257",
-      "after": "2a1d623d2789c67b145803b74460780556372b12dca68769e1b51a9823abca03"
-    },
     "theme/Xboard/dashboard.blade.php": {
-      "source": "theme/Xboard/dashboard.blade.php",
-      "before": "ef16739c627300c268096b267c7cdbb26ff106dcf1846d4f944efaccefe5c8bd",
-      "after": "fdb5392b4c85bd94a4f8182e60b979588e6c1b50cb95de40962bec3accb806f7"
-    },
-    "public/theme/Xboard/dashboard.blade.php": {
       "source": "theme/Xboard/dashboard.blade.php",
       "before": "ef16739c627300c268096b267c7cdbb26ff106dcf1846d4f944efaccefe5c8bd",
       "after": "fdb5392b4c85bd94a4f8182e60b979588e6c1b50cb95de40962bec3accb806f7"
@@ -282,11 +262,6 @@
       "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
     },
     "theme/Xboard/assets/elephant-route-order-refund.js": {
-      "source": "theme/Xboard/assets/elephant-route-order-refund.js",
-      "before": null,
-      "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
-    },
-    "public/theme/Xboard/assets/elephant-route-order-refund.js": {
       "source": "theme/Xboard/assets/elephant-route-order-refund.js",
       "before": null,
       "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
