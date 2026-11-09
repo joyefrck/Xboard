@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * App\Models\Order
@@ -60,6 +62,7 @@ class Order extends Model
     const STATUS_CANCELLED = 2; // 已取消
     const STATUS_COMPLETED = 3; // 已完成
     const STATUS_DISCOUNTED = 4; // 已折抵
+    const STATUS_REFUNDED = 5; // 已退款到余额
 
     public static $statusMap = [
         self::STATUS_PENDING => '待支付',
@@ -67,6 +70,7 @@ class Order extends Model
         self::STATUS_CANCELLED => '已取消',
         self::STATUS_COMPLETED => '已完成',
         self::STATUS_DISCOUNTED => '已折抵',
+        self::STATUS_REFUNDED => '已退款',
     ];
 
     const TYPE_NEW_PURCHASE = 1; // 新购
@@ -136,5 +140,15 @@ class Order extends Model
     public function commission_log(): HasMany
     {
         return $this->hasMany(CommissionLog::class, 'trade_no', 'trade_no');
+    }
+
+    public function balanceRefund(): HasOneThrough
+    {
+        return $this->hasOneThrough(OrderRefund::class, OrderRefundOrder::class, 'order_id', 'id', 'id', 'refund_id');
+    }
+
+    public function balanceRefundEntry(): HasOne
+    {
+        return $this->hasOne(OrderRefundOrder::class, 'order_id');
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\View;
 
 class MailService
 {
@@ -222,7 +223,11 @@ class MailService
         }
         $email = $params['email'];
         $subject = $params['subject'];
+        $isRefund = $params['template_name'] === 'orderRefund';
         $params['template_name'] = 'mail.' . admin_setting('email_template', 'default') . '.' . $params['template_name'];
+        if ($isRefund && !View::exists($params['template_name'])) {
+            $params['template_name'] = 'mail.default.orderRefund';
+        }
         try {
             Mail::send(
                 $params['template_name'],

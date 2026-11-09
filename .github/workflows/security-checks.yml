@@ -43,9 +43,18 @@ jobs:
           node --test tests/admin-ticket-id-search.test.js tests/admin-ticket-user-search.test.js tests/admin-ticket-sorting.test.js
           php tests/telegram-group-access.php
           php tests/wallet-recharge.php
+          node --test tests/order-balance-refund.test.js tests/refund-user-order.test.js
           node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js
           node --test tests/elephant-route-notice.test.js
           php scripts/version-admin-assets.php --check
+      - name: Verify refund concurrency with database row locks
+        env:
+          ORDER_REFUND_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=order_refund_test
+          ORDER_REFUND_DB_USER: root
+          ORDER_REFUND_DB_PASSWORD: fixture-password
+        run: |
+          php -r '$db = new PDO(preg_replace("/;dbname=.*$/", "", getenv("ORDER_REFUND_DB_DSN")), getenv("ORDER_REFUND_DB_USER"), getenv("ORDER_REFUND_DB_PASSWORD")); $db->exec("CREATE DATABASE order_refund_test");'
+          php tests/refund-receipt-notification.php
       - name: Verify VLESS changes when present
         if: hashFiles('tests/vless-config.php') != ''
         run: |

@@ -23,7 +23,7 @@ class OrderController extends Controller
     public function fetch(Request $request)
     {
         $request->validate([
-            'status' => 'nullable|integer|in:0,1,2,3',
+            'status' => 'nullable|integer|in:0,1,2,3,4,5',
         ]);
         $orders = Order::with('plan')
             ->with('trafficPackage')
@@ -33,6 +33,7 @@ class OrderController extends Controller
             })
             ->orderBy('created_at', 'DESC')
             ->get();
+        $orders->where('status', Order::STATUS_REFUNDED)->load(['balanceRefund', 'balanceRefundEntry']);
 
         return $this->success(OrderResource::collection($orders));
     }
@@ -48,6 +49,9 @@ class OrderController extends Controller
             ->first();
         if (!$order) {
             return $this->fail([400, __('Order does not exist or has been paid')]);
+        }
+        if ((int) $order->status === Order::STATUS_REFUNDED) {
+            $order->load(['balanceRefund', 'balanceRefundEntry']);
         }
         $order['try_out_plan_id'] = (int) admin_setting('try_out_plan_id');
         if (!$order->isRecharge() && !$order->plan && !$order->trafficPackage) {

@@ -1676,6 +1676,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "CANCELLED": "已取消",
       "COMPLETED": "已完成",
       "DISCOUNTED": "已折抵",
+      "REFUNDED": "已退款",
       "tooltip": "标记为[已支付]后将会由系统进行开通后并完成"
     },
     "commission": {

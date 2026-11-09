@@ -77,12 +77,17 @@ test('direct order entry, another plan, and another order each show a notice', (
   assert.equal(h.dialogs.length, 4);
 });
 
-test('recharge consent happens before payment and never covers the resulting QR dialog', () => {
+test('recharge opens directly and its payment flow skips the purchase notice', () => {
   const h = harness('#/wallet/recharge');
-  assert.equal(h.dialogs.length, 1);
-  h.dialogs[0].buttons.get('[data-er-notice-continue]')();
+  assert.equal(h.dialogs.length, 0);
   h.navigate('#/order/recharge-order');
-  assert.equal(h.dialogs.length, 1);
+  assert.equal(h.dialogs.length, 0);
+  assert.equal(h.attributes.size, 0);
+  h.navigate('#/dashboard');
+  h.navigate('#/plan/4');
+  assert.equal(h.dialogs.length, 1, 'ordinary plan purchase still requires the notice');
+  h.navigate('#/wallet/recharge');
+  assert.equal(h.dialogs[0].removed, true, 'recharge closes any previous purchase notice');
   assert.equal(h.attributes.size, 0);
 });
 

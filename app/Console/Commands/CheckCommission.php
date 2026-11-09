@@ -66,6 +66,13 @@ class CheckCommission extends Command
         foreach ($orders as $order) {
             try{
                 DB::beginTransaction();
+                // A queued scan may predate a refund or another settlement worker.
+                $order = Order::whereKey($order->id)->lockForUpdate()->first();
+                if (!$order || (int) $order->commission_status !== 1
+                    || !in_array((int) $order->status, [Order::STATUS_COMPLETED, Order::STATUS_DISCOUNTED], true)) {
+                    DB::rollBack();
+                    continue;
+                }
                 if (!$this->payHandle($order->invite_user_id, $order)) {
                     DB::rollBack();
                     continue;
@@ -98,7 +105,7 @@ class CheckCommission extends Command
             ];
         }
         for ($l = 0; $l < $level; $l++) {
-            $inviter = User::find($inviteUserId);
+            $inviter = User::whereKey($inviteUserId)->lockForUpdate()->first();
             if (!$inviter) continue;
             if (!isset($commissionShareLevels[$l])) continue;
             $commissionBalance = $order->commission_balance * ($commissionShareLevels[$l] / 100);

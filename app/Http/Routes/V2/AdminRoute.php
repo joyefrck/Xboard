@@ -139,6 +139,8 @@ class AdminRoute
                 $router->post('/paid', [OrderController::class, 'paid']);
                 $router->post('/cancel', [OrderController::class, 'cancel']);
                 $router->post('/detail', [OrderController::class, 'detail']);
+                $router->post('/refund-preview', [OrderController::class, 'refundPreview']);
+                $router->post('/refund', [OrderController::class, 'refund'])->middleware('throttle:20,1');
             });
 
             // User

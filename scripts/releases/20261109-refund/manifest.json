@@ -1,0 +1,300 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "files": {
+    "app/Console/Commands/CheckCommission.php": {
+      "source": "app/Console/Commands/CheckCommission.php",
+      "before": "772d5878e6e9ff8f6fc3f58cadef9d6da09ad152637e992980908899aa4f97f6",
+      "after": "2617101b303349a6b8c47f517c664821603f01b1c38db8bb38c19d2dbf6e1bc0"
+    },
+    "app/Console/Kernel.php": {
+      "source": "app/Console/Kernel.php",
+      "before": "f255d71e4f0a759df1a68f47cac4f6b355b17d473a84131a2bdc7bc113a7cf96",
+      "after": "63f2cd08916cf94049cd051b3ef7b93619b77ad2d73556e8f8a5fadb5a14f255"
+    },
+    "app/Http/Controllers/V1/User/OrderController.php": {
+      "source": "app/Http/Controllers/V1/User/OrderController.php",
+      "before": "854b79cb04dda5c210d1067a42aa0c598fab464bf97d2d29919bcf25ef024d12",
+      "after": "597a46f33cbe727eaa79fd7edfef690cd4e0ef5ac104e995b9dd11ce90bbfe86"
+    },
+    "app/Http/Controllers/V2/Admin/OrderController.php": {
+      "source": "app/Http/Controllers/V2/Admin/OrderController.php",
+      "before": "11f494978de318123f26c31cd5e026c54c2639d2167aa995d81708287501aac9",
+      "after": "8cb839fe5f194adc7fd27abe0f2d6d5d4146f41bb5f1c0cd44101ffdfaca1e7f"
+    },
+    "app/Http/Controllers/V2/Admin/StatController.php": {
+      "source": "app/Http/Controllers/V2/Admin/StatController.php",
+      "before": "d328965c56fe583a3f784b3afd345b3ac2031d92959473930ffe2624e9340d57",
+      "after": "ab4c5c27342e777f44c34d1e21437c18dd98aa8dcb452079a49cb983a36821a4"
+    },
+    "app/Http/Controllers/V2/Admin/TicketController.php": {
+      "source": "app/Http/Controllers/V2/Admin/TicketController.php",
+      "before": "197121ed5bab76994cf7241151d95e19494eb4c054660d6d2d4c2fb1d6f98cfb",
+      "after": "5a8f81e6ae9827f0ef1907d52f51b2e5027a1b7fa838972ee783f3820d29374b"
+    },
+    "app/Http/Resources/OrderResource.php": {
+      "source": "app/Http/Resources/OrderResource.php",
+      "before": "7e5f4665eac0bd972bb1c681e482aa77e84c8907d1bdfdec8664377488eb9c8a",
+      "after": "946efa5128115607caf5d525effdca31af91bb122b754cdd21248362b2faccf2"
+    },
+    "app/Http/Routes/V2/AdminRoute.php": {
+      "source": "app/Http/Routes/V2/AdminRoute.php",
+      "before": "4152c5e42b651fc613aaa74c5d852940d1525544b870bf06940602d1b9b20d0a",
+      "after": "78a20823fdf42440a06d2340a1ac5a6a4c82fbce323803fa922d64fc0737477d"
+    },
+    "app/Models/Order.php": {
+      "source": "app/Models/Order.php",
+      "before": "a11045d3228ea996f48b97a13017f70ad0117da588c082afbd00e0c0d0f7e17f",
+      "after": "7dc2d001dec76a9619f27871e3d1e2d47a2e0964239ac3c5d14563b0a39cd776"
+    },
+    "app/Models/Ticket.php": {
+      "source": "app/Models/Ticket.php",
+      "before": "70f436aa6450b7e92034e0ad037b08310808b7a88e10d88c0269e0220a9fd6e6",
+      "after": "fa5355358903aa7ce366e69b69e39ac203b10fda61ed9d35c2bb6c74dee75e08"
+    },
+    "app/Services/MailService.php": {
+      "source": "app/Services/MailService.php",
+      "before": "3e0199761bd971badfd0b2e17c310ab6668942babe911b8e5a01c3d605f01fc9",
+      "after": "80766820d1c55a315457b12daeb62b2c77b3716803b3f476600be655462b9629"
+    },
+    "app/Services/OrderService.php": {
+      "source": "app/Services/OrderService.php",
+      "before": "8ee679a19d21bfb91b1907961e28099b34a061486de1c44d33732be63a8ddb3a",
+      "after": "5de8a8cfbb58edf64f8cffe3156d52703a53b6a2a89869f2e09bae1c3a847c4e"
+    },
+    "public/assets/admin/assets/bandwagon-vps.js": {
+      "source": "public/assets/admin/assets/bandwagon-vps.js",
+      "before": "8791b8c6fb64cde967edb2c3b3d2bc3df4124eb3fb26d2f474d9894109c32b29",
+      "after": "f324d1004f763067f19db5338a75227bbc0e47189c9148bd0bec8b2a28f08f49"
+    },
+    "public/assets/admin/assets/index.js": {
+      "source": "public/assets/admin/assets/index.js",
+      "before": "39a5d839178ef4e3a912394cc39db237c1a1a42eae81c6073983a8ce9d3b9da1",
+      "after": "3c473ad4bcdb2b900fb44eea9c57395de6a2b96a64ca64a4cd7e80d90c95490e"
+    },
+    "public/assets/admin/assets/node-automation.js": {
+      "source": "public/assets/admin/assets/node-automation.js",
+      "before": "00b0314e3acaa249775ce392929ec5d6ad7d4bbfd9ae4e09c90fc322f91b9987",
+      "after": "bd8922183708934a976983916a5790e0a381fa747b5f6f8046c901f1616d9eb5"
+    },
+    "public/assets/admin/assets/vendor.css": {
+      "source": "public/assets/admin/assets/vendor.css",
+      "before": "c04a9f9670d0e9e017114452a1a6ba4f0e282c2064a06f9d1740dfe7bfc7fc00",
+      "after": "33bca235c19a79251f06392cfca11c00845da87ccf3d1a22af14a344db129c07"
+    },
+    "public/assets/admin/assets/vendor.js": {
+      "source": "public/assets/admin/assets/vendor.js",
+      "before": "6d389450915c49108640f29078dadb996d4a576971e37bc5c38fa88d04ee05c8",
+      "after": "08f4b51170ca5b77320c625e89cf48c6b9054ee8fe5da45d46c3c6b435552e5a"
+    },
+    "public/assets/admin/locales/en-US.js": {
+      "source": "public/assets/admin/locales/en-US.js",
+      "before": "65c04d289782207583d4e71293e2c76ad3e9cc2e514c2e703c6f09ff42e2edd5",
+      "after": "37ce7c80841f56fdb96f244076dc27978b53e4172eb6209c23daf3e44a631779"
+    },
+    "public/assets/admin/locales/ko-KR.js": {
+      "source": "public/assets/admin/locales/ko-KR.js",
+      "before": "ceb13851c44ab065e53dc2209a5e6bf4c390c9ad541e17c3fb2af397f5077b16",
+      "after": "e87e51af50ba0273dcd961d0d9ffceca6574c8db04ea106795321309db626a6a"
+    },
+    "public/assets/admin/locales/zh-CN.js": {
+      "source": "public/assets/admin/locales/zh-CN.js",
+      "before": "c5ee7cd814384e6182815d5b63a1a0cf10b5f6a0bf335fca76d2ab5cf96e7e10",
+      "after": "14f9fe6cc1cfc30da697beb465e0cdff5fcda753a7825fe81af0d84a6aaab2d2"
+    },
+    "public/theme/ElephantRoute/assets/elephant-route-pages-v2.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-pages-v2.js",
+      "before": "5dacbb560ea336622febe7045b3f5b369bc9604a87f968de189c28aae7705278",
+      "after": "684f0a30683d0d615eac49ac33a7bb418a1c23e6fb132a2445876de0949ff991"
+    },
+    "public/theme/ElephantRoute/dashboard.blade.php": {
+      "source": "theme/ElephantRoute/dashboard.blade.php",
+      "before": "8c80f01c888552f60694397354e8b1d1261c4a28ec163f8058b7f390e4fdde2f",
+      "after": "62a64822be46c7a5158e0cf6f8e282e4b97fb5a01c5d0cbad3a75ac19f50ce2b"
+    },
+    "resources/views/admin.blade.php": {
+      "source": "resources/views/admin.blade.php",
+      "before": "a0e20941509eaa1f00e12c4bc7a4cdc88f037ae6d9d87a2620b87f668a02eeb9",
+      "after": "15f994bdfb0bab2f8158358fa6e30932b67cac40a9af41bda8b718cd12cf2944"
+    },
+    "scripts/version-admin-assets.php": {
+      "source": "scripts/version-admin-assets.php",
+      "before": "b84097927749e629fdba5c228f7f9d87c6d74c68c62d1f89814ea73bbfeb5a73",
+      "after": "45cc7c895d2106e69de75d10fa8933917c487a7f96930adad177150908973f6d"
+    },
+    "theme/ElephantRoute/assets/elephant-route-pages-v2.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-pages-v2.js",
+      "before": "5dacbb560ea336622febe7045b3f5b369bc9604a87f968de189c28aae7705278",
+      "after": "684f0a30683d0d615eac49ac33a7bb418a1c23e6fb132a2445876de0949ff991"
+    },
+    "theme/ElephantRoute/assets/umi.js": {
+      "source": "theme/ElephantRoute/assets/umi.js",
+      "before": "7b96f26c03985bdf052f34b914d620da1bad16b0ca487bf85511d1201c85b40b",
+      "after": "9f93eefc9a855468f8d5f4756dd1fc1a3eb757e8677f2aef001018d71a5b4153"
+    },
+    "public/theme/ElephantRoute/assets/umi.js": {
+      "source": "theme/ElephantRoute/assets/umi.js",
+      "before": "7b96f26c03985bdf052f34b914d620da1bad16b0ca487bf85511d1201c85b40b",
+      "after": "9f93eefc9a855468f8d5f4756dd1fc1a3eb757e8677f2aef001018d71a5b4153"
+    },
+    "theme/ElephantRoute/assets/umi.js.br": {
+      "source": "theme/ElephantRoute/assets/umi.js.br",
+      "before": "293c23af57081f41b981924fbcee676584050f8f7413f4d70b343b0ba05c155a",
+      "after": "8c393053ece2817313a24785f4cf13d7a05544993581a52642e5418ff301015a"
+    },
+    "public/theme/ElephantRoute/assets/umi.js.br": {
+      "source": "theme/ElephantRoute/assets/umi.js.br",
+      "before": "293c23af57081f41b981924fbcee676584050f8f7413f4d70b343b0ba05c155a",
+      "after": "8c393053ece2817313a24785f4cf13d7a05544993581a52642e5418ff301015a"
+    },
+    "theme/ElephantRoute/assets/umi.js.gz": {
+      "source": "theme/ElephantRoute/assets/umi.js.gz",
+      "before": "9b2b25fd0fc364a6bae79e5de79ebf2325828ad0a4e707a0dc0a3eb8949ae472",
+      "after": "08b5e1af3ab686dd800ee8cf755a192667e93cab7afa52f1ca26d3943f200ac1"
+    },
+    "public/theme/ElephantRoute/assets/umi.js.gz": {
+      "source": "theme/ElephantRoute/assets/umi.js.gz",
+      "before": "9b2b25fd0fc364a6bae79e5de79ebf2325828ad0a4e707a0dc0a3eb8949ae472",
+      "after": "08b5e1af3ab686dd800ee8cf755a192667e93cab7afa52f1ca26d3943f200ac1"
+    },
+    "theme/ElephantRoute/dashboard.blade.php": {
+      "source": "theme/ElephantRoute/dashboard.blade.php",
+      "before": "8c80f01c888552f60694397354e8b1d1261c4a28ec163f8058b7f390e4fdde2f",
+      "after": "62a64822be46c7a5158e0cf6f8e282e4b97fb5a01c5d0cbad3a75ac19f50ce2b"
+    },
+    "theme/Xboard/assets/umi.js": {
+      "source": "theme/Xboard/assets/umi.js",
+      "before": "02d5d50d99d2fdf720da5890e99f3220b9168299c37e2c054d66f3475e422fbc",
+      "after": "33d6da608d7b0eccee6c56e1a5fb653fd108dbda3be0119115123fab2fce1698"
+    },
+    "public/theme/Xboard/assets/umi.js": {
+      "source": "theme/Xboard/assets/umi.js",
+      "before": "02d5d50d99d2fdf720da5890e99f3220b9168299c37e2c054d66f3475e422fbc",
+      "after": "33d6da608d7b0eccee6c56e1a5fb653fd108dbda3be0119115123fab2fce1698"
+    },
+    "theme/Xboard/assets/umi.js.br": {
+      "source": "theme/Xboard/assets/umi.js.br",
+      "before": "f0d04ee5ea4c5dcaf4a7815dc6a9eb89d40864ca6b69f634ea3898234bb1d8d5",
+      "after": "674ed44bceabe696e12f4df86e62e7ad46239de470240cff26912ce98021ff99"
+    },
+    "public/theme/Xboard/assets/umi.js.br": {
+      "source": "theme/Xboard/assets/umi.js.br",
+      "before": "f0d04ee5ea4c5dcaf4a7815dc6a9eb89d40864ca6b69f634ea3898234bb1d8d5",
+      "after": "674ed44bceabe696e12f4df86e62e7ad46239de470240cff26912ce98021ff99"
+    },
+    "theme/Xboard/assets/umi.js.gz": {
+      "source": "theme/Xboard/assets/umi.js.gz",
+      "before": "59e73b9fea538382a08fcf993928ae25660b5dee676e7bdb6b28f1738be14257",
+      "after": "2a1d623d2789c67b145803b74460780556372b12dca68769e1b51a9823abca03"
+    },
+    "public/theme/Xboard/assets/umi.js.gz": {
+      "source": "theme/Xboard/assets/umi.js.gz",
+      "before": "59e73b9fea538382a08fcf993928ae25660b5dee676e7bdb6b28f1738be14257",
+      "after": "2a1d623d2789c67b145803b74460780556372b12dca68769e1b51a9823abca03"
+    },
+    "theme/Xboard/dashboard.blade.php": {
+      "source": "theme/Xboard/dashboard.blade.php",
+      "before": "ef16739c627300c268096b267c7cdbb26ff106dcf1846d4f944efaccefe5c8bd",
+      "after": "fdb5392b4c85bd94a4f8182e60b979588e6c1b50cb95de40962bec3accb806f7"
+    },
+    "public/theme/Xboard/dashboard.blade.php": {
+      "source": "theme/Xboard/dashboard.blade.php",
+      "before": "ef16739c627300c268096b267c7cdbb26ff106dcf1846d4f944efaccefe5c8bd",
+      "after": "fdb5392b4c85bd94a4f8182e60b979588e6c1b50cb95de40962bec3accb806f7"
+    },
+    "app/Console/Commands/RetryRefundMail.php": {
+      "source": "app/Console/Commands/RetryRefundMail.php",
+      "before": null,
+      "after": "bb20f42d5340ea6919771a7bb6cbb1348fc54d407c0cd48c69fad8316275c389"
+    },
+    "app/Jobs/SendRefundEmailJob.php": {
+      "source": "app/Jobs/SendRefundEmailJob.php",
+      "before": null,
+      "after": "0bb9933382f9e6d3e38b5c957ccc660d3d9bd6460abe26f1ce8a0383fc4984f0"
+    },
+    "app/Models/OrderRefund.php": {
+      "source": "app/Models/OrderRefund.php",
+      "before": null,
+      "after": "0ed0c2a6bb3d1c3bb920fa4f8fde95e1c957bcc6235ef8014dc62877bfdfc581"
+    },
+    "app/Models/OrderRefundMail.php": {
+      "source": "app/Models/OrderRefundMail.php",
+      "before": null,
+      "after": "eb8f0101e628f00e1c4d4c431d876ddf89c28b662e645b6fe3fd7ba6409260dd"
+    },
+    "app/Models/OrderRefundOrder.php": {
+      "source": "app/Models/OrderRefundOrder.php",
+      "before": null,
+      "after": "0493dc8542ed3427320ae0ee82ed797061ffcf935e94658f23f70db9aa6b4cf8"
+    },
+    "app/Services/OrderRefundNotificationService.php": {
+      "source": "app/Services/OrderRefundNotificationService.php",
+      "before": null,
+      "after": "ea15e48c8c8beca817eafaaad3e9bfd789df2c391aaf9de01fafebdfc58b2808"
+    },
+    "app/Services/OrderRefundReceiptService.php": {
+      "source": "app/Services/OrderRefundReceiptService.php",
+      "before": null,
+      "after": "53003258f22490a8424b49ea2f3eccce3b354a7fe8d2f3e44aaed3cdbace9f97"
+    },
+    "app/Services/OrderRefundService.php": {
+      "source": "app/Services/OrderRefundService.php",
+      "before": null,
+      "after": "a66e38683532d5fd4b400aebf59cbd1876c5329c82c48706ba3ff63724cb61fb"
+    },
+    "database/migrations/2026_11_09_000003_add_refund_receipts_and_mail.php": {
+      "source": "database/migrations/2026_11_09_000003_add_refund_receipts_and_mail.php",
+      "before": null,
+      "after": "ab747b7aee483320faa752aa8141afbd41129effbc1f5b095a6ae500e7fcf3b7"
+    },
+    "database/migrations/2026_11_09_000001_create_order_refunds.php": {
+      "source": "database/migrations/2026_11_09_000001_create_order_refunds.php",
+      "before": null,
+      "after": "1eef3c524f31a3fd6b54b8c334faf34122db94ed89476b88616ee682a3bf48d8"
+    },
+    "database/migrations/2026_11_09_000002_add_refund_entitlement_snapshots.php": {
+      "source": "database/migrations/2026_11_09_000002_add_refund_entitlement_snapshots.php",
+      "before": null,
+      "after": "b0217a74222b4dab10d5b4c897e596c6a2f73d5d1c0bbeb95dffb0ca0fb4cfc9"
+    },
+    "public/assets/admin/assets/order-refund.js": {
+      "source": "public/assets/admin/assets/order-refund.js",
+      "before": null,
+      "after": "63cedeaa27dcad9f2c48c25cd4029f580bd2868b04dbb76dcd175ce3feeeb012"
+    },
+    "resources/views/mail/default/orderRefund.blade.php": {
+      "source": "resources/views/mail/default/orderRefund.blade.php",
+      "before": null,
+      "after": "1aceec58cbdcd190041818477472a294105477f25e7fb9a4bbd7bec2263fb7b4"
+    },
+    "resources/views/mail/classic/orderRefund.blade.php": {
+      "source": "resources/views/mail/classic/orderRefund.blade.php",
+      "before": null,
+      "after": "fbaf173e619fdb58b39d399e955405a391895c461645e0469c11b886c117e637"
+    },
+    "theme/ElephantRoute/assets/elephant-route-order-refund.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-order-refund.js",
+      "before": null,
+      "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
+    },
+    "public/theme/ElephantRoute/assets/elephant-route-order-refund.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-order-refund.js",
+      "before": null,
+      "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
+    },
+    "theme/Xboard/assets/elephant-route-order-refund.js": {
+      "source": "theme/Xboard/assets/elephant-route-order-refund.js",
+      "before": null,
+      "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
+    },
+    "public/theme/Xboard/assets/elephant-route-order-refund.js": {
+      "source": "theme/Xboard/assets/elephant-route-order-refund.js",
+      "before": null,
+      "after": "94aa6d9799a1db7b7ea5e4b3ce1404bbc458bb2d116d9f083ff7bb2e0ad150a0"
+    }
+  },
+  "migrations": [
+    "database/migrations/2026_11_09_000001_create_order_refunds.php",
+    "database/migrations/2026_11_09_000002_add_refund_entitlement_snapshots.php",
+    "database/migrations/2026_11_09_000003_add_refund_receipts_and_mail.php"
+  ]
+}

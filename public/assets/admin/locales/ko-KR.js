@@ -1182,6 +1182,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "CANCELLED": "취소됨",
       "COMPLETED": "완료됨",
       "DISCOUNTED": "할인 적용됨",
+      "REFUNDED": "환불됨",
       "tooltip": "[결제 완료] 표시 후 시스템이 활성화 및 완료 처리를 진행합니다"
     },
     "commission": {

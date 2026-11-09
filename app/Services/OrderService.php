@@ -119,6 +119,10 @@ class OrderService
         HookManager::call('order.create.before', [$user, $trafficPackage, Order::PERIOD_TRAFFIC_PACKAGE, null]);
 
         return DB::transaction(function () use ($user, $trafficPackage) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if (app(UserService::class)->isNotCompleteOrderByUserId($user->id)) {
+                throw new ApiException(__('You have an unpaid or pending order, please try again later or cancel it'));
+            }
             $order = new Order([
                 'user_id' => $user->id,
                 'plan_id' => null,
@@ -359,11 +363,24 @@ class OrderService
     {
         return Order::where('user_id', $user->id)
             ->where('type', '!=', Order::TYPE_RECHARGE)
-            ->whereNotIn('status', [Order::STATUS_PENDING, Order::STATUS_CANCELLED])
+            ->whereNotIn('status', [Order::STATUS_PENDING, Order::STATUS_CANCELLED, Order::STATUS_REFUNDED])
             ->first();
     }
 
-    private function getSurplusValue(User $user, Order $order)
+    /** Use exactly the same remaining-value calculation as a change of subscription. */
+    public static function subscriptionSurplus(User $user, ?int $calculatedAt = null): array
+    {
+        $value = new Order();
+        if ((int) admin_setting('surplus_enable', 1) && !Plan::find($user->plan_id)?->isPrivate()) {
+            (new self($value))->getSurplusValue($user, $value, $calculatedAt);
+        }
+        return [
+            'amount' => (int) ($value->surplus_amount ?? 0),
+            'order_ids' => $value->surplus_order_ids ?? [],
+        ];
+    }
+
+    private function getSurplusValue(User $user, Order $order, ?int $calculatedAt = null)
     {
         if ($user->expired_at === NULL) {
             $lastOneTimeOrder = Order::where('user_id', $user->id)
@@ -410,7 +427,7 @@ class OrderService
             $firstOrderAt = $orders->min('created_at');
             $expiredAt = Carbon::createFromTimestamp($firstOrderAt)->addMonths($orderMonthSum);
 
-            $now = now();
+            $now = $calculatedAt === null ? now() : Carbon::createFromTimestamp($calculatedAt);
             $totalSeconds = $expiredAt->timestamp - $firstOrderAt;
             $remainSeconds = max(0, $expiredAt->timestamp - $now->timestamp);
             $cycleRatio = $totalSeconds > 0 ? $remainSeconds / $totalSeconds : 0;

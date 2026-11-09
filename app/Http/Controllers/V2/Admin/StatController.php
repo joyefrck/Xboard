@@ -61,7 +61,7 @@ class StatController extends Controller
                 'month_register_total' => User::where('created_at', '>=', strtotime(date('Y-m-1')))
                     ->where('created_at', '<', time())
                     ->count(),
-                'ticket_pending_total' => Ticket::where('status', 0)
+                'ticket_pending_total' => Ticket::awaitingAdminReply()
                     ->count(),
                 'commission_pending_total' => Order::where('commission_status', 0)
                     ->where('invite_user_id', '!=', NULL)
@@ -389,7 +389,7 @@ class StatController extends Controller
         $dayIncomeGrowth = $yesterdayIncome > 0 ? round(($todayIncome - $yesterdayIncome) / $yesterdayIncome * 100, 1) : 0;
 
         // 获取待处理工单和佣金数据
-        $ticketPendingTotal = Ticket::where('status', 0)->count();
+        $ticketPendingTotal = Ticket::awaitingAdminReply()->count();
         $commissionPendingTotal = Order::where('commission_status', 0)
             ->where('invite_user_id', '!=', NULL)
             ->whereIn('status', [Order::STATUS_COMPLETED])

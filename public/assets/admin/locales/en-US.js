@@ -1684,6 +1684,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "CANCELLED": "Cancelled",
       "COMPLETED": "Completed",
       "DISCOUNTED": "Discounted",
+      "REFUNDED": "Refunded",
       "tooltip": "After marking as [Paid], the system will proceed with activation and completion"
     },
     "commission": {

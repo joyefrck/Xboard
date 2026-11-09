@@ -19,6 +19,10 @@ const server = http.createServer(async (req, res) => {
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname === '/fixture-state') return json({ deleted, requests, order, user, mode });
   if (url.pathname === '/fixture-control') { mode = url.searchParams.get('mode') || 'qr'; emptyChannels = url.searchParams.has('empty'); loadFail = url.searchParams.has('fail'); order = null; requests.length = 0; user.balance = 190; return json(true); }
+  if (url.pathname === '/fixture-refund-order') {
+    order = {id:1,user_id:10,type:1,period:'month_price',trade_no:'202611091234567890',total_amount:5000,balance_amount:0,status:5,created_at:1793491200,plan:{id:1,name:'高级套餐'},refund:{amount:4000,created_at:1794230430,destination:'balance',group_total:4000,group_order_count:1}};
+    return json(true);
+  }
   if (url.pathname === '/fixture-paid') { if (order && order.status === 0) { order.status = 3; user.balance += order.total_amount; } return json(true); }
   if (url.pathname === '/fixture-provider') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end('<h1>隔离测试收银台</h1>'); }
   if (url.pathname === '/fixture-reset') { deleted = false; requests.length = 0; return json(true); }

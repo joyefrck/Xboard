@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -35,6 +36,8 @@ class Ticket extends Model
 
     const STATUS_OPENING = 0;
     const STATUS_CLOSED = 1;
+    const REPLY_ANSWERED = 0;
+    const REPLY_PENDING = 1;
     const TYPE_NODE_ISSUE = 0;
     const TYPE_OTHER = 1;
     const TYPE_REFUND = self::TYPE_OTHER;
@@ -49,6 +52,14 @@ class Ticket extends Model
         self::STATUS_OPENING => '开启',
         self::STATUS_CLOSED => '关闭'
     ];
+
+    /** Match the admin UI: legacy null reply status also awaits a reply. */
+    public function scopeAwaitingAdminReply(Builder $query): Builder
+    {
+        return $query->where('v2_ticket.status', self::STATUS_OPENING)
+            ->where(fn (Builder $query) => $query->whereNull('v2_ticket.reply_status')
+                ->orWhere('v2_ticket.reply_status', '<>', self::REPLY_ANSWERED));
+    }
 
     public function user(): BelongsTo
     {

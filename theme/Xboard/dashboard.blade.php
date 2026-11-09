@@ -5,7 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no" />
   <title>{{$title}}</title>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-order-refund.js?v={{$version}}-er20261109receipt1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261109receipt1"></script>
   
   <!-- Fluid Ripple Effect Styles -->
   <style>

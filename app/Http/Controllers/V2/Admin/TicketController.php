@@ -4,7 +4,6 @@ namespace App\Http\Controllers\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
-use App\Models\TicketMessage;
 use App\Models\TicketMessageAttachment;
 use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
@@ -81,17 +80,8 @@ class TicketController extends Controller
         $email = trim((string) $request->input('email', ''));
         $ticketId = $request->filled('ticket_id') ? $request->integer('ticket_id') : null;
 
-        $userReplies = TicketMessage::query()
-            ->select('ticket_id')
-            ->selectRaw('MAX(created_at) as last_user_reply_at')
-            ->where('is_admin', false)
-            ->groupBy('ticket_id');
-
         $ticketModel = Ticket::with('user')
             ->select('v2_ticket.*')
-            ->leftJoinSub($userReplies, 'user_replies', function ($join) {
-                $join->on('user_replies.ticket_id', '=', 'v2_ticket.id');
-            })
             ->when($ticketId !== null, function ($query) use ($ticketId) {
                 $query->where('v2_ticket.id', $ticketId);
             })
@@ -109,13 +99,12 @@ class TicketController extends Controller
 
         // Keep tickets awaiting an admin reply ahead of answered and closed tickets.
         $ticketModel->orderByRaw(
-            'CASE WHEN v2_ticket.status = ? AND (v2_ticket.reply_status IS NULL OR v2_ticket.reply_status <> 0) THEN 0 ELSE 1 END',
-            [Ticket::STATUS_OPENING]
+            'CASE WHEN v2_ticket.status = ? AND (v2_ticket.reply_status IS NULL OR v2_ticket.reply_status <> ?) THEN 0 ELSE 1 END',
+            [Ticket::STATUS_OPENING, Ticket::REPLY_ANSWERED]
         );
         $this->applyFiltersAndSorts($request, $ticketModel, $ticketId !== null);
         $tickets = $ticketModel
-            // Ticket timestamps also change on admin actions and may stay stale on repeated user replies.
-            ->orderByRaw('COALESCE(user_replies.last_user_reply_at, v2_ticket.created_at) DESC')
+            // Default order within each reply group is the ticket number, newest first.
             ->orderByDesc('v2_ticket.id')
             ->paginate(
                 perPage: $request->integer('pageSize', 10),

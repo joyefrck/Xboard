@@ -161,7 +161,12 @@
       previousRoute = route;
       close();
 
-      if (page !== 'checkout' && page !== 'recharge' && page !== 'order-detail') {
+      // Funding the account opens directly, including its next payment screen.
+      if (page === 'recharge') {
+        acknowledged = true;
+        return;
+      }
+      if (page !== 'checkout' && page !== 'order-detail') {
         acknowledged = false;
         return;
       }

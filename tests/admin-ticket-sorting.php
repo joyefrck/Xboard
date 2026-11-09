@@ -75,8 +75,8 @@ $ticket(10, 100, 9900); $message(10, 100); $message(10, 9800, true);
 $ticket(20, 200, 200); $message(20, 200); $message(20, 700);
 $ticket(30, 600, 600); $message(30, 600);
 $ticket(40, 600, 600); $message(40, 600); $message(40, 10000, true);
-$ticket(50, 500, 9999); // Missing historical messages fall back to ticket creation time.
-$message(50, 12500, true); // Admin-only history also uses the creation fallback.
+$ticket(50, 500, 9999); // Tickets without user messages still participate in ticket-number sorting.
+$message(50, 12500, true); // Admin-only history must not change the ticket-number sort.
 $ticket(60, 800, 800, 1); $message(60, 900);
 // Staff replying on their own ticket must still be excluded based on is_admin.
 $db->table('v2_ticket_message')->where('ticket_id', 40)->where('is_admin', true)->update(['user_id' => 1]);
@@ -97,12 +97,12 @@ $check = function ($actual, $expected, string $label) use (&$checks) {
 };
 $ids = fn (array $result) => array_column($result['data'], 'id');
 $first = $fetch();
-$check($ids($first), [20, 40], 'latest user message sorts globally before pagination, with stable ties');
-$check($first['total'], 5, 'message aggregation does not duplicate tickets or alter filtered total');
-$check($ids($fetch(['current' => 2])), [30, 50], 'second page uses the same user-message ordering and creation fallback');
-$check($ids($fetch(['current' => 3])), [10], 'admin reply and updated_at do not promote old user activity');
+$check($ids($first), [50, 40], 'ticket number sorts globally descending before pagination');
+$check($first['total'], 5, 'sorting does not duplicate tickets or alter filtered total');
+$check($ids($fetch(['current' => 2])), [30, 20], 'second page follows descending ticket numbers');
+$check($ids($fetch(['current' => 3])), [10], 'admin reply and updated_at do not promote an older ticket');
 $check($ids($fetch(['filter' => [['id' => 'status', 'value' => '1']]])), [60], 'closed tickets use the same sorting');
-$check($ids($fetch(['filter' => [], 'email' => ' owner@ ', 'pageSize' => 20])), [20, 40, 30, 50, 10, 60], 'email search across statuses preserves pending priority and time ordering');
+$check($ids($fetch(['filter' => [], 'email' => ' owner@ ', 'pageSize' => 20])), [50, 40, 30, 20, 10, 60], 'email search preserves pending priority and descending ticket number');
 $check($ids($fetch(['sort' => [['id' => 'id', 'desc' => false]]])), [10, 20], 'explicit column sorting remains available');
 $check($first['data'][0]['user']['email'], 'owner@example.test', 'ticket user response remains intact');
 $check(array_key_exists('last_user_reply_at', $first['data'][0]), false, 'sorting helper is not exposed in ticket response');
@@ -125,10 +125,10 @@ foreach (['abc', '0', '-1', '1.5', '10 OR 1=1', ['60']] as $invalidId) {
 // Older pending tickets must precede newer answered tickets across page boundaries.
 $db->table('v2_ticket')->whereIn('id', [20, 40])->update(['reply_status' => 0]);
 $db->table('v2_ticket')->where('id', 30)->update(['reply_status' => null]);
-$check($ids($fetch()), [30, 50], 'pending tickets, including legacy null reply status, sort before newer answered tickets');
-$check($ids($fetch(['current' => 2])), [10, 20], 'pending priority is applied globally before pagination');
-$check($ids($fetch(['current' => 3])), [40], 'answered tickets follow pending tickets in user-message time order');
-$check($ids($fetch(['filter' => [], 'email' => 'owner@', 'pageSize' => 20])), [30, 50, 10, 60, 20, 40], 'closed tickets are not treated as pending when searching all statuses');
+$check($ids($fetch()), [50, 30], 'pending tickets, including legacy null reply status, sort before answered tickets');
+$check($ids($fetch(['current' => 2])), [10, 40], 'pending priority is applied globally before pagination');
+$check($ids($fetch(['current' => 3])), [20], 'answered tickets also follow descending ticket numbers');
+$check($ids($fetch(['filter' => [], 'email' => 'owner@', 'pageSize' => 20])), [50, 30, 10, 60, 40, 20], 'closed tickets are not treated as pending when searching all statuses');
 $check($ids($fetch(['sort' => [['id' => 'id', 'desc' => false]], 'current' => 2])), [50, 20], 'explicit sorting stays within pending and answered groups');
 $db->table('v2_ticket')->where('id', 20)->update(['reply_status' => 1]);
 $db->table('v2_ticket')->where('id', 30)->update(['reply_status' => 1]);
@@ -140,10 +140,10 @@ try {
     Carbon::setTestNow(Carbon::createFromTimestampUTC(12000));
     $check($service->reply(Ticket::find(20), 'user follows up twice', 1) !== false, true, 'consecutive user reply succeeds');
     $check(Ticket::find(20)->updated_at, 200, 'regression fixture reproduces unchanged ticket timestamp');
-    $check($ids($fetch()), [20, 10], 'consecutive user replies move tickets to the top using message timestamps');
+    $check($ids($fetch()), [50, 30], 'consecutive replies preserve descending ticket numbers within the pending group');
     foreach (['  admin note  ', null] as $remarks) {
         $controller->updateRemarks(new Request(['id' => 10, 'remarks' => $remarks]));
-        $check($ids($fetch()), [20, 10], 'adding or clearing admin remarks preserves user-message order');
+        $check($ids($fetch()), [50, 30], 'adding or clearing admin remarks preserves ticket-number order');
     }
 } finally {
     Carbon::setTestNow();

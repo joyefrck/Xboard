@@ -25,7 +25,8 @@
   </script>
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261106auth1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-order-refund.js?v={{$version}}-er20261109receipt1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261109receipt1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -84,7 +85,7 @@
   <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
   <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106notice1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261105wallet1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261109rechargeDirect1"></script>
   <script>
     (function() {
       function insertLoginLogo() {

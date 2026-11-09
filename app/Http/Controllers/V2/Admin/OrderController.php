@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\User;
 use App\Services\OrderService;
+use App\Services\OrderRefundService;
 use App\Services\PlanService;
 use App\Services\UserService;
 use App\Utils\Helper;
@@ -22,7 +23,7 @@ class OrderController extends Controller
 
     public function detail(Request $request)
     {
-        $order = Order::with(['user', 'plan', 'trafficPackage', 'commission_log', 'invite_user'])->find($request->input('id'));
+        $order = Order::with(['user', 'plan', 'trafficPackage', 'commission_log', 'invite_user', 'balanceRefund', 'balanceRefundEntry'])->find($request->input('id'));
         if (!$order)
             return $this->fail([400202, '订单不存在']);
         if ($order->surplus_order_ids) {
@@ -36,11 +37,11 @@ class OrderController extends Controller
     {
         $current = $request->input('current', 1);
         $pageSize = $request->input('pageSize', 10);
-        $orderModel = Order::with(['plan:id,name', 'trafficPackage:id,name', 'payment:id,name']);
+        $orderModel = Order::with(['plan:id,name', 'trafficPackage:id,name', 'payment:id,name', 'balanceRefund', 'balanceRefundEntry']);
 
         if ($request->boolean('is_commission')) {
             $orderModel->whereNotNull('invite_user_id')
-                ->whereNotIn('status', [0, 2])
+                ->whereNotIn('status', [0, 2, Order::STATUS_REFUNDED])
                 ->where('commission_balance', '>', 0);
         }
 
@@ -192,13 +193,42 @@ class OrderController extends Controller
         }
 
         try {
-            $order->update($params);
+            DB::transaction(function () use ($order, $params) {
+                $current = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                if ((int) $current->status === Order::STATUS_REFUNDED) {
+                    throw new \App\Exceptions\ApiException('已退款订单不能变更佣金状态');
+                }
+                $current->update($params);
+            }, 3);
+        } catch (\App\Exceptions\ApiException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error($e);
             return $this->fail([500, '更新失败']);
         }
 
         return $this->success(true);
+    }
+
+    public function refundPreview(Request $request)
+    {
+        $data = $request->validate(['trade_no' => 'required|string|max:36']);
+        return $this->success((new OrderRefundService())->preview($data['trade_no']));
+    }
+
+    public function refund(Request $request)
+    {
+        $data = $request->validate([
+            'trade_no' => 'required|string|max:36',
+            'expected_amount' => 'required|integer|min:1|max:2147483647',
+            'reason' => 'required|string|min:2|max:500',
+            'confirmed' => 'required|accepted',
+            'quote' => 'required|string|max:16384',
+        ]);
+        $refund = (new OrderRefundService())->refund(
+            $data['trade_no'], (int) $request->user()->id, (int) $data['expected_amount'], $data['reason'], $data['quote']
+        );
+        return $this->success($refund);
     }
 
     public function assign(OrderAssign $request)
@@ -225,6 +255,10 @@ class OrderController extends Controller
 
         try {
             DB::beginTransaction();
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if ($userService->isNotCompleteOrderByUserId($user->id)) {
+                throw new \App\Exceptions\ApiException('该用户还有待支付的订单，无法分配');
+            }
             $order = new Order();
             $orderService = new OrderService($order);
             $order->user_id = $user->id;
