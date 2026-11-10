@@ -266,6 +266,9 @@ class SingBox extends AbstractProtocol
                         'public_key' => data_get($protocol_settings, 'reality_settings.public_key'),
                         'short_id' => data_get($protocol_settings, 'reality_settings.short_id')
                     ];
+                    if ($this->clientName === 'hiddify' && \App\Services\VlessConfigService::needsHybridReality($protocol_settings)) {
+                        $tlsConfig['reality']['key_share'] = 'hybrid';
+                    }
                     break;
             }
 

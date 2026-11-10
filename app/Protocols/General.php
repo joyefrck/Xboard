@@ -46,7 +46,7 @@ class General extends AbstractProtocol
             };
         }
         $response = response(base64_encode($uri))->header('content-type', 'text/plain');
-        if ($this->clientName === 'v2rayng') {
+        if (in_array($this->clientName, ['v2rayng', 'v2rayn'], true)) {
             $response->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
         }
         return $response;

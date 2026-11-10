@@ -1,0 +1,23 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "backup": "/root/xboard-client-reality-20261110",
+  "files": {
+    "app/Http/Controllers/V1/Client/ClientController.php": {
+      "before": "e903b9c16ff9b90a9e38dc8a1f22202ba51527abfbba1a15124b9a28581084ea",
+      "after": "3c927b4141f4c1152827bd66dff492667e6069d4d567aadf128976a884f87f0d"
+    },
+    "app/Services/VlessConfigService.php": {
+      "before": "dafe5959a77d306b3dee1ef22f380d1698b038c396ead3f60d1435ef7813a057",
+      "after": "a3ecabd6298a44d5e5377afe2682344b591a5207f7a42662a57f78bdcb15b54c"
+    },
+    "app/Protocols/SingBox.php": {
+      "before": "96df65c7cee251f302dac5d3213b1cc30e32c6846072cf3b4eb8a610af85cf7f",
+      "after": "4e9e4f5c45afda6b957658b49dc4224277a0dbce9900cedb6c9ee2c70f196951"
+    },
+    "app/Protocols/General.php": {
+      "before": "cb22b0cf4249a854854bd869c5aaca7ac32c4c2fc2f16a4b8d0267dae768bd8c",
+      "after": "e31358749a25b5664298b1a5e696da5b8fa2c6f46c48bc39aa1b6e70e8fab9ea"
+    }
+  },
+  "queue_snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9"
+}

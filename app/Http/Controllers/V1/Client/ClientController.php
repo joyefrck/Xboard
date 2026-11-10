@@ -174,13 +174,17 @@ class ClientController extends Controller
         $flag = strtolower($request->input('flag') ?? $request->header('User-Agent', ''));
         $identity = strtolower($request->header('User-Agent', ''));
         if ($identity === '' || preg_match('/\/v?\d/', $flag)) $identity = $flag;
+        if (preg_match('/^(flclash|hiddify(?:next)?|v2rayn)(?=[\/\s]|$)/i', $request->header('User-Agent', ''))) {
+            $identity = strtolower($request->header('User-Agent', ''));
+        }
 
         $clientName = null;
         $clientVersion = null;
 
-        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash|v2rayng|passwall2?)(?=[\/\s]|$)/', $identity, $native);
+        $nativeClient = (bool) preg_match('/^(quantumult(?:%20|[ -])?x|karing|stash|v2rayng|v2rayn|passwall2?|flclash|hiddify(?:next)?)(?=[\/\s]|$)/', $identity, $native);
         if ($nativeClient) {
-            $clientName = str_starts_with($native[1], 'quantumult') ? 'quantumultx' : $native[1];
+            $clientName = str_starts_with($native[1], 'quantumult') ? 'quantumultx'
+                : ($native[1] === 'hiddifynext' ? 'hiddify' : $native[1]);
             $versionPattern = $clientName === 'karing' ? '\d+\.\d+\.\d+(?:\.\d+)?' : '\d+\.\d+\.\d+';
             if (preg_match('/^' . preg_quote($native[1], '/') . '[\/\s]+v?(' . $versionPattern . ')(?=\s|$|[;(])/', $identity, $matches)) {
                 $clientVersion = $matches[1];
@@ -226,7 +230,13 @@ class ClientController extends Controller
             $clientVersion = null;
             $nativeClient = false;
         }
-        if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing', 'v2rayng'], true)) {
+        if (in_array($clientName, ['flclash', 'hiddify', 'v2rayn'], true)
+            && !preg_match('/^(flclash|hiddify(?:next)?|v2rayn)(?=[\/\s]|$)/i', $request->header('User-Agent', ''))) {
+            $clientName = null;
+            $clientVersion = null;
+            $nativeClient = false;
+        }
+        if (!$nativeClient && in_array($clientName, ['stash', 'quantumultx', 'quantumult x', 'quantumult%20x', 'quantumult-x', 'karing', 'v2rayng', 'v2rayn', 'flclash', 'hiddify'], true)) {
             // A compatibility token must not inherit some other product's version.
             $clientVersion = null;
         }
@@ -244,7 +254,7 @@ class ClientController extends Controller
             $platform = 'macos';
         } elseif (preg_match('/\b(ios|ipados|iphone|ipad)\b/', $platformIdentity)) {
             $platform = 'ios';
-        } elseif ($nativeClient && $clientName === 'v2rayng'
+        } elseif ($nativeClient && in_array($clientName, ['v2rayng', 'v2rayn'], true)
             && preg_match('/\b(android|windows|linux)\b/', $platformIdentity, $matches)) {
             $platform = $matches[1];
         }

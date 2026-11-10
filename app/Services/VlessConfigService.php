@@ -61,6 +61,20 @@ class VlessConfigService
         if (!$version) return false;
         $name = strtolower($name ?? '');
         if (!self::isEnhanced($settings)) {
+            if ($renderer === 'General' && $name === 'v2rayn') {
+                return ($platform === null || in_array($platform, ['windows', 'macos', 'linux'], true))
+                    && ($settings['network'] ?? 'tcp') === 'tcp'
+                    && data_get($settings, 'network_settings.header.type', 'none') === 'none'
+                    && (bool) preg_match('/^\d+\.\d+\.\d+$/D', $version)
+                    && version_compare($version, '7.25.6', '>=');
+            }
+            if (in_array($name, ['flclash', 'hiddify'], true)) {
+                return $renderer === ($name === 'flclash' ? 'ClashMeta' : 'SingBox')
+                    && ($settings['network'] ?? 'tcp') === 'tcp'
+                    && data_get($settings, 'network_settings.header.type', 'none') === 'none'
+                    && (bool) preg_match('/^\d+\.\d+\.\d+$/D', $version)
+                    && version_compare($version, $name === 'flclash' ? '0.9.3' : '5.5.5', '>=');
+            }
             // Android 2.2.2 / Xray-core 26.6.1 verified with native TCP REALITY
             // subscriptions. Do not extend this to Encryption, XHTTP or other
             // renderers/transports on the strength of an app version alone.
@@ -94,7 +108,7 @@ class VlessConfigService
                     'verge', 'clash-verge' => version_compare($version, '2.5.8', '>='),
                     'clashmetaforandroid' => version_compare($version, '2.11.27', '>='),
                     'clashmi' => version_compare($version, '1.0.31', '>='),
-                    'flclash', 'elephantnetwork' => version_compare($version, '2.1.0', '>='),
+                    'elephantnetwork' => version_compare($version, '2.1.0', '>='),
                     default => false,
                 };
             }
@@ -103,7 +117,7 @@ class VlessConfigService
         if ($renderer !== 'ClashMeta') return false;
         return match ($name) {
             'meta', 'mihomo' => version_compare($version, '1.19.33', '>='),
-            'flclash', 'elephantnetwork' => version_compare($version, '2.1.0', '>='),
+            'elephantnetwork' => version_compare($version, '2.1.0', '>='),
             default => false,
         };
     }

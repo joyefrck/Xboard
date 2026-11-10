@@ -66,7 +66,9 @@ jobs:
           php tests/vless-elephant-subscription.php
           php tests/ios-reality-subscription.php
           php tests/v2rayng-reality-subscription.php
+          php tests/v2rayn-reality-subscription.php
           php tests/passwall-reality-subscription.php
+          php tests/flclash-hiddify-reality-subscription.php
       - name: Verify real modern REALITY probes with fixed release binaries
         env:
           V2BX_TEST_LOG: debug

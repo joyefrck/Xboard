@@ -34,7 +34,7 @@ function inspectV2rayNAnyTLS() {
         : null;
 
     $protocol = new App\\Protocols\\General(
-        ["uuid" => "test-user"],
+        ["uuid" => "test-user", "u" => 17, "d" => 29, "transfer_enable" => 1073741824, "expired_at" => 2000000000],
         [$server],
         "v2rayn",
         "7.24.4"
