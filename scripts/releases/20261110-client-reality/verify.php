@@ -61,9 +61,9 @@ try {
     ];
     $http = new GuzzleHttp\Client(['http_errors' => false, 'timeout' => 30, 'allow_redirects' => false]);
     $results = [];
-    foreach (['internal' => 'http://index-web-1:7001', 'public' => 'https://elephant111.org'] as $target => $base) {
+    foreach (['internal' => 'http://index-web-1:7001', 'public' => 'https://www.elephant111.org'] as $target => $base) {
         foreach ($clients as $name => $ua) {
-            $response = $http->get($base . $path, ['headers' => ['User-Agent' => $ua, 'Host' => 'elephant111.org']]);
+            $response = $http->get($base . $path, ['headers' => ['User-Agent' => $ua, 'Host' => 'www.elephant111.org']]);
             $status = $response->getStatusCode();
             $body = (string) $response->getBody();
             $vless = 0;
