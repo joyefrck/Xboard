@@ -81,7 +81,7 @@
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261106auth1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261110importClients1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261110clashVergeScheme1"></script>
   <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
   <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106notice1"></script>

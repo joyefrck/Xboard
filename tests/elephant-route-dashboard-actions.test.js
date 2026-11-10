@@ -561,7 +561,7 @@ test('ElephantRoute dashboard asset cache busting covers balanced node columns a
   assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261110subscriptionState2/);
   assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
   assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
-  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261110importClients1/);
+  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261110clashVergeScheme1/);
 });
 
 

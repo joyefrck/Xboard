@@ -493,6 +493,29 @@
     return 'clashmi://install-config?url=' + encodeURIComponent(subscribeUrl);
   }
 
+  function buildClashVergeImportUrl(subscribeUrl, title) {
+    return 'clash-verge://install-config?name=' + encodeURIComponent(title || '订阅') + '&url=' + encodeURIComponent(subscribeUrl);
+  }
+
+  function openClashVergeImport() {
+    return fetchSubscribeInfo().then(function (info) {
+      if (!info) {
+        notify('error', '未登录');
+        return false;
+      }
+      if (!info.subscribeUrl) {
+        notify('error', '订阅链接不存在');
+        return false;
+      }
+      window.location.href = buildClashVergeImportUrl(info.subscribeUrl, info.title);
+      return true;
+    }).catch(function (error) {
+      console.error('打开 Clash Verge 导入失败:', error);
+      notify('error', 'Clash Verge 导入失败');
+      return false;
+    });
+  }
+
   function openFlClashImport() {
     return fetchSubscribeInfo().then(function (info) {
       if (!info) {
@@ -730,8 +753,18 @@
   function enhanceDesktopClashVergeSubscribeOption() {
     if (!isDesktopPlatform()) return false;
 
-    var clashItem = findSubscribeListItem('Clash Meta') || findSubscribeListItem('Clash');
+    var clashItem = findSubscribeListItem('Clash Verge') || findSubscribeListItem('Clash Meta') || findSubscribeListItem('Clash');
     if (!clashItem) return false;
+
+    if (clashItem.dataset.erClashVergeImportBound !== '1') {
+      clashItem.dataset.erClashVergeImportBound = '1';
+      // Override the original shared clash:// handler before it reaches the row.
+      clashItem.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openClashVergeImport();
+      }, true);
+    }
 
     clashItem.setAttribute('aria-label', '导入到 Clash Verge');
     clashItem.removeAttribute('title');

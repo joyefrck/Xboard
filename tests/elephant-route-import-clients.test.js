@@ -15,7 +15,7 @@ function menu(appleMobile = false, desktop = true) {
   const helpers = new Function('window', 'document', 'getNodeText', 'replaceText', 'isAppleMobilePlatform', 'isDesktopPlatform', 'fetchSubscribeInfo', 'notify', 'FLCLASH_ICON_PATH', 'CLASH_MI_ICON_PATH', 'CLASH_VERGE_ICON_PATH', source + '; return { enhanceFlClashSubscribeOption, enhanceClashMiSubscribeOption, enhanceDesktopClashVergeSubscribeOption, buildFlClashImportUrl, buildClashMiImportUrl };')(
     window, dom.window.document, node => node.textContent.trim(),
     (node, old, value) => { const walker = dom.window.document.createTreeWalker(node, 4); let text; while ((text = walker.nextNode())) text.nodeValue = text.nodeValue.replace(old, value); },
-    () => appleMobile, () => desktop, async () => ({ subscribeUrl: url }),
+    () => appleMobile, () => desktop, async () => ({ subscribeUrl: url, title: '大象 & 测试' }),
     () => assert.fail('unexpected error'), 'images/flclash.png', 'images/clash-mi.png', 'images/clash-verge.png'
   );
   function enhance() {
@@ -64,6 +64,38 @@ test('new rows launch their dedicated scheme with the complete subscription URL'
     assert.equal(target.host, 'install-config');
     assert.equal(target.searchParams.get('url'), url);
   }
+});
+
+test('Clash Verge intercepts the original shared scheme even when clicking its icon', async () => {
+  const { dom, enhance, window, url } = menu();
+  const originalRow = dom.window.document.querySelectorAll('li')[1];
+  let originalClicks = 0;
+  originalRow.addEventListener('click', () => {
+    originalClicks += 1;
+    window.location.href = 'clash://install-config?url=' + encodeURIComponent(url);
+  });
+  enhance(); enhance();
+  originalRow.querySelector('img').click();
+  await Promise.resolve();
+  const target = new URL(window.location.href);
+  assert.equal(target.protocol, 'clash-verge:');
+  assert.equal(target.host, 'install-config');
+  assert.equal(target.searchParams.get('url'), url);
+  assert.equal(target.searchParams.get('name'), '大象 & 测试');
+  // Verge reads the subscription from url= through the end of the query string.
+  assert.equal(decodeURIComponent(target.search.split('url=')[1]), url);
+  assert.equal(originalClicks, 0);
+});
+
+test('mobile Clash entry keeps its original click behavior', () => {
+  const { dom, enhance } = menu(false, false);
+  const originalRow = dom.window.document.querySelectorAll('li')[1];
+  let clicks = 0;
+  originalRow.addEventListener('click', () => { clicks += 1; });
+  enhance();
+  originalRow.querySelector('img').click();
+  assert.equal(clicks, 1);
+  assert.equal(originalRow.textContent, '导入到 Clash Meta');
 });
 
 test('new logo and menu assets are mirrored into the served theme', () => {
