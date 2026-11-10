@@ -6,6 +6,55 @@ const zlib = require('node:zlib');
 
 const bundle = fs.readFileSync(path.join(__dirname, '../theme/ElephantRoute/assets/umi.js'), 'utf8');
 
+function userStore(getInfo, getSubscribe) {
+  const start = bundle.indexOf('const ea=hu("user",');
+  const end = bundle.indexOf('function iZ(', start);
+  assert.ok(start !== -1 && end > start, 'actual user store is present');
+  const definition = new Function('hu', 'IJ', 'MJ', bundle.slice(start, end) + '; return ea;')(
+    (_name, value) => value, getInfo, getSubscribe
+  );
+  const store = definition.state();
+  for (const [name, action] of Object.entries(definition.actions)) store[name] = action.bind(store);
+  for (const [name, getter] of Object.entries(definition.getters)) {
+    Object.defineProperty(store, name, { get: () => getter.call(store) });
+  }
+  return store;
+}
+
+test('account refresh keeps an already loaded subscription while updating account fields', async () => {
+  const subscription = { subscribe_url: 'https://example.test/sub', plan: { id: 1 } };
+  const store = userStore(async () => ({ data: { uuid: 'fixture-user', balance: 900 } }), async () => ({ data: subscription }));
+  store.userInfo = { uuid: 'fixture-user', balance: 100 };
+  await store.getUserSubscribe();
+  await store.getUserInfo();
+  assert.equal(store.balance, 900);
+  assert.equal(store.subscribe, subscription, 'focus-triggered profile refresh must not empty the open menu');
+  assert.equal(store.plan, subscription.plan);
+});
+
+test('a late initial profile response cannot erase the subscription that loaded first', async () => {
+  let resolveInfo;
+  const pending = new Promise(resolve => { resolveInfo = resolve; });
+  const subscription = { subscribe_url: 'https://example.test/sub', plan: { id: 1 } };
+  const store = userStore(() => pending, async () => ({ data: subscription }));
+  const request = store.getUserInfo();
+  await store.getUserSubscribe();
+  resolveInfo({ data: { uuid: 'fixture-user', balance: 500 } });
+  await request;
+  assert.equal(store.subscribe, subscription);
+  assert.equal(store.plan, subscription.plan);
+  assert.equal(store.balance, 500);
+});
+
+test('account identity changes do not carry over the previous subscription', async () => {
+  const store = userStore(async () => ({ data: { uuid: 'another-user', balance: 0 } }));
+  store.userInfo = { uuid: 'previous-user', subscribe: { subscribe_url: 'https://example.test/previous' }, plan: { id: 1 } };
+  await store.getUserInfo();
+  assert.equal(store.userUUID, 'another-user');
+  assert.equal(store.subscribe, undefined);
+  assert.equal(store.plan, undefined);
+});
+
 function importMenu(subscribe, load) {
   const start = bundle.indexOf('let erSubscriptionImportPending=');
   assert.notEqual(start, -1, 'subscription import must validate its own subscription state');

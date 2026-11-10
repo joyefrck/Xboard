@@ -558,7 +558,7 @@ test('ElephantRoute dashboard shows stacked traffic package balance inside subsc
 test('ElephantRoute dashboard asset cache busting covers balanced node columns and client branding updates', () => {
   const blade = readRepoFile('theme/ElephantRoute/dashboard.blade.php');
 
-  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261110subscribeImport1/);
+  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261110subscriptionState2/);
   assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
   assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
   assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261110importClients1/);

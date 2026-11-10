@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-order-refund.js?v={{$version}}-er20261109receipt1"></script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261110subscribeImport1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261110subscriptionState2"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
