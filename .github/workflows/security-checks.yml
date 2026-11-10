@@ -48,6 +48,7 @@ jobs:
           node --test tests/order-balance-refund.test.js tests/refund-user-order.test.js
           node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js
           node --test tests/elephant-route-notice.test.js
+          node --test tests/elephant-route-subscription-import.test.js tests/elephant-route-import-clients.test.js tests/elephant-route-dashboard-actions.test.js tests/elephant-route-brand-assets.test.js tests/elephant-route-modal-notify.test.js
           php scripts/version-admin-assets.php --check
       - name: Verify refund concurrency with database row locks
         env:

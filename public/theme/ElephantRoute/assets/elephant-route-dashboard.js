@@ -3,7 +3,7 @@
   var SUBSCRIBE_API_PATH = '/api/v1/user/getSubscribe';
   var TRAFFIC_PACKAGE_API_PATH = '/api/v1/user/traffic-package/fetch';
   var SERVER_API_PATH = '/api/v1/user/server/fetch';
-  var KARING_ICON_PATH = 'images/karing.png';
+  var FLCLASH_ICON_PATH = 'images/flclash.png';
   var CLASH_MI_ICON_PATH = 'images/clash-mi.png';
   var CLASH_VERGE_ICON_PATH = 'images/clash-verge.png';
   var ACCESS_TOKEN_STORAGE_KEY = 'VUE_NAIVE_ACCESS_TOKEN';
@@ -485,15 +485,15 @@
     return base.replace(/\/$/, '') + '/' + path;
   }
 
-  function buildKaringImportUrl(subscribeUrl, title) {
-    return 'karing://install-config?url=' + encodeURIComponent(subscribeUrl) + '&name=' + encodeURIComponent(title || '订阅');
+  function buildFlClashImportUrl(subscribeUrl) {
+    return 'flclash://install-config?url=' + encodeURIComponent(subscribeUrl);
   }
 
   function buildClashMiImportUrl(subscribeUrl) {
     return 'clashmi://install-config?url=' + encodeURIComponent(subscribeUrl);
   }
 
-  function openKaringImport() {
+  function openFlClashImport() {
     return fetchSubscribeInfo().then(function (info) {
       if (!info) {
         notify('error', '未登录');
@@ -503,11 +503,11 @@
         notify('error', '订阅链接不存在');
         return false;
       }
-      window.location.href = buildKaringImportUrl(info.subscribeUrl, info.title);
+      window.location.href = buildFlClashImportUrl(info.subscribeUrl);
       return true;
     }).catch(function (error) {
-      console.error('打开 Karing 导入失败:', error);
-      notify('error', 'Karing 导入失败');
+      console.error('打开 FlClash 导入失败:', error);
+      notify('error', 'FlClash 导入失败');
       return false;
     });
   }
@@ -604,7 +604,7 @@
     });
   }
 
-  function replaceKaringIcon(root) {
+  function replaceFlClashIcon(root) {
     var icon = root.querySelector('img');
     if (!icon) {
       icon = document.createElement('img');
@@ -616,9 +616,9 @@
       }
     }
 
-    icon.src = getThemeAssetUrl(KARING_ICON_PATH);
-    icon.alt = 'Karing';
-    icon.classList.add('er-karing-subscribe-icon');
+    icon.src = getThemeAssetUrl(FLCLASH_ICON_PATH);
+    icon.alt = 'FlClash';
+    icon.classList.add('er-flclash-subscribe-icon');
   }
 
   function replaceClashMiIcon(root) {
@@ -655,37 +655,36 @@
     icon.classList.add('er-clash-verge-subscribe-icon');
   }
 
-  function createKaringSubscribeItem(hiddifyItem) {
-    var karingItem = hiddifyItem.cloneNode(true);
-    karingItem.dataset.erKaringSubscribeItem = '1';
-    karingItem.setAttribute('aria-label', '导入到 Karing');
-    karingItem.removeAttribute('title');
-    replaceText(karingItem, 'Hiddify', 'Karing');
-    replaceKaringIcon(karingItem);
+  function createFlClashSubscribeItem(copyItem) {
+    var flclashItem = copyItem.cloneNode(true);
+    flclashItem.dataset.erFlClashSubscribeItem = '1';
+    flclashItem.setAttribute('aria-label', '导入到 FlClash');
+    flclashItem.removeAttribute('title');
+    replaceText(flclashItem, getNodeText(flclashItem), '导入到 FlClash');
+    replaceFlClashIcon(flclashItem);
 
-    if (karingItem.tagName && karingItem.tagName.toLowerCase() === 'a') {
-      karingItem.href = '#';
-      karingItem.setAttribute('href', '#');
+    if (flclashItem.tagName && flclashItem.tagName.toLowerCase() === 'a') {
+      flclashItem.href = '#';
+      flclashItem.setAttribute('href', '#');
     }
 
-    karingItem.addEventListener('click', function (event) {
+    flclashItem.addEventListener('click', function (event) {
       event.preventDefault();
       event.stopPropagation();
-      openKaringImport();
+      openFlClashImport();
     });
-
-    return karingItem;
+    return flclashItem;
   }
 
-  function enhanceKaringSubscribeOption() {
-    var hiddifyItem = findSubscribeListItem('Hiddify');
-    if (!hiddifyItem) return false;
-
-    var container = hiddifyItem.parentElement || hiddifyItem;
-    if (container.querySelector('[data-er-karing-subscribe-item="1"]')) return true;
-
-    var karingItem = createKaringSubscribeItem(hiddifyItem);
-    hiddifyItem.insertAdjacentElement('afterend', karingItem);
+  function enhanceFlClashSubscribeOption() {
+    if (isAppleMobilePlatform()) return false;
+    var copyItem = findSubscribeListItem('复制订阅地址') || findSubscribeListItem('复制订阅链接');
+    if (!copyItem) return false;
+    var container = copyItem.parentElement || copyItem;
+    if (container.querySelector('[data-er-fl-clash-subscribe-item="1"]')) return true;
+    var anchor = findSubscribeListItem('Clash Verge') || findSubscribeListItem('Clash Meta') || findSubscribeListItem('Clash') || copyItem;
+    var flclashItem = createFlClashSubscribeItem(copyItem);
+    anchor.insertAdjacentElement('afterend', flclashItem);
     return true;
   }
 
@@ -716,8 +715,6 @@
   }
 
   function enhanceClashMiSubscribeOption() {
-    if (!isAppleMobilePlatform()) return false;
-
     var copyItem = findSubscribeListItem('复制订阅地址') || findSubscribeListItem('复制订阅链接');
     if (!copyItem) return false;
 
@@ -725,7 +722,8 @@
     if (container.querySelector('[data-er-clash-mi-subscribe-item="1"]')) return true;
 
     var clashMiItem = createClashMiSubscribeItem(copyItem);
-    copyItem.insertAdjacentElement('afterend', clashMiItem);
+    var anchor = container.querySelector('[data-er-fl-clash-subscribe-item="1"]') || copyItem;
+    anchor.insertAdjacentElement('afterend', clashMiItem);
     return true;
   }
 
@@ -1370,9 +1368,9 @@
         removeSubscribeActions();
       }
       hideUnsupportedSurgeOption();
-      enhanceKaringSubscribeOption();
-      enhanceClashMiSubscribeOption();
       enhanceDesktopClashVergeSubscribeOption();
+      enhanceFlClashSubscribeOption();
+      enhanceClashMiSubscribeOption();
       if ((!subscribeApplied || !shortcutMenuApplied) && isDashboardRoute() && attempts < maxAttempts) {
         attempts += 1;
         retryTimer = window.setTimeout(retry, 180);

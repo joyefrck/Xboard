@@ -11,9 +11,9 @@
   <link rel="icon" href="/theme/{{$theme}}/assets/favicon.ico?v={{$version}}-er20260826brandLogo1" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/theme/{{$theme}}/assets/apple-touch-icon.png?v={{$version}}-er20260826brandLogo1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20261106auth1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20260826clientLogoTypography1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20261110importClients1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106notice1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261029usage1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261110importClients1">
   <script>
     try {
       localStorage.setItem('vueuse-color-scheme', 'light');
@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-order-refund.js?v={{$version}}-er20261109receipt1"></script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261109receipt1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261110subscribeImport1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -81,7 +81,7 @@
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
   <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261106auth1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261106notice1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261110importClients1"></script>
   <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
   <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106notice1"></script>

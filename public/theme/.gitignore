@@ -24,6 +24,7 @@ ElephantRoute/assets/*
 !ElephantRoute/assets/images/
 ElephantRoute/assets/images/*
 !ElephantRoute/assets/images/clash-mi.png
+!ElephantRoute/assets/images/flclash.png
 
 !ElephantRoute/assets/elephant-route-wallet.js
 !ElephantRoute/assets/elephant-route-wallet.css

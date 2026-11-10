@@ -495,7 +495,7 @@ test('Dashboard brand uses the transparent client source logo and mirrors it for
   assert.equal(themeLogo, sourceLogo);
   assert.equal(publicLogo, sourceLogo);
   assert.match(themeView, /logo\.src = '\/theme\/ElephantRoute\/assets\/client-logo\.svg'/);
-  assert.match(themeView, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260826clientLogoTypography1/);
+  assert.match(themeView, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
   assert.match(brandStyles, /\.er-sidebar-brand-logo \{[\s\S]*background: transparent !important/);
 });
 

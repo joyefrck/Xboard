@@ -151,7 +151,7 @@ test('ElephantRoute Clash Mi icon is cropped and compressed for the subscribe mo
   }
 });
 
-test('ElephantRoute Clash Mi icon removes non-white screenshot background', () => {
+test('ElephantRoute Clash Mi icon preserves clean official artwork corners', () => {
   for (const iconPath of [
     'theme/ElephantRoute/assets/images/clash-mi.png',
     'public/theme/ElephantRoute/assets/images/clash-mi.png'
@@ -165,7 +165,7 @@ test('ElephantRoute Clash Mi icon removes non-white screenshot background', () =
     ];
 
     for (const pixel of corners) {
-      assert.ok(pixel[0] >= 245 && pixel[1] >= 245 && pixel[2] >= 245, `${iconPath} corners should be white`);
+      assert.ok(pixel[3] === 0 || (pixel[0] >= 245 && pixel[1] >= 245 && pixel[2] >= 245), `${iconPath} corners should be transparent or white`);
     }
   }
 });
@@ -233,41 +233,14 @@ test('ElephantRoute dashboard hides Surge when the subscription has only VLESS n
   assert.doesNotMatch(script, /建议使用 SingBox、Hiddify 或 Clash Meta/);
 });
 
-test('ElephantRoute dashboard injects Karing after Hiddify in the one-click subscribe modal', () => {
+test('ElephantRoute dashboard adds FlClash and Clash Mi using dedicated import schemes', () => {
   const script = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard.js');
-
-  assert.match(script, /enhanceKaringSubscribeOption/);
-  assert.match(script, /findSubscribeListItem/);
-  assert.match(script, /createKaringSubscribeItem/);
-  assert.match(script, /openKaringImport/);
-  assert.match(script, /karing:\/\/install-config\?url=/);
-  assert.match(script, /images\/karing\.png/);
-  assert.match(script, /findSubscribeListItem\('Hiddify'\)[\s\S]*insertAdjacentElement\('afterend', karingItem\)/);
-  assert.match(script, /insertAdjacentElement\('afterend', karingItem\)/);
-});
-
-test('ElephantRoute dashboard injects Clash Mi after copy subscription on Apple mobile', () => {
-  const script = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard.js');
-  const stylesheet = readRepoFile('theme/ElephantRoute/assets/elephant-route-dashboard.css');
-
-  assert.match(script, /CLASH_MI_ICON_PATH = 'images\/clash-mi\.png'/);
-  assert.match(script, /function isAppleMobilePlatform\(\)/);
-  assert.match(script, /iPhone\|iPad\|iPod/);
-  assert.match(script, /platform === 'MacIntel' && navigator\.maxTouchPoints > 1/);
-  assert.match(script, /function buildClashMiImportUrl\(subscribeUrl\)/);
+  assert.match(script, /enhanceFlClashSubscribeOption/);
+  assert.match(script, /flclash:\/\/install-config\?url=/);
   assert.match(script, /clashmi:\/\/install-config\?url=/);
-  assert.doesNotMatch(script, /clash:\/\/install-config\?url=/);
-  assert.match(script, /function openClashMiImport\(\)/);
-  assert.match(script, /function enhanceClashMiSubscribeOption\(\)/);
-  assert.match(script, /findSubscribeListItem\('复制订阅地址'\) \|\| findSubscribeListItem\('复制订阅链接'\)/);
-  assert.match(script, /copyItem\.insertAdjacentElement\('afterend', clashMiItem\)/);
-  assert.match(script, /setAttribute\('aria-label', '导入到 Clash Mi'\)/);
-  assert.match(script, /replaceText\(clashMiItem, getNodeText\(clashMiItem\), '导入到 Clash Mi'\)/);
-  assert.match(script, /getThemeAssetUrl\(CLASH_MI_ICON_PATH\)/);
-  assert.match(script, /enhanceKaringSubscribeOption\(\);[\s\S]*enhanceClashMiSubscribeOption\(\);[\s\S]*enhanceDesktopClashVergeSubscribeOption\(\);/);
-  assert.match(stylesheet, /\.er-clash-mi-subscribe-icon/);
-  assert.match(stylesheet, /\.er-clash-mi-subscribe-icon\s*\{[\s\S]*width: 42px;[\s\S]*height: 42px;[\s\S]*flex: 0 0 42px;/);
-  assert.match(stylesheet, /\.er-clash-mi-subscribe-icon\s*\{[\s\S]*object-fit: contain;/);
+  assert.match(script, /images\/flclash\.png/);
+  assert.match(script, /images\/clash-mi\.png/);
+  assert.doesNotMatch(script, /Karing|karing/);
 });
 
 test('ElephantRoute dashboard normalizes desktop Clash entries to Clash Verge', () => {
@@ -284,7 +257,7 @@ test('ElephantRoute dashboard normalizes desktop Clash entries to Clash Verge', 
   assert.match(script, /replaceText\(clashItem, 'Clash', 'Clash Verge'\)/);
   assert.match(script, /aria-label', '导入到 Clash Verge'/);
   assert.match(script, /getThemeAssetUrl\(CLASH_VERGE_ICON_PATH\)/);
-  assert.match(script, /enhanceKaringSubscribeOption\(\);[\s\S]*enhanceDesktopClashVergeSubscribeOption\(\);/);
+  assert.match(script, /enhanceDesktopClashVergeSubscribeOption\(\);[\s\S]*enhanceFlClashSubscribeOption\(\);[\s\S]*enhanceClashMiSubscribeOption\(\);/);
   assert.match(stylesheet, /\.er-clash-verge-subscribe-icon/);
 });
 
@@ -585,10 +558,10 @@ test('ElephantRoute dashboard shows stacked traffic package balance inside subsc
 test('ElephantRoute dashboard asset cache busting covers balanced node columns and client branding updates', () => {
   const blade = readRepoFile('theme/ElephantRoute/dashboard.blade.php');
 
-  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261109receipt1/);
-  assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261029usage1/);
-  assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20260826clientLogoTypography1/);
-  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261106notice1/);
+  assert.match(blade, /umi\.js\?v=\{\{\$version\}\}-er20261110subscribeImport1/);
+  assert.match(blade, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
+  assert.match(blade, /elephant-route-dashboard\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
+  assert.match(blade, /elephant-route-dashboard\.js\?v=\{\{\$version\}\}-er20261110importClients1/);
 });
 
 

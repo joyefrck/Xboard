@@ -983,7 +983,7 @@ body[data-er-user-shell="true"] .n-card.n-modal .n-base-close {
 }
 
 /* One-click subscription import */
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]),
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]),
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) {
   --n-border-radius: 24px !important;
   --n-color: rgba(250, 252, 255, 0.88) !important;
@@ -1001,12 +1001,12 @@ body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-ic
   -webkit-backdrop-filter: blur(20px) saturate(135%);
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-card__content,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-card__content,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-card__content {
   padding: 12px !important;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list {
   --n-color: transparent !important;
   --n-color-hover: rgba(226, 235, 249, 0.72) !important;
@@ -1014,7 +1014,7 @@ body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-ic
   background: transparent !important;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item {
   margin: 3px 0;
   padding: 0 !important;
@@ -1024,20 +1024,20 @@ body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-ic
   transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item:hover,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item:hover,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item:hover {
   border-color: rgba(76, 102, 231, 0.12);
   background: rgba(230, 238, 251, 0.78) !important;
   transform: translateX(2px);
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__main > .flex,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item__main > .flex,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__main > .flex {
   min-height: 48px;
   padding: 5px 9px !important;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item .w-16,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 {
   width: 40px !important;
   height: 40px;
@@ -1050,13 +1050,13 @@ body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-ic
   box-shadow: none;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16 svg,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item .w-16 svg,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 svg {
   color: var(--er-pages-blue) !important;
   font-size: 22px !important;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .w-16 img,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item .w-16 img,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .w-16 img {
   width: 36px !important;
   height: 36px !important;
@@ -1064,19 +1064,19 @@ body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-ic
   object-fit: contain;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item .text-gray-500,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item .text-gray-500,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item .text-gray-500 {
   color: var(--er-pages-text) !important;
   font-size: 14px !important;
   font-weight: 620;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__divider,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item__divider,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__divider {
   display: none;
 }
 
-body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-button--primary-type,
+body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-button--primary-type,
 body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-button--primary-type {
   --n-color: transparent !important;
   --n-color-hover: transparent !important;
@@ -1320,7 +1320,7 @@ body[data-er-user-shell="true"] .n-dialog.n-modal .n-base-close {
     min-width: max-content;
   }
 
-  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]),
+  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]),
   body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon),
   body[data-er-user-shell="true"] .n-dialog.n-modal {
     width: calc(100vw - 32px) !important;
@@ -1355,7 +1355,7 @@ body[data-er-user-shell="true"] .n-dialog.n-modal .n-base-close {
     justify-content: center;
   }
 
-  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-karing-subscribe-item="1"]) .n-list-item__main > .flex,
+  body[data-er-user-shell="true"] .n-card.n-modal:has([data-er-clash-mi-subscribe-item="1"]) .n-list-item__main > .flex,
   body[data-er-user-shell="true"] .n-card.n-modal:has(.er-clash-verge-subscribe-icon) .n-list-item__main > .flex {
     min-height: 46px;
   }
