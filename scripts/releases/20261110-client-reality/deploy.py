@@ -67,9 +67,11 @@ def acceptance(mode, name, strict=False):
         args.append('--strict')
     if (B / 'started.iso').exists():
         args.append('--since=' + (B / 'started.iso').read_text().strip())
-    data = json.loads(run(args, input=(B / 'verify.php').read_bytes()))
+    result = subprocess.run(args, input=(B / 'verify.php').read_bytes(), capture_output=True)
+    data = json.loads(result.stdout)
     save(name + '.json', data)
     print(mode.upper(), json.dumps({k: v for k, v in data.items() if k != 'completed_job_evidence'}), flush=True)
+    assert result.returncode == 0, 'ACCEPTANCE_FAILED ' + mode
     return data
 
 

@@ -61,7 +61,7 @@ try {
     ];
     $http = new GuzzleHttp\Client(['http_errors' => false, 'timeout' => 30, 'allow_redirects' => false]);
     $results = [];
-    foreach (['loopback' => 'http://127.0.0.1:7001', 'public' => 'https://elephant111.org'] as $target => $base) {
+    foreach (['internal' => 'http://index-web-1:7001', 'public' => 'https://elephant111.org'] as $target => $base) {
         foreach ($clients as $name => $ua) {
             $response = $http->get($base . $path, ['headers' => ['User-Agent' => $ua, 'Host' => 'elephant111.org']]);
             $status = $response->getStatusCode();
@@ -98,6 +98,6 @@ try {
     echo json_encode(['sample_at' => date('c'), 'expected_modern_nodes' => $expectedModern, 'results' => $results, 'all_pass' => $allPass], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
     exit(isset($args['strict']) && !$allPass ? 1 : 0);
 } catch (Throwable $error) {
-    echo json_encode(['all_pass' => false, 'error_class' => get_class($error)]) . "\n";
+    echo json_encode(['all_pass' => false, 'error_class' => get_class($error), 'source' => basename($error->getFile()), 'line' => $error->getLine()]) . "\n";
     exit(2);
 }
