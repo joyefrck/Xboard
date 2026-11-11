@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from zoneinfo import ZoneInfo
 
@@ -82,7 +83,8 @@ def check_files(section):
     for target, item in M['files'].items():
         expected = before[target] if section == 'before' else item['after']
         assert digest(R / target) == expected, 'FILE_DRIFT:' + target
-    assert runtime() == json.loads((B / 'runtime-before.json').read_text()), 'RUNTIME_DRIFT'
+    runtime_file = 'runtime-before.json' if section == 'before' else 'runtime-after-reload.json'
+    assert runtime() == json.loads((B / runtime_file).read_text()), 'RUNTIME_DRIFT'
     for file in ['config/horizon.php', 'config/queue.php', 'docker-compose.yaml']:
         assert digest(R / file) == digest(B / 'before' / file), 'CONFIG_DRIFT:' + file
 
@@ -180,9 +182,29 @@ def install(section):
 
 
 def reload():
+    expected = runtime()
+    horizon = next(row for row in expected if row['name'] == '/index-horizon-1')
+    # Production runs `php artisan horizon` as its main process. Graceful
+    # termination exits that process, so Docker's existing restart policy
+    # performs exactly one planned restart of this container.
+    horizon['restarts'] += 1
     run(['docker', 'exec', 'index-web-1', 'php', 'artisan', 'view:clear'], timeout=120)
     run(['docker', 'exec', 'index-web-1', 'php', 'artisan', 'octane:reload'], timeout=120)
     run(['docker', 'exec', 'index-horizon-1', 'php', 'artisan', 'horizon:terminate'], timeout=120)
+    deadline = time.monotonic() + 360
+    while time.monotonic() < deadline:
+        actual = runtime()
+        for row in actual:
+            target = next(item for item in expected if item['name'] == row['name'])
+            assert row['restarts'] <= target['restarts'], 'UNEXPECTED_CONTAINER_RESTART'
+        if actual == expected:
+            status = subprocess.run(['docker', 'exec', 'index-horizon-1', 'php', 'artisan', 'horizon:status'], capture_output=True)
+            if status.returncode == 0:
+                save('runtime-after-reload.json', actual)
+                print('GRACEFUL_RELOAD_VERIFIED', json.dumps({row['name']: row['restarts'] for row in actual}), flush=True)
+                return
+        time.sleep(1)
+    raise RuntimeError('HORIZON_GRACEFUL_RELOAD_TIMEOUT')
 
 
 def health():
