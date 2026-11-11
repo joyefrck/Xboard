@@ -35,7 +35,7 @@ class MailLinkService
 
         $code = Helper::guid();
         $key = CacheKey::get('TEMP_TOKEN', $code);
-        Cache::put($key, $user->id, 300);
+        Cache::put($key, self::loginGrant($user), 300);
         Cache::put(CacheKey::get('LAST_SEND_LOGIN_WITH_MAIL_LINK_TIMESTAMP', $email), time(), 60);
 
         $redirectUrl = '/#/login?verify=' . $code . '&redirect=' . ($redirect ? $redirect : 'dashboard');
@@ -81,29 +81,47 @@ class MailLinkService
      */
     public function handleTokenLogin(string $token): ?int
     {
+        return $this->consumeTokenLogin($token)?->id;
+    }
+
+    public static function loginGrant(User $user, ?int $sessionId = null): array
+    {
+        return ['user_id' => $user->id, 'session_id' => $sessionId,
+            'password_stamp' => hash_hmac('sha256', (string) $user->password, (string) config('app.key'))];
+    }
+
+    public function consumeTokenLogin(string $token): ?User
+    {
         $key = CacheKey::get('TEMP_TOKEN', $token);
         try {
-            $userId = Cache::lock($key . ':consume', 5)->block(1, function () use ($key) {
-                $userId = Cache::get($key);
-                if ($userId !== null && $userId !== false) {
+            $grant = Cache::lock($key . ':consume', 5)->block(1, function () use ($key) {
+                $grant = Cache::get($key);
+                if ($grant !== null && $grant !== false) {
                     if (!Cache::forget($key)) return null;
                 }
-                return $userId;
+                return $grant;
             });
         } catch (LockTimeoutException) {
             return null;
         }
 
-        if ($userId === null || $userId === false) {
+        if (!is_array($grant) || !isset($grant['user_id'], $grant['password_stamp'])) {
             return null;
         }
 
-        $user = User::find($userId);
+        $user = User::find($grant['user_id']);
 
-        if (!$user || $user->banned) {
+        if (!$user || $user->banned || !hash_equals(self::loginGrant($user)['password_stamp'], $grant['password_stamp'])) {
             return null;
         }
 
-        return (int) $userId;
+        if (!empty($grant['session_id'])) {
+            $parent = $user->tokens()->whereKey($grant['session_id'])->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })->first();
+            if (!$parent) return null;
+            $user->withAccessToken($parent);
+        }
+        return $user;
     }
 }

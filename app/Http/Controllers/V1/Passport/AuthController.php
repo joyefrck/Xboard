@@ -108,19 +108,11 @@ class AuthController extends Controller
 
         // 处理通过验证码登录
         if ($verify = $request->input('verify')) {
-            $userId = $this->mailLinkService->handleTokenLogin($verify);
-
-            if (!$userId) {
-                return response()->json([
-                    'message' => __('Token error')
-                ], 400);
-            }
-
-            $user = \App\Models\User::find($userId);
+            $user = $this->mailLinkService->consumeTokenLogin($verify);
 
             if (!$user) {
                 return response()->json([
-                    'message' => __('User not found')
+                    'message' => __('Token error')
                 ], 400);
             }
 

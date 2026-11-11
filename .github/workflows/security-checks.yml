@@ -69,6 +69,16 @@ jobs:
           php tests/v2rayn-reality-subscription.php
           php tests/passwall-reality-subscription.php
           php tests/flclash-hiddify-reality-subscription.php
+      - name: Verify account sessions and security challenges
+        env:
+          ACCOUNT_SECURITY_TEST_PORT: ${{ job.services.database.ports['3306'] }}
+          ACCOUNT_SECURITY_TEST_PASSWORD: fixture-password
+        run: |
+          php -r '$db = new PDO("mysql:host=127.0.0.1;port=" . getenv("ACCOUNT_SECURITY_TEST_PORT"), "root", getenv("ACCOUNT_SECURITY_TEST_PASSWORD")); $db->exec("CREATE DATABASE account_security");'
+          php tests/account-session-security.php
+          php tests/account-session-security-concurrency.php
+          php tests/account-deletion.php
+          node --test tests/elephant-route-security.test.js
       - name: Verify real modern REALITY probes with fixed release binaries
         env:
           V2BX_TEST_LOG: debug

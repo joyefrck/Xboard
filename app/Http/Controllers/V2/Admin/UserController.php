@@ -402,6 +402,9 @@ class UserController extends Controller
                 $openingCustom = (bool) $user->custom_pending_order_id && empty($params['custom_pending_order_id'])
                     && array_key_exists('custom_pending_order_id', $params);
                 if (!$user->update($params)) throw new \RuntimeException('用户信息保存失败');
+                if (isset($params['password'])) {
+                    \App\Services\Auth\PasswordSecurityService::revokeCredentials($user);
+                }
                 if ($openingCustom) {
                     $user->unsetRelation('plan');
                     app(\App\Services\TrafficResetService::class)->setInitialResetTime($user);

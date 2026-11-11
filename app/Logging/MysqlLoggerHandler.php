@@ -18,21 +18,18 @@ class MysqlLoggerHandler extends AbstractProcessingHandler
     {
         $record = $record->toArray();
         try {
-            if (isset($record['context']['exception']) && is_object($record['context']['exception'])) {
-                $record['context']['exception'] = (array)$record['context']['exception'];
-            }
-            
-            $record['request_data'] = request()->all();
+            $requestData = request()->all();
+            $secrets = array_merge(SensitiveData::secrets($requestData), SensitiveData::secrets($record['context']));
             
             $log = [
-                'title' => $record['message'],
+                'title' => SensitiveData::redact($record['message'], $secrets),
                 'level' => $record['level_name'],
                 'host' => $record['extra']['request_host'] ?? request()->getSchemeAndHttpHost(),
-                'uri' => $record['extra']['request_uri'] ?? request()->getRequestUri(),
+                'uri' => SensitiveData::uri($record['extra']['request_uri'] ?? request()->getRequestUri(), $secrets),
                 'method' => $record['extra']['request_method'] ?? request()->getMethod(),
                 'ip' => request()->getClientIp(),
-                'data' => json_encode($record['request_data']),
-                'context' => json_encode($record['context']),
+                'data' => json_encode(SensitiveData::redact($requestData, $secrets)),
+                'context' => json_encode(SensitiveData::redact($record['context'], $secrets)),
                 'created_at' => $record['datetime']->getTimestamp(),
                 'updated_at' => $record['datetime']->getTimestamp(),
             ];

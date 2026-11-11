@@ -41,7 +41,7 @@ class AccountDeletionService
             foreach ([
                 'v2_user_traffic_packages', 'v2_traffic_reset_logs', 'v2_stat_user',
                 'v2_invite_code', 'v2_gift_card_usage', 'v2_telegram_group_entitlements',
-                'v2_telegram_group_invitations', 'v2_user_blacklist_event',
+                'v2_telegram_group_invitations', 'v2_user_blacklist_event', 'v2_user_trusted_ips',
             ] as $table) {
                 DB::table($table)->where('user_id', $userId)->delete();
             }

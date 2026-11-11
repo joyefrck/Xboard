@@ -1,0 +1,250 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "backup": "/root/xboard-account-security-20261111",
+  "included_commits": [
+    "41608864b8963881274f2eec9ede92aa111a994e",
+    "a83f633c2904b5300a65182ef967b0413765ae60"
+  ],
+  "migration": "database/migrations/2026_11_11_000001_add_account_session_security.php",
+  "files": {
+    "app/Console/Commands/ResetPassword.php": {
+      "source": "app/Console/Commands/ResetPassword.php",
+      "allowed_before": [
+        "16daf7672afd9700586f0ee923b93e98fae73b95072c4416bb4b86754c5b16bd"
+      ],
+      "after": "75ce71a5fc6bb371bc6a4f18af918a797b827576124743489a777cc149ef02eb"
+    },
+    "app/Exceptions/Handler.php": {
+      "source": "app/Exceptions/Handler.php",
+      "allowed_before": [
+        "374e479d46857fa4d6afdaf7b06b19d24c9edf03faa3a80d4b752a3e2978fe84"
+      ],
+      "after": "35b8d3c76c6f8330e9aec528374ceccd1ef8eaad4f2cb03f6e3d9ff2e4fac120"
+    },
+    "app/Http/Controllers/V1/Passport/AuthController.php": {
+      "source": "app/Http/Controllers/V1/Passport/AuthController.php",
+      "allowed_before": [
+        "8fd7b24c916b043369c2209abc170ef2c8eb4b10152a83d40bb09b80c68d1c16"
+      ],
+      "after": "02ae51f382d0702cd5ac15eb39be879ced9d81dac32f01fb6ff1de05823ddee8"
+    },
+    "app/Http/Controllers/V1/User/UserController.php": {
+      "source": "app/Http/Controllers/V1/User/UserController.php",
+      "allowed_before": [
+        "ca91db90ac59f9d59d38dc10ba137d997ad8716de0599a058a2634b3c07954ce"
+      ],
+      "after": "9ca8a5a2707dbeea822ae1e862557c51f4b2820732d752d74aba2942abdcb67a"
+    },
+    "app/Http/Controllers/V2/Admin/UserController.php": {
+      "source": "app/Http/Controllers/V2/Admin/UserController.php",
+      "allowed_before": [
+        "6e18b9afae750e7ebe2c893abfc60741818519d59a0868d0c4628cb69c02fea8"
+      ],
+      "after": "74f81fc9604403ebb5a29da087c61e0e7ccafff25bfe55f9fc328b555793fc14"
+    },
+    "app/Http/Middleware/User.php": {
+      "source": "app/Http/Middleware/User.php",
+      "allowed_before": [
+        "b4eccd9ace2b54c5d97fd90c4ae35a4c1daa6481afe62d475ae23e56fdfff1b7"
+      ],
+      "after": "64a0892395a5380bbb841a0f76c9abcd9d3df648052a168edbd7f3a6bca9ce9d"
+    },
+    "app/Http/Requests/User/UserChangePassword.php": {
+      "source": "app/Http/Requests/User/UserChangePassword.php",
+      "allowed_before": [
+        "a82efe7b121c5ea5720803ce4806a5d1ba1e79fa48486593f69db48b1bc13cf0"
+      ],
+      "after": "fa33a2bcb5c907bcafac4bb59a72da000fc5a12c32f28682371ae738fcf798c7"
+    },
+    "app/Http/Routes/V1/UserRoute.php": {
+      "source": "app/Http/Routes/V1/UserRoute.php",
+      "allowed_before": [
+        "b5d6801dd32e38b38f37462bf5bf236ee9a6aae86bc8d8eea85b334262fd3c79"
+      ],
+      "after": "f95449efb41952342a8b102e9a5dcc57e6899ddd56cc3dc4a8a66cc20917d959"
+    },
+    "app/Logging/MysqlLoggerHandler.php": {
+      "source": "app/Logging/MysqlLoggerHandler.php",
+      "allowed_before": [
+        "b9502cb4e0ec64529fff849fbc6f524c9c6501ab9e61d809096ab09364e04b2d"
+      ],
+      "after": "637dae238de5673bd2ba1385bf91e80f0b9c1f1d3afce4510a0ba930cf76d94d"
+    },
+    "app/Logging/SensitiveData.php": {
+      "source": "app/Logging/SensitiveData.php",
+      "allowed_before": [
+        null
+      ],
+      "after": "d78738b8f1cd79a0bf9d5e68e4afc52ed52256db2322b03e6dd7eec8c88cf8f5"
+    },
+    "app/Services/AccountDeletionService.php": {
+      "source": "app/Services/AccountDeletionService.php",
+      "allowed_before": [
+        "a6744e101ca5b73c5bcb2740f0be46725e89f164bfe7ad4bd9fbe20b7803c590"
+      ],
+      "after": "951996a855581ebb4cf171c94f4db87ef3a7175eec144c09354bc7d1bb7e0b09"
+    },
+    "app/Services/Auth/LoginService.php": {
+      "source": "app/Services/Auth/LoginService.php",
+      "allowed_before": [
+        "49663627f0bf787ee0545863ab72df48ac3be6a684f0170c7519b85057b28bb9"
+      ],
+      "after": "daf4d3f8f96efdb75a79913a50091436303feed439d7082a6333e64eada82862"
+    },
+    "app/Services/Auth/MailLinkService.php": {
+      "source": "app/Services/Auth/MailLinkService.php",
+      "allowed_before": [
+        "9a0cb3f6294cdf970d74ab7f527f7b590fb43be8ebb20b78d11a5bce549967a6"
+      ],
+      "after": "ee350582de2aed00710c4ee83c88e4fdf987c699a97baa3c693a6ee4f7d5b5a1"
+    },
+    "app/Services/Auth/PasswordSecurityService.php": {
+      "source": "app/Services/Auth/PasswordSecurityService.php",
+      "allowed_before": [
+        null
+      ],
+      "after": "c80b897ea74dcf5503f056893c9cc1260cd0e13027330f5ed6dec81c8097473d"
+    },
+    "app/Services/Auth/SessionSecurityService.php": {
+      "source": "app/Services/Auth/SessionSecurityService.php",
+      "allowed_before": [
+        null
+      ],
+      "after": "19724e68fc7cb27c986edaed89dec95f4793a29bea5cf33439a8bb1cd980b078"
+    },
+    "app/Services/AuthService.php": {
+      "source": "app/Services/AuthService.php",
+      "allowed_before": [
+        "375fa20ca45039f195edeb4ee715b5fd2a81abd5b5a20923dbc9f32085a05bc5"
+      ],
+      "after": "3a67bfd4f9b67ba4eb04b52b6c8a8fdd93aed8bcf1981886300d36e1294197ff"
+    },
+    "app/Services/MailService.php": {
+      "source": "app/Services/MailService.php",
+      "allowed_before": [
+        "80766820d1c55a315457b12daeb62b2c77b3716803b3f476600be655462b9629"
+      ],
+      "after": "c7d9ffc8e0c58580cf132f64bcbc7f0f98438cdc10fbc4174873fa2f8b9f154b"
+    },
+    "database/migrations/2026_11_11_000001_add_account_session_security.php": {
+      "source": "database/migrations/2026_11_11_000001_add_account_session_security.php",
+      "allowed_before": [
+        null
+      ],
+      "after": "8de5b6c06d4dd14dc033569a708ca6aee3ee7ac2c565bb3cc63c2685712addb5"
+    },
+    "public/theme/ElephantRoute/assets/elephant-route-dashboard.js": {
+      "source": "public/theme/ElephantRoute/assets/elephant-route-dashboard.js",
+      "allowed_before": [
+        "49ea49d35ac1939afefbeedf48762dce6bde7b6a7abd77c5b42f399a8789f2c7",
+        "4adfb73382f6b690410a4e27d90771a1df61f965dfabbebf181057aa5cce6e62"
+      ],
+      "after": "49ea49d35ac1939afefbeedf48762dce6bde7b6a7abd77c5b42f399a8789f2c7"
+    },
+    "public/theme/ElephantRoute/assets/elephant-route-security.css": {
+      "source": "public/theme/ElephantRoute/assets/elephant-route-security.css",
+      "allowed_before": [
+        null
+      ],
+      "after": "4cfa370675eae339606e77de9bff3bf3445865d49b986b3a6c9f37e756f87066"
+    },
+    "public/theme/ElephantRoute/assets/elephant-route-security.js": {
+      "source": "public/theme/ElephantRoute/assets/elephant-route-security.js",
+      "allowed_before": [
+        null
+      ],
+      "after": "ac0785ab1366174e11b1cc9ee11f070dfd68479eea539710544ea7c30da0f046"
+    },
+    "public/theme/ElephantRoute/assets/umi.js": {
+      "source": "theme/ElephantRoute/assets/umi.js",
+      "allowed_before": [
+        "17d81aef7738facc642eddcab49702b2e6e59c5dc7d0c9c8cca1f39e7934f31c",
+        "62be2a8994c710239e2ed0c7fdd5b415fa1f36ec40977850031f4c0cb32b138d"
+      ],
+      "after": "17d81aef7738facc642eddcab49702b2e6e59c5dc7d0c9c8cca1f39e7934f31c"
+    },
+    "public/theme/ElephantRoute/assets/umi.js.br": {
+      "source": "theme/ElephantRoute/assets/umi.js.br",
+      "allowed_before": [
+        "710b3c41f07228ffdf936071584e91c611910f556e1931ebab244c1b656741d6",
+        "e8032fea7d4f2fb697db8c500ec145669d2c28af3f6d7dff3c560e05f84cdbe2"
+      ],
+      "after": "710b3c41f07228ffdf936071584e91c611910f556e1931ebab244c1b656741d6"
+    },
+    "public/theme/ElephantRoute/assets/umi.js.gz": {
+      "source": "theme/ElephantRoute/assets/umi.js.gz",
+      "allowed_before": [
+        "1837a6086dfa7bd141cedd89afecc9a903e6564df76ea6f4ccf2c9d4a65b635e",
+        "6e5744da913109c675f1e277e0aae1fa1e1c1c4c82ee9282c5a328599a421dd6"
+      ],
+      "after": "6e5744da913109c675f1e277e0aae1fa1e1c1c4c82ee9282c5a328599a421dd6"
+    },
+    "public/theme/ElephantRoute/dashboard.blade.php": {
+      "source": "public/theme/ElephantRoute/dashboard.blade.php",
+      "allowed_before": [
+        "2b170bef5170f1ac26bd95c87748f032b5b5a5517222f02afb8a58fb628a2c3b",
+        "bde4331682b697fe566eb9d628f8b7588b040941e28cb966e88f75ed067e409b",
+        "ea36a353704d41e8e9f9f6a725a15c3036437e8e9cb9c904439d7985d9ecb1fe"
+      ],
+      "after": "18b52f60a3fe0636cdc876ece5ce867e8279a4557acbaa37dc473e41fe87e5c9"
+    },
+    "theme/ElephantRoute/assets/elephant-route-dashboard.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-dashboard.js",
+      "allowed_before": [
+        "49ea49d35ac1939afefbeedf48762dce6bde7b6a7abd77c5b42f399a8789f2c7",
+        "4adfb73382f6b690410a4e27d90771a1df61f965dfabbebf181057aa5cce6e62"
+      ],
+      "after": "49ea49d35ac1939afefbeedf48762dce6bde7b6a7abd77c5b42f399a8789f2c7"
+    },
+    "theme/ElephantRoute/assets/elephant-route-security.css": {
+      "source": "theme/ElephantRoute/assets/elephant-route-security.css",
+      "allowed_before": [
+        null
+      ],
+      "after": "4cfa370675eae339606e77de9bff3bf3445865d49b986b3a6c9f37e756f87066"
+    },
+    "theme/ElephantRoute/assets/elephant-route-security.js": {
+      "source": "theme/ElephantRoute/assets/elephant-route-security.js",
+      "allowed_before": [
+        null
+      ],
+      "after": "ac0785ab1366174e11b1cc9ee11f070dfd68479eea539710544ea7c30da0f046"
+    },
+    "theme/ElephantRoute/assets/umi.js": {
+      "source": "theme/ElephantRoute/assets/umi.js",
+      "allowed_before": [
+        "17d81aef7738facc642eddcab49702b2e6e59c5dc7d0c9c8cca1f39e7934f31c",
+        "62be2a8994c710239e2ed0c7fdd5b415fa1f36ec40977850031f4c0cb32b138d"
+      ],
+      "after": "17d81aef7738facc642eddcab49702b2e6e59c5dc7d0c9c8cca1f39e7934f31c"
+    },
+    "theme/ElephantRoute/assets/umi.js.br": {
+      "source": "theme/ElephantRoute/assets/umi.js.br",
+      "allowed_before": [
+        "710b3c41f07228ffdf936071584e91c611910f556e1931ebab244c1b656741d6",
+        "e8032fea7d4f2fb697db8c500ec145669d2c28af3f6d7dff3c560e05f84cdbe2"
+      ],
+      "after": "710b3c41f07228ffdf936071584e91c611910f556e1931ebab244c1b656741d6"
+    },
+    "theme/ElephantRoute/assets/umi.js.gz": {
+      "source": "theme/ElephantRoute/assets/umi.js.gz",
+      "allowed_before": [
+        "1837a6086dfa7bd141cedd89afecc9a903e6564df76ea6f4ccf2c9d4a65b635e",
+        "6e5744da913109c675f1e277e0aae1fa1e1c1c4c82ee9282c5a328599a421dd6"
+      ],
+      "after": "6e5744da913109c675f1e277e0aae1fa1e1c1c4c82ee9282c5a328599a421dd6"
+    },
+    "theme/ElephantRoute/dashboard.blade.php": {
+      "source": "theme/ElephantRoute/dashboard.blade.php",
+      "allowed_before": [
+        "2b170bef5170f1ac26bd95c87748f032b5b5a5517222f02afb8a58fb628a2c3b",
+        "bde4331682b697fe566eb9d628f8b7588b040941e28cb966e88f75ed067e409b",
+        "ea36a353704d41e8e9f9f6a725a15c3036437e8e9cb9c904439d7985d9ecb1fe"
+      ],
+      "after": "18b52f60a3fe0636cdc876ece5ce867e8279a4557acbaa37dc473e41fe87e5c9"
+    }
+  },
+  "queue-snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9",
+  "business-verify_sha256": "1faae3b3f2d5330966090d179154bc042e53acacd0e3b37241fe437e239d8c52",
+  "security-verify_sha256": "f1838d508a89e7ddf703106526509e3ff1ff3aed92c59c019bdab46fe4e9508c"
+}

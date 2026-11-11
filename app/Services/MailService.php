@@ -238,15 +238,16 @@ class MailService
             );
             $error = null;
         } catch (\Exception $e) {
-            Log::error($e);
-            $error = $e->getMessage();
+            $secrets = array_merge(\App\Logging\SensitiveData::secrets($params), \App\Logging\SensitiveData::secrets(config('mail')));
+            $error = \App\Logging\SensitiveData::redact($e->getMessage(), $secrets);
+            Log::error('Mail delivery failed', ['exception_type' => get_class($e), 'error' => $error]);
         }
         $log = [
             'email' => $params['email'],
             'subject' => $params['subject'],
             'template_name' => $params['template_name'],
             'error' => $error,
-            'config' => config('mail')
+            'config' => \App\Logging\SensitiveData::redact(config('mail'))
         ];
         MailLog::create($log);
         return $log;

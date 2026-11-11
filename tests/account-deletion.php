@@ -50,7 +50,7 @@ $schema->create('v2_user', function (Blueprint $t) {
 });
 $ownTables = ['v2_user_traffic_packages', 'v2_traffic_reset_logs', 'v2_stat_user', 'v2_invite_code',
     'v2_gift_card_usage', 'v2_telegram_group_entitlements', 'v2_telegram_group_invitations', 'v2_user_blacklist_event',
-    'v2_order', 'v2_ticket', 'v2_gift_card_code', 'v2_commission_log'];
+    'v2_order', 'v2_ticket', 'v2_gift_card_code', 'v2_commission_log', 'v2_user_trusted_ips'];
 foreach ($ownTables as $table) {
     $schema->create($table, function (Blueprint $t) use ($table) {
         $t->increments('id'); $t->integer('user_id')->nullable();

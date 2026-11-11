@@ -30,6 +30,7 @@ class UserRoute
             $router->get('/resetSecurity', [UserController::class, 'resetSecurity']);
             $router->get('/info', [UserController::class, 'info']);
             $router->post('/changePassword', [UserController::class, 'changePassword']);
+            $router->post('/sendPasswordChangeCode', [UserController::class, 'sendPasswordChangeCode'])->middleware('throttle:10,1');
             $router->post('/deleteAccount', [UserController::class, 'deleteAccount'])->middleware('throttle:5,1');
             $router->post('/update', [UserController::class, 'update']);
             $router->get('/getSubscribe', [UserController::class, 'getSubscribe']);
@@ -39,6 +40,7 @@ class UserRoute
             $router->post('/getQuickLoginUrl', [UserController::class, 'getQuickLoginUrl']);
             $router->get('/getActiveSession', [UserController::class, 'getActiveSession']);
             $router->post('/removeActiveSession', [UserController::class, 'removeActiveSession']);
+            $router->post('/removeAllActiveSessions', [UserController::class, 'removeAllActiveSessions']);
             // Support
             $router->get('/support/dify-context', [SupportController::class, 'difyContext']);
             // Order

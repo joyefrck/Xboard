@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20261110importClients1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106notice1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261110importClients1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-security.css?v={{$version}}-er20261111security2">
+  <script defer src="/theme/{{$theme}}/assets/elephant-route-security.js?v={{$version}}-er20261111security2"></script>
   <script>
     try {
       localStorage.setItem('vueuse-color-scheme', 'light');

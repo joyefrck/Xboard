@@ -25,6 +25,7 @@ class User
         if (Auth::guard('sanctum')->user()->banned) {
             throw new ApiException('账号已被封禁', 403);
         }
+        app(\App\Services\Auth\SessionSecurityService::class)->observe(Auth::guard('sanctum')->user(), $request);
         return $next($request);
     }
 }

@@ -7,6 +7,11 @@ use App\Services\Plugin\HookManager;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Laravel\Sanctum\PersonalAccessToken;
+use App\Exceptions\ApiException;
 
 class LoginService
 {
@@ -92,33 +97,32 @@ class LoginService
             return [false, [429, __('Reset failed, Please try again later')]];
         }
 
-        // 验证邮箱验证码
-        if ((string) Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $email)) !== (string) $emailCode) {
-            Cache::put($forgetRequestLimitKey, $forgetRequestLimit ? $forgetRequestLimit + 1 : 1, 300);
-            return [false, [400, __('Incorrect email verification code')]];
+        try {
+            return Cache::lock('password-reset:' . hash('sha256', $email), 15)->block(2, function () use ($email, $emailCode, $password, $forgetRequestLimitKey) {
+                return DB::transaction(function () use ($email, $emailCode, $password, $forgetRequestLimitKey) {
+                    $count = (int) Cache::get($forgetRequestLimitKey, 0);
+                    if ($count >= 3) return [false, [429, __('Reset failed, Please try again later')]];
+                    $cached = Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $email));
+                    if ($cached === null || $emailCode === '' || !hash_equals((string) $cached, $emailCode)) {
+                        Cache::put($forgetRequestLimitKey, $count + 1, 300);
+                        return [false, [400, __('Incorrect email verification code')]];
+                    }
+                    $user = User::where('email', $email)->lockForUpdate()->first();
+                    if (!$user) return [false, [400, __('This email is not registered in the system')]];
+                    $user->password = password_hash($password, PASSWORD_DEFAULT);
+                    $user->password_algo = null;
+                    $user->password_salt = null;
+                    $user->saveOrFail();
+                    PasswordSecurityService::revokeCredentials($user);
+                    Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $email));
+                    Log::info('account.security.password_recovered', ['user_id' => $user->id]);
+                    HookManager::call('user.password.reset.after', $user);
+                    return [true, true];
+                });
+            });
+        } catch (LockTimeoutException $e) {
+            return [false, [429, __('Reset failed, Please try again later')]];
         }
-
-        // 查找用户
-        $user = User::where('email', $email)->first();
-        if (!$user) {
-            return [false, [400, __('This email is not registered in the system')]];
-        }
-
-        // 更新密码
-        $user->password = password_hash($password, PASSWORD_DEFAULT);
-        $user->password_algo = NULL;
-        $user->password_salt = NULL;
-
-        if (!$user->save()) {
-            return [false, [500, __('Reset failed')]];
-        }
-
-        HookManager::call('user.password.reset.after', $user);
-
-        // 清除邮箱验证码
-        Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $email));
-
-        return [true, true];
     }
 
 
@@ -138,7 +142,9 @@ class LoginService
         $code = Helper::guid();
         $key = CacheKey::get('TEMP_TOKEN', $code);
 
-        Cache::put($key, $user->id, 60);
+        $parent = $user->currentAccessToken();
+        if (!$parent instanceof PersonalAccessToken) throw new ApiException('请重新登录后获取快速登录链接', 403);
+        Cache::put($key, MailLinkService::loginGrant($user, $parent->getKey()), 60);
 
         $redirect = $redirect ?: 'dashboard';
         $loginRedirect = '/#/login?verify=' . $code . '&redirect=' . rawurlencode($redirect);

@@ -114,7 +114,7 @@ $assert($existingMailResult === [true, true], 'mail-link response leaked for exi
 $jobParams = (new \ReflectionProperty(\App\Jobs\SendEmailJob::class, 'params'))->getValue($dispatcher->jobs[0]);
 $assert(($jobParams['template_name'] ?? null) === 'mailLogin', 'mail-link job used the wrong template');
 $tokenService = new \App\Services\Auth\MailLinkService();
-\Illuminate\Support\Facades\Cache::put('TEMP_TOKEN_single-use', 1, 300);
+\Illuminate\Support\Facades\Cache::put('TEMP_TOKEN_single-use', \App\Services\Auth\MailLinkService::loginGrant(\App\Models\User::find(1)), 300);
 $assert($tokenService->handleTokenLogin('single-use') === 1, 'mail token was not consumed');
 $assert($tokenService->handleTokenLogin('single-use') === null, 'mail token was replayable');
 $auth = new class {

@@ -12,6 +12,8 @@ use App\Models\Plan;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Auth\LoginService;
+use App\Services\Auth\PasswordSecurityService;
+use App\Services\Auth\SessionSecurityService;
 use App\Services\AuthService;
 use App\Services\AccountDeletionService;
 use App\Services\Plugin\HookManager;
@@ -37,8 +39,7 @@ class UserController extends Controller
         if (!$user) {
             return $this->fail([400, __('The user does not exist')]);
         }
-        $authService = new AuthService($user);
-        return $this->success($authService->getSessions());
+        return $this->success(app(SessionSecurityService::class)->sessions($request->user(), $request));
     }
 
     public function removeActiveSession(Request $request)
@@ -47,8 +48,23 @@ class UserController extends Controller
         if (!$user) {
             return $this->fail([400, __('The user does not exist')]);
         }
-        $authService = new AuthService($user);
-        return $this->success($authService->removeSession($request->input('session_id')));
+        $params = $request->validate(['session_id' => 'required|integer|min:1']);
+        app(SessionSecurityService::class)->revoke($request->user(), (string) $params['session_id']);
+        return $this->success(true);
+    }
+
+    public function removeAllActiveSessions(Request $request)
+    {
+        app(SessionSecurityService::class)->revoke($request->user());
+        return $this->success(true);
+    }
+
+    public function sendPasswordChangeCode(Request $request)
+    {
+        $params = $request->validate(['old_password' => 'required|string|max:512']);
+        return $this->success(app(PasswordSecurityService::class)->sendCode(
+            $request->user(), $request, $params['old_password']
+        ));
     }
 
     public function checkLogin(Request $request)
@@ -64,26 +80,8 @@ class UserController extends Controller
 
     public function changePassword(UserChangePassword $request)
     {
-        $user = User::find($request->user()->id);
-        if (!$user) {
-            return $this->fail([400, __('The user does not exist')]);
-        }
-        if (
-            !Helper::multiPasswordVerify(
-                $user->password_algo,
-                $user->password_salt,
-                $request->input('old_password'),
-                $user->password
-            )
-        ) {
-            return $this->fail([400, __('The old password is wrong')]);
-        }
-        $user->password = password_hash($request->input('new_password'), PASSWORD_DEFAULT);
-        $user->password_algo = NULL;
-        $user->password_salt = NULL;
-        if (!$user->save()) {
-            return $this->fail([400, __('Save failed')]);
-        }
+        app(PasswordSecurityService::class)->change($request->user(), $request,
+            $request->input('old_password'), $request->input('new_password'), $request->input('email_code'));
         return $this->success(true);
     }
 
@@ -263,7 +261,7 @@ class UserController extends Controller
             return $this->fail([400, __('The user does not exist')]);
         }
 
-        $url = $this->loginService->generateQuickLoginUrl($user, $request->input('redirect'));
+        $url = $this->loginService->generateQuickLoginUrl($request->user(), $request->input('redirect'));
         return $this->success($url);
     }
 }

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Exceptions\ApiException;
+use App\Services\Auth\SessionSecurityService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -17,14 +20,20 @@ class AuthService
 
     public function generateAuthData(): array
     {
-        // Create a new Sanctum token with device info
-        $token = $this->user->createToken(
-            Str::random(20), // token name (device identifier)
-            ['*'], // abilities
-            now()->addYear() // expiration
-        );
-
-        // Format token: remove ID prefix and add Bearer
+        $token = DB::transaction(function () {
+            $user = User::whereKey($this->user->id)->lockForUpdate()->firstOrFail();
+            if ($user->banned || !hash_equals((string) $this->user->password, (string) $user->password)) {
+                throw new ApiException('账号认证状态已变化，请重新登录', 403);
+            }
+            $parent = $this->user->currentAccessToken();
+            if ($parent && (!$parent instanceof PersonalAccessToken || !$parent->getKey() || !$user->tokens()->whereKey($parent->getKey())->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })->exists())) throw new ApiException('登录会话已退出，请重新登录', 403);
+            $token = $user->createToken(Str::random(20), ['*'], now()->addYear());
+            $token->accessToken->forceFill(SessionSecurityService::metadata(request()))->save();
+            $this->user = $user;
+            return $token;
+        });
         $tokenParts = explode('|', $token->plainTextToken);
         $formattedToken = 'Bearer ' . ($tokenParts[1] ?? $tokenParts[0]);
 
@@ -37,18 +46,18 @@ class AuthService
 
     public function getSessions(): array
     {
-        return $this->user->tokens()->get()->toArray();
+        return (new SessionSecurityService())->sessions($this->user, request());
     }
 
     public function removeSession(string $sessionId): bool
     {
-        $this->user->tokens()->where('id', $sessionId)->delete();
+        (new SessionSecurityService())->revoke($this->user, $sessionId);
         return true;
     }
 
     public function removeAllSessions(): bool
     {
-        $this->user->tokens()->delete();
+        (new SessionSecurityService())->revoke($this->user);
         return true;
     }
 
@@ -57,10 +66,11 @@ class AuthService
         $token = str_replace('Bearer ', '', $bearerToken);
         
         $accessToken = PersonalAccessToken::findToken($token);
+        if ($accessToken?->expires_at?->isPast()) return null;
         
         $tokenable = $accessToken?->tokenable;
         
-        return $tokenable instanceof User ? $tokenable : null;
+        return $tokenable instanceof User && !$tokenable->banned ? $tokenable->withAccessToken($accessToken) : null;
     }
 
     /**

@@ -14,6 +14,8 @@ ElephantRoute/assets/*
 !ElephantRoute/assets/notice-vendor-LICENSE.txt
 !ElephantRoute/assets/elephant-route-pages-v2.css
 !ElephantRoute/assets/elephant-route-pages-v2.js
+!ElephantRoute/assets/elephant-route-security.js
+!ElephantRoute/assets/elephant-route-security.css
 !ElephantRoute/assets/elephant-route-auth.js
 !ElephantRoute/assets/client-logo.svg
 !ElephantRoute/assets/favicon.svg

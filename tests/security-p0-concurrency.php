@@ -242,7 +242,7 @@ $mailCachePath = sys_get_temp_dir() . '/security-p0-mail-' . bin2hex(random_byte
 mkdir($mailCachePath, 0700, true);
 $mailCache = new Repository(new FileStore(new Filesystem(), $mailCachePath));
 $mailCacheKey = \App\Utils\CacheKey::get('TEMP_TOKEN', $mailToken);
-$mailCache->put($mailCacheKey, 1, 300);
+$mailCache->put($mailCacheKey, \App\Services\Auth\MailLinkService::loginGrant(User::find(1)), 300);
 $mailGuard = $mailCache->lock($mailCacheKey . ':consume', 5);
 $mailGuard->get();
 $mailWorkerOne = $start(['worker', 'mail', $mailCachePath, $mailToken], $environment);
