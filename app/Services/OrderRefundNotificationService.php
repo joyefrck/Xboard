@@ -29,6 +29,8 @@ class OrderRefundNotificationService
                 'template_value' => [
                     'name' => $name, 'orders' => $orders, 'refund_date' => $date($refund->created_at),
                     'refund_amount' => $money($refund->amount), 'order_amount' => $money(array_sum(array_column($entries, 'order_amount'))),
+                    'gross_amount' => $money($refund->snapshot['gross_amount'] ?? $refund->amount),
+                    'commission_deduction' => $money($refund->snapshot['commission_deduction'] ?? 0),
                     'url' => preg_match('~\Ahttps?://~i', $url) ? $url . '/app#/order' : null,
                 ],
             ],

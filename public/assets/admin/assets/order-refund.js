@@ -14,7 +14,6 @@ export function unavailableReason(order) {
   if (Number(order.type) === 4 || ['reset_price', 'reset_traffic'].includes(order.period)) return '流量重置订单没有独立可回收权益';
   if (order.no_proration) return '该套餐不参与折抵，不能自动退款';
   if (Number(order.commission_status) === 1) return '佣金正在发放，请先处理佣金';
-  if (Number(order.commission_status) === 2 || Number(order.actual_commission_balance) > 0) return '佣金已结算，请先人工核对';
   if (Number(order.total_amount || 0) < 0 || Number(order.balance_amount || 0) < 0) return '该订单金额异常';
   return '';
 }
@@ -56,6 +55,10 @@ export function createRefundUI({ React: R, api, toast, ui }) {
       line('账户余额', money(refund.balance_before) + ' → ' + money(refund.balance_after)),
       refund.snapshot ? h('div', { className: 'space-y-2' },
         line('退款范围', refund.snapshot.label), line('折算基数', money(refund.snapshot.base_amount)),
+        Number(refund.snapshot.commission_deduction) > 0 ? h('div', { className: 'space-y-2' },
+          line('扣佣前折算退款', money(refund.snapshot.gross_amount)),
+          line('扣除已结算佣金', money(refund.snapshot.commission_deduction)),
+          line('实际退至余额', money(refund.amount))) : null,
         line('关联订单', (refund.snapshot.related_orders || []).map(order => order.trade_no).join('、')),
         h('p', { className: 'text-sm' }, refund.snapshot.kind === 'subscription' ? '已移除当前套餐、套餐流量和有效期。' : '已回收该流量包的剩余流量。')) : null,
       h('p', { className: 'text-sm whitespace-pre-wrap break-words' }, refund.reason));
@@ -134,7 +137,11 @@ export function createRefundUI({ React: R, api, toast, ui }) {
               preview.related_orders?.length > 1 ? h('details', { className: 'text-sm' },
                 h('summary', { className: 'cursor-pointer' }, '涉及 ' + preview.related_orders.length + ' 笔订单（一起关闭）'),
                 preview.related_orders.map(item => h('p', { key: item.id, className: 'break-all font-mono' }, item.trade_no))) : null,
-              h('div', { className: 'border-t pt-2' }, line('本次折算退款', money(preview.amount))),
+              h('div', { className: 'border-t pt-2' }, line('扣佣前折算退款', money(preview.gross_amount ?? preview.amount))),
+              line('扣除已结算佣金', money(preview.commission_deduction)),
+              Number(preview.commission_deduction) > 0 ? h('p', { className: 'text-sm text-muted-foreground' },
+                '已结算佣金从本次折算退款中扣除，不扣回邀请人账户。') : null,
+              h('div', { className: 'border-t pt-2' }, line('本次实际退款', money(preview.amount))),
               line('预计退款后余额', money(preview.balance_before) + ' → ' + money(preview.balance_after))) : null,
             h('div', { className: 'rounded-md bg-muted p-3 text-sm leading-relaxed' },
               preview?.kind === 'subscription'

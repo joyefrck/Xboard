@@ -6,9 +6,12 @@ const { spawnSync } = require('node:child_process');
 const load = require('./admin-module-loader.cjs');
 let moduleUI;
 test.before(async () => { moduleUI = await load('order-refund.js'); });
-function harness({ previewError = false, submitError = false, refreshError = false, kind = 'subscription' } = {}) {
+function harness({ previewError = false, submitError = false, refreshError = false, kind = 'subscription', commissionDeduction = 0 } = {}) {
   const order = { trade_no: '202611090001', type: 1, status: 3, total_amount: 3500, balance_amount: 500, commission_status: 0 };
   const preview = { ...order, user_id: 41, email: 'refund@example.test', amount: 1000, base_amount: 4000, handling_amount: 175, balance_before: 190, balance_after: 1190, kind, label: '高级套餐', rule: '沿用换套餐折抵', quote: 'signed-fixture-quote', related_orders: [{id:1,trade_no:order.trade_no},{id:2,trade_no:'renewal-trade'}] };
+  preview.gross_amount = preview.amount + commissionDeduction;
+  preview.commission_deduction = commissionDeduction;
+  if (commissionDeduction) Object.assign(order, {commission_status:2,actual_commission_balance:commissionDeduction});
   let hook = 0, pendingEffects = [], deferred;
   const states = [], effects = [], refs = [], calls = [], messages = [];
   const React = {
@@ -46,8 +49,18 @@ test('menu contains only refund; unavailable orders show a reason', () => {
   const ui = harness();
   assert.equal(ui.nodes().filter(n => n.type === 'MenuItem').length, 1);
   assert.equal(ui.text(ui.nodes().find(n => n.type === 'MenuItem')), '退款到余额');
-  for (const order of [{status: 0}, {status: 1}, {status: 2}, {status: 4}, {status: 5}, {status: 3, type: 6}, {status: 3, type: 4}, {status: 3, no_proration: true}, {status: 3, commission_status: 1}, {status: 3, commission_status: 2}]) assert.ok(moduleUI.unavailableReason(order));
+  for (const order of [{status: 0}, {status: 1}, {status: 2}, {status: 4}, {status: 5}, {status: 3, type: 6}, {status: 3, type: 4}, {status: 3, no_proration: true}, {status: 3, commission_status: 1}]) assert.ok(moduleUI.unavailableReason(order));
   assert.equal(moduleUI.unavailableReason(ui.order), '');
+});
+test('settled commissions permit preview and display gross, withheld cost and net credit', async () => {
+  assert.equal(moduleUI.unavailableReason({status:3,commission_status:2,actual_commission_balance:300}), '');
+  const ui=harness({commissionDeduction:300});
+  assert.equal(ui.nodes().find(n=>n.type==='MenuItem').props.disabled,false);
+  await ui.open();
+  const content=ui.text(ui.nodes().find(n=>n.type==='form'));
+  for(const expected of ['扣佣前折算退款','¥13.00','扣除已结算佣金','¥3.00','本次实际退款','不扣回邀请人账户']) assert.ok(content.includes(expected),expected);
+  ui.reason('扣除已发佣金后退款');const pending=ui.submit();ui.resolve();await pending;
+  assert.equal(ui.calls.find(c=>c.url.endsWith('/refund')).payload.expected_amount,1000);
 });
 test('confirmation is read-only; cancel makes no refund request', async () => {
   const ui = harness(); await ui.open();

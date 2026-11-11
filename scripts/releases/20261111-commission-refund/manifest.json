@@ -1,0 +1,78 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "files": {
+    "app/Services/OrderRefundNotificationService.php": {
+      "source": "app/Services/OrderRefundNotificationService.php",
+      "after": "10ba83604915bf1071e555d2785244eaf616174b63e2957d71a3ae8ca4d53612",
+      "allowed_before": [
+        "ea15e48c8c8beca817eafaaad3e9bfd789df2c391aaf9de01fafebdfc58b2808"
+      ]
+    },
+    "app/Services/OrderRefundService.php": {
+      "source": "app/Services/OrderRefundService.php",
+      "after": "32b5fa84fa206fffc967b134ec0d4ee961daec799f5a9f717b748339b561455a",
+      "allowed_before": [
+        "a66e38683532d5fd4b400aebf59cbd1876c5329c82c48706ba3ff63724cb61fb"
+      ]
+    },
+    "public/assets/admin/assets/bandwagon-vps.js": {
+      "source": "public/assets/admin/assets/bandwagon-vps.js",
+      "after": "f862958b45b0618b8f9eb2406e7127da158beb8412eea0ca43f455d86882f93a",
+      "allowed_before": [
+        "09cdffff7c33baca40cf3b97426f9a7baa845d9c16681c88067838a49e50e715"
+      ]
+    },
+    "public/assets/admin/assets/index.js": {
+      "source": "public/assets/admin/assets/index.js",
+      "after": "b73e398dff215f03d00525d4bd80fe9b9888ba9e722d22ac9424762ee8e02d8e",
+      "allowed_before": [
+        "1779ef19bab4c7b1b0a750687a642f2df3564b2932e8d152cf25c8d1d2f72af3"
+      ]
+    },
+    "public/assets/admin/assets/node-automation.js": {
+      "source": "public/assets/admin/assets/node-automation.js",
+      "after": "ef0cfa373647b819c8a96ae73c4c4b6796ea39e362ac84001ef03b05fe9d2f0d",
+      "allowed_before": [
+        "a62b7ae7467a8f1ec640cc2b9d69a971b9cec25bc78c551a809a4d8dc7d25ade"
+      ]
+    },
+    "public/assets/admin/assets/order-refund.js": {
+      "source": "public/assets/admin/assets/order-refund.js",
+      "after": "1ddc4ca9141fc0673a4d7b443ca81e9a1072df98f6096f71f573e1dbfb7f8c4f",
+      "allowed_before": [
+        "fb88d68c36ec457b54a8cd3ec5ef8d37790ace8bde0cb3afd7c435fac865a160"
+      ]
+    },
+    "public/assets/admin/assets/vendor.css": {
+      "source": "public/assets/admin/assets/vendor.css",
+      "after": "f762d04eb9471ed62cd430f422971ac31e5b5e6bca2fc57f569f070ff6de6974",
+      "allowed_before": [
+        "6ce447d872f0ac55dec20302e95dbf29c9a4f33a9b62788b40f043e646d86fbb"
+      ]
+    },
+    "public/assets/admin/assets/vendor.js": {
+      "source": "public/assets/admin/assets/vendor.js",
+      "after": "82ba8d90948ace93b9a4e66457694cf1a14437ee73f4bb67a19574befcad053e",
+      "allowed_before": [
+        "713ada0e5f7aae367e9bbb2126972080883538a9b4fa5d6732356cf56e5f0471"
+      ]
+    },
+    "resources/views/admin.blade.php": {
+      "source": "resources/views/admin.blade.php",
+      "after": "d534b8f17e2dd62fe5e5b67844c14487a104019363952480df51fcd4c2ff29d3",
+      "allowed_before": [
+        "ddf27716b5f8742ecd2afdc31b6d93c7ddf699103ee9b2f28b23cf5ba1dceeb7"
+      ]
+    },
+    "resources/views/mail/default/orderRefund.blade.php": {
+      "source": "resources/views/mail/default/orderRefund.blade.php",
+      "after": "64bd27c1d00f810421e688e615f7b88c26bb39d481168c82bd6bd9178c28f66a",
+      "allowed_before": [
+        "1aceec58cbdcd190041818477472a294105477f25e7fb9a4bbd7bec2263fb7b4"
+      ]
+    }
+  },
+  "queue-snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9",
+  "business-verify_sha256": "1faae3b3f2d5330966090d179154bc042e53acacd0e3b37241fe437e239d8c52",
+  "scope-verify_sha256": "e2b90965451becf1ab58fc2f1980eed784c1b5bf81d72b4dfbdc5c2742898ebb"
+}

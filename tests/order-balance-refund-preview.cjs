@@ -32,16 +32,18 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.endsWith('/order/fetch')) return send({ status: 'success', data: orders, total: orders.length });
     if (url.pathname.endsWith('/order/detail')) return json({ ...order, user: { id: 41, email: 'refund@example.test' } });
     if (url.pathname.endsWith('/order/refund-preview')) {
-      if (order.status !== 3 || order.type === 6 || order.commission_status === 2) return send({ status: 'fail', message: '当前订单不能退款' }, 400);
+      if (order.status !== 3 || order.type === 6) return send({ status: 'fail', message: '当前订单不能退款' }, 400);
       const base = order.total_amount + order.balance_amount;
-      const amount = Math.floor(base / 4);
-      return json({ ...order, email: 'refund@example.test', amount, base_amount: base, kind: 'subscription', label: order.plan?.name, rule: '沿用换套餐折抵：剩余时间与流量比例取较小值', related_orders: [{id:order.id,trade_no:order.trade_no}], quote: 'fixture-prorated-quote', balance_before: balance, balance_after: balance + amount });
+      const gross_amount = Math.floor(base / 4);
+      const commission_deduction = Number(order.actual_commission_balance || 0);
+      const amount = gross_amount - commission_deduction;
+      return json({ ...order, email: 'refund@example.test', amount, gross_amount, commission_deduction, base_amount: base, kind: 'subscription', label: order.plan?.name, rule: '沿用换套餐折抵：剩余时间与流量比例取较小值', related_orders: [{id:order.id,trade_no:order.trade_no}], quote: 'fixture-prorated-quote', balance_before: balance, balance_after: balance + amount });
     }
     if (url.pathname.endsWith('/order/refund')) {
       await new Promise(resolve => setTimeout(resolve, 700));
       if (failNext) { failNext = false; return send({ status: 'fail', message: '测试：退款暂未完成，请重试' }, 503); }
       if (order.balance_refund) return json(order.balance_refund);
-      if (data.quote !== 'fixture-prorated-quote' || data.expected_amount !== Math.floor((order.total_amount + order.balance_amount) / 4)) return send({status:'fail',message:'折算预览无效'},400);
+      if (data.quote !== 'fixture-prorated-quote' || data.expected_amount !== (Math.floor((order.total_amount + order.balance_amount) / 4) - Number(order.actual_commission_balance || 0))) return send({status:'fail',message:'折算预览无效'},400);
       order.balance_refund = { amount: data.expected_amount, operator_id: 1, created_at: Math.floor(Date.now() / 1000), reason: data.reason, balance_before: balance, balance_after: balance + data.expected_amount, snapshot: {kind:'subscription',label:order.plan?.name,base_amount:order.total_amount+order.balance_amount,related_orders:[{id:order.id,trade_no:order.trade_no}]} };
       entitlement = {plan_id:null,expired_at:null,transfer_enable:0,u:0};
       balance += data.expected_amount; order.status = 5; order.commission_status = 3;

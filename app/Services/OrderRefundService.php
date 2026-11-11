@@ -33,6 +33,8 @@ class OrderRefundService
                 'total_amount' => (int) $order->total_amount, 'balance_amount' => (int) $order->balance_amount,
                 'handling_amount' => (int) $order->handling_amount,
                 'amount' => $scope['amount'], 'base_amount' => $scope['base_amount'],
+                'gross_amount' => $scope['gross_amount'], 'commission_deduction' => $scope['commission_deduction'],
+                'commission_deductions' => $scope['commission_deductions'],
                 'kind' => $scope['kind'], 'label' => $scope['label'], 'rule' => $scope['rule'],
                 'related_orders' => $scope['related_orders'],
                 'balance_before' => (int) $user->balance,
@@ -96,10 +98,13 @@ class OrderRefundService
             if (!$user->save()) throw new \RuntimeException('退款余额及套餐信息保存失败');
             // Other, separately purchased traffic packages retain their own access.
             app(TrafficPackageService::class)->syncAccessProfile($user);
+            $commissions = array_column($scope['commission_deductions'], null, 'order_id');
             foreach ($scope['order_ids'] as $id) {
                 $related = Order::whereKey($id)->lockForUpdate()->firstOrFail();
                 $related->status = Order::STATUS_REFUNDED;
-                $related->commission_status = 3;
+                // Already paid commission is withheld from this refund, not clawed
+                // back from the inviter or falsely marked as an unpaid void.
+                if (!$commissions[$id]['settled']) $related->commission_status = 3;
                 if (!$related->save()) throw new \RuntimeException('退款订单保存失败');
             }
             $entries = OrderRefundReceiptService::allocate($expectedAmount, $scope);
@@ -178,21 +183,53 @@ class OrderRefundService
             $rule = $user->expired_at === null ? '沿用换套餐的剩余流量折抵' : ((int) admin_setting('change_order_event_id', 0) === 1 ? '沿用换套餐折抵：剩余时间与流量比例取较小值' : '沿用换套餐折抵：按剩余时间比例');
             $state = ['user' => $user->only(self::USER_FIELDS), 'plan' => $plan->only(['id', 'name', 'plan_type', 'transfer_enable'])];
         }
+        $commissionDeduction = 0;
+        $commissions = [];
         foreach ($orders as $related) {
             if ((int) $related->status !== Order::STATUS_COMPLETED || (int) $related->total_amount < 0 || (int) $related->balance_amount < 0) throw new ApiException('关联订单状态或金额异常，请重新核对');
             if ((int) $related->commission_status === 1) throw new ApiException('关联订单佣金正在发放，请先处理佣金后再退款');
-            if ((int) $related->commission_status === 2 || (int) $related->actual_commission_balance > 0
-                || CommissionLog::where('trade_no', $related->trade_no)->lockForUpdate()->first(['id'])) throw new ApiException('关联订单佣金已结算，请先人工核对佣金');
+            $evidence = $this->commissionEvidence($related);
+            $commissionDeduction += $evidence['amount'];
+            $commissions[] = ['order_id' => (int) $related->id, 'trade_no' => $related->trade_no, ...$evidence];
         }
         if ($amount <= 0) throw new ApiException('按现有折抵规则计算后没有可退款的剩余价值');
         if ($base <= 0 || $amount > $base) throw new ApiException('套餐折抵金额异常，请先核对订单时间和金额');
+        $grossAmount = $amount;
+        $amount -= $commissionDeduction;
+        if ($amount <= 0) throw new ApiException('扣除已结算佣金后没有可退款金额，请人工核对');
         if ($amount + (int) $user->balance > 2147483647) throw new ApiException('退款后余额超出允许范围');
         $state['orders'] = $orders->map(fn ($item) => $item->only(['id', 'plan_id', 'period', 'type', 'status', 'total_amount', 'balance_amount', 'surplus_amount', 'refund_amount', 'no_proration', 'commission_status', 'actual_commission_balance', 'created_at']))->values()->all();
         return [
             'kind' => $kind, 'label' => $label, 'rule' => $rule, 'amount' => $amount, 'base_amount' => (int) $base,
+            'gross_amount' => $grossAmount, 'commission_deduction' => $commissionDeduction,
+            'commission_deductions' => $commissions,
             'order_ids' => $orders->pluck('id')->map(fn ($id) => (int) $id)->all(),
             'related_orders' => $orders->map(fn ($item) => ['id' => $item->id, 'trade_no' => $item->trade_no])->values()->all(),
             'state' => $state,
+        ];
+    }
+
+    private function commissionEvidence(Order $order): array
+    {
+        $actual = (int) $order->actual_commission_balance;
+        if ($actual < 0 || $actual > 2147483647) throw new ApiException('关联订单实际佣金金额异常，请人工核对');
+        $logs = CommissionLog::where('trade_no', $order->trade_no)->orderBy('id')->lockForUpdate()->get(['id', 'get_amount']);
+        $logged = 0;
+        foreach ($logs as $log) {
+            $paid = (int) $log->get_amount;
+            if (!is_numeric($log->get_amount) || $paid != $log->get_amount || $paid < 0 || $paid > 2147483647 - $logged) {
+                throw new ApiException('关联订单佣金流水金额异常，请人工核对');
+            }
+            $logged += $paid;
+        }
+        // These are two representations of the same payout, never two costs.
+        // Legacy records may have only the field or only the ledger populated.
+        if ($actual > 0 && $logged > 0 && $actual !== $logged) throw new ApiException('关联订单实发佣金与流水不一致，请人工核对');
+        return [
+            'amount' => max($actual, $logged),
+            'settled' => (int) $order->commission_status === 2 || $actual > 0 || $logs->isNotEmpty(),
+            'actual_commission_balance' => $actual, 'log_total' => $logged,
+            'logs' => $logs->map(fn ($log) => ['id' => (int) $log->id, 'amount' => (int) $log->get_amount])->all(),
         ];
     }
 

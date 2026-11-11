@@ -26,6 +26,9 @@ $values=[
 try {
     $html=$views->make('mail.default.orderRefund',$values)->render();
     $classic=$views->make('mail.classic.orderRefund',$values)->render();
+    $deducted=$values;$deducted['gross_amount']='50.00';$deducted['commission_deduction']='10.00';
+    foreach(['default','classic']as $theme){$withCommission=$views->make('mail.'.$theme.'.orderRefund',$deducted)->render();checkTemplate(str_contains($withCommission,'扣佣前折算退款')&&str_contains($withCommission,'−10.00')&&str_contains($withCommission,'+40.00'),'commission deduction and actual receipt shown: '.$theme);}
+    checkTemplate(!str_contains($html,'扣除已结算佣金'),'legacy notification payload renders without new fields');
     foreach(['202611091234567890','2026-11-01 08:00:00','50.00 元','+40.00','2026-11-09 21:20:30','站内账户余额','北京时间']as $term){checkTemplate(str_contains($html,$term),'default includes '.$term);checkTemplate(str_contains($classic,$term),'classic includes '.$term);}
     $unsafe=$values;$unsafe['name']='<script>alert(1)</script>';$unsafe['orders'][0]['trade_no']='<img src=x onerror=alert(2)>';
     $escaped=$views->make('mail.default.orderRefund',$unsafe)->render();

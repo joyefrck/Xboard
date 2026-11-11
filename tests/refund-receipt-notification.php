@@ -97,4 +97,9 @@ check(!str_contains(json_encode($response),'operator_id') && !str_contains(json_
 $response = (new App\Http\Controllers\V2\Admin\OrderController())->fetch(new Request(['filter'=>[['id'=>'user_id','value'=>$order->user_id]]]))->getData(true);
 check(count($response['data']) === 2, 'admin list includes both grouped source orders');
 check(array_sum(array_column(array_column($response['data'],'balance_refund_entry'),'amount')) === $refund->amount, 'admin list provides allocation without duplicating group total');
+$order=fixture(['commission_status'=>2,'actual_commission_balance'=>350]);
+$preview=$service->preview($order->trade_no);$refund=refundPreview($preview);
+$params=OrderRefundMail::where('refund_id',$refund->id)->firstOrFail()->params['template_value'];
+check($params['commission_deduction']==='3.50'&&$params['gross_amount']===number_format($preview['gross_amount']/100,2,'.',''),'outbox captures gross refund and settled commission');
+check($params['refund_amount']===number_format($preview['amount']/100,2,'.','')&&$params['orders'][0]['refund_amount']===$params['refund_amount'],'outbox and per-order receipts use actual net credit');
 echo 'Refund receipts and notification: '.($checks-$startChecks)." checks passed\n";

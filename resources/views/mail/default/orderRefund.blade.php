@@ -13,6 +13,13 @@
 <tr><td style="padding:18px 20px 2px;color:#526477;font-size:14px;">本次到账余额</td></tr>
 <tr><td style="padding:0 20px 18px;color:#dc2626;font-size:30px;font-weight:700;">+{{ $refund_amount }} <span style="font-size:16px;">元</span></td></tr>
 </table>
+@if((float)($commission_deduction ?? 0) > 0)
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:16px 0;font-size:14px;">
+<tr><td style="padding:8px 0;color:#526477;">扣佣前折算退款</td><td align="right" style="padding:8px 0;">{{ $gross_amount }} 元</td></tr>
+<tr><td style="padding:8px 0;color:#526477;">扣除已结算佣金</td><td align="right" style="padding:8px 0;">−{{ $commission_deduction }} 元</td></tr>
+<tr><td colspan="2" style="padding:8px 0;color:#526477;">已结算佣金已从本次折算退款中扣除，上方到账余额为扣除后的实际退款金额。</td></tr>
+</table>
+@endif
 <p style="margin:20px 0 8px;font-size:14px;color:#526477;">退款日期：{{ $refund_date }}（北京时间）</p>
 @if(count($orders) > 1)
 <p style="margin:0 0 16px;font-size:14px;color:#526477;">本次为 {{ count($orders) }} 笔关联订单合并退款，以上金额只入账一次。下方逐单退款金额合计等于本次到账金额。</p>

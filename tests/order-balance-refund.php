@@ -146,6 +146,49 @@ rejected(fn()=>$service->preview($old->trade_no),'expired purchase cannot refund
 refundPreview($p);
 check($old->fresh()->status===3&&$old->fresh()->commission_status===2&&$old->fresh()->actual_commission_balance===550,'historical order and settlement preserved');
 check(CommissionLog::where('trade_no',$old->trade_no)->count()===1,'historical commission ledger preserved');
+// Settled commission is a cost deducted once from the remaining-value refund.
+$inviter=User::create(['balance'=>9000]);
+$o=fixture(['commission_status'=>2,'commission_balance'=>900,'actual_commission_balance'=>350,'invite_user_id'=>$inviter->id]);
+$log=CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>$inviter->id,'get_amount'=>350]);
+$gross=OrderService::subscriptionSurplus($o->user)['amount'];$p=$service->preview($o->trade_no);
+check($p['gross_amount']===$gross&&$p['commission_deduction']===350&&$p['amount']===$gross-350,'deduct actual settled commission once, not expected commission or two copies');
+$r=refundPreview($p);
+check($o->user->fresh()->balance===190+$gross-350&&$r->snapshot['commission_deduction']===350,'credit net amount and audit deduction');
+check($o->fresh()->commission_status===2&&$o->fresh()->actual_commission_balance===350&&$log->fresh()->get_amount===350&&$inviter->fresh()->balance===9000,'preserve settled status, ledger and inviter balance');
+check(refundPreview($p)->id===$r->id&&$o->user->fresh()->balance===190+$gross-350,'settled refund retries neither credit nor deduct twice');
+foreach([[0,100],[100,0],[100,100],[0,0]]as [$actual,$logged]){
+    $o=fixture(['commission_status'=>2,'actual_commission_balance'=>$actual]);
+    if($logged)CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99,'get_amount'=>$logged]);
+    $p=$service->preview($o->trade_no);check($p['commission_deduction']===max($actual,$logged),'legacy single evidence source and zero commission supported');
+}
+$o=fixture(['commission_status'=>3,'actual_commission_balance'=>100]);$p=$service->preview($o->trade_no);
+check($p['commission_deduction']===100,'void flag cannot hide historically paid commission');
+$o=fixture(['commission_balance'=>900]);$p=$service->preview($o->trade_no);
+check($p['commission_deduction']===0&&$p['gross_amount']===$p['amount'],'unpaid expected commission is not withheld');
+$o=fixture(['commission_status'=>2,'actual_commission_balance'=>100]);
+foreach([70,30]as $paid)CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99,'get_amount'=>$paid]);
+$p=$service->preview($o->trade_no);check($p['commission_deduction']===100&&count($p['commission_deductions'][0]['logs'])===2,'multi-level payouts are summed then deducted once');
+foreach([[-1,0],[100,101],[0,-1]]as [$actual,$logged]){
+    $o=fixture(['commission_status'=>2,'actual_commission_balance'=>$actual]);
+    if($logged)CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99,'get_amount'=>$logged]);
+    rejected(fn()=>$service->preview($o->trade_no),'invalid or inconsistent commission evidence');
+}
+$o=fixture(['commission_status'=>2]);$gross=OrderService::subscriptionSurplus($o->user)['amount'];
+foreach([$gross,$gross+1]as $fee){$o->actual_commission_balance=$fee;$o->save();rejected(fn()=>$service->preview($o->trade_no),'no zero or negative net refund');}
+$o=fixture(['commission_status'=>2,'actual_commission_balance'=>150]);
+$related=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'commission-group','period'=>'monthly','type'=>2,'total_amount'=>2000,'commission_status'=>2,'actual_commission_balance'=>250,'created_at'=>$o->created_at]);
+$p=$service->preview($o->trade_no);check($p['commission_deduction']===400&&count($p['commission_deductions'])===2,'group deducts only its associated commissions');
+$r=refundPreview($p);check((int)OrderRefundOrder::where('refund_id',$r->id)->sum('amount')===$p['amount']&&$related->fresh()->commission_status===2,'group receipt allocations sum to net refund and preserve settlement');
+$o=fixture(['type'=>5,'period'=>'traffic_package','total_amount'=>4000,'commission_status'=>2,'actual_commission_balance'=>200]);$pkg=packageFor($o,25);
+$p=$service->preview($o->trade_no);check($p['gross_amount']===1000&&$p['amount']===800,'traffic package deducts paid commission after proration');refundPreview($p);
+check($pkg->fresh()->remaining_bytes===0,'net package refund still revokes only remaining package');
+foreach(['amount','new_zero_log']as $change){
+    $o=fixture(['commission_status'=>2,'actual_commission_balance'=>100]);$p=$service->preview($o->trade_no);
+    if($change==='amount')Order::whereKey($o->id)->increment('actual_commission_balance');
+    else CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99,'get_amount'=>0]);
+    rejected(fn()=>refundPreview($p),'commission evidence change invalidates quote: '.$change);
+    check($o->user->fresh()->balance===190&&$o->fresh()->status===3,'changed commission leaves money and entitlement untouched');
+}
 // Multiple still-valid renewal orders are one subscription and one refund.
 $order=fixture();$related=Order::create(['user_id'=>$order->user_id,'plan_id'=>$plan->id,'trade_no'=>'renewal-group','period'=>'monthly','type'=>2,'total_amount'=>2000,'created_at'=>Carbon::parse('2026-11-02')->timestamp]);
 $packageOrder=Order::create(['user_id'=>$order->user_id,'trade_no'=>'independent-package','period'=>'traffic_package','type'=>5,'total_amount'=>5000]);$independent=packageFor($packageOrder,50);
@@ -191,12 +234,12 @@ $o=fixture();$p=$service->preview($o->trade_no);$bad=$p;$bad['quote'].='tampered
 $bad=$p;$bad['amount']++;rejected(fn()=>refundPreview($bad),'changed expected amount');
 Carbon::setTestNow(Carbon::parse('2026-11-09 12:06:00'));rejected(fn()=>refundPreview($p),'expired quote');Carbon::setTestNow(Carbon::parse('2026-11-09 12:00:00'));
 foreach([0,1,2,4,5]as $status){$o=fixture(['status'=>$status]);rejected(fn()=>$service->preview($o->trade_no),'status '.$status);}
-foreach([['type'=>6,'period'=>'recharge'],['type'=>4,'period'=>'reset_traffic'],['total_amount'=>0],['total_amount'=>-1],['commission_status'=>1],['commission_status'=>2],['actual_commission_balance'=>1],['no_proration'=>true],['plan_id'=>$otherPlan->id]]as $fields){$o=fixture($fields);rejected(fn()=>$service->preview($o->trade_no),'ineligible '.json_encode($fields));}
+foreach([['type'=>6,'period'=>'recharge'],['type'=>4,'period'=>'reset_traffic'],['total_amount'=>0],['total_amount'=>-1],['commission_status'=>1],['no_proration'=>true],['plan_id'=>$otherPlan->id]]as $fields){$o=fixture($fields);rejected(fn()=>$service->preview($o->trade_no),'ineligible '.json_encode($fields));}
 $o=fixture();$u=$o->user;$u->expired_at=Carbon::now()->timestamp-1;$u->save();rejected(fn()=>$service->preview($o->trade_no),'expired subscription');
 $o=fixture();$GLOBALS['refund_settings']=['surplus_enable'=>0];rejected(fn()=>$service->preview($o->trade_no),'system proration disabled');$GLOBALS['refund_settings']=[];
 $o=fixture();$private=Plan::create(['plan_type'=>'custom']);$u=$o->user;$u->plan_id=$private->id;$u->save();$o->plan_id=$private->id;$o->save();rejected(fn()=>$service->preview($o->trade_no),'private plan cannot prorate');
-$o=fixture();CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99]);rejected(fn()=>$service->preview($o->trade_no),'commission log protects stale flags');
-$o=fixture();$related=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'settled-renewal','period'=>'monthly','type'=>2,'total_amount'=>2000,'commission_status'=>2]);rejected(fn()=>$service->preview($o->trade_no),'any settled related commission blocks group refund');
+$o=fixture();CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99,'get_amount'=>100]);$p=$service->preview($o->trade_no);check($p['commission_deduction']===100,'commission ledger protects stale flags by withholding paid cost');
+$o=fixture();$related=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'settled-renewal','period'=>'monthly','type'=>2,'total_amount'=>2000,'commission_status'=>2,'actual_commission_balance'=>100]);$p=$service->preview($o->trade_no);check($p['commission_deduction']===100,'settled related commission is deducted from group refund');
 foreach([0,1]as $status){$o=fixture();Order::create(['user_id'=>$o->user_id,'trade_no'=>'pending-'.$o->id,'status'=>$status]);rejected(fn()=>$service->preview($o->trade_no),'unfinished order protects credit');}
 $o=fixture();User::whereKey($o->user_id)->delete();rejected(fn()=>$service->preview($o->trade_no),'missing user');
 rejected(fn()=>$service->preview('missing'),'missing order');
@@ -204,7 +247,7 @@ foreach([0,101]as $remaining){$o=fixture(['type'=>5,'period'=>'traffic_package']
 $o=fixture(['type'=>5,'period'=>'traffic_package']);$pkg=packageFor($o,50);$p=$service->preview($o->trade_no);$pkg->remaining_bytes--;$pkg->save();rejected(fn()=>refundPreview($p),'even one byte of new consumption invalidates package quote');
 // Failure at audit or relation persistence rolls back balance, all orders and revoked benefits.
 foreach(['audit','link','package']as $failure){
-    $o=fixture($failure==='package'?['type'=>5,'period'=>'traffic_package']:[]);$pkg=$failure==='package'?packageFor($o,50):null;
+    $o=fixture(array_merge($failure==='package'?['type'=>5,'period'=>'traffic_package']:[],['commission_status'=>2,'actual_commission_balance'=>100]));$pkg=$failure==='package'?packageFor($o,50):null;
     $p=$service->preview($o->trade_no);$before=$o->user->getAttributes();
     if($failure==='audit')OrderRefund::creating(static fn()=>false);
     if($failure==='link')OrderRefundOrder::creating(static function(){throw new RuntimeException('fixture link failure');});
@@ -223,9 +266,9 @@ $o=fixture();refundPreview($service->preview($o->trade_no));Order::whereKey($o->
 $command=new class extends App\Console\Commands\CheckCommission{public int $paid=0;public function payHandle($id,Order $order){$this->paid++;return true;}};
 $command->autoPayCommission();check($command->paid===0,'stale commission scan cannot settle refunded order');
 // Same selected row and alternate renewal rows share one group lock and credit.
-if($dsn)foreach([false,true]as $alternate){
-    $o=fixture();$rows=[$o];
-    if($alternate)$rows[]=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'race-renewal','period'=>'monthly','type'=>Order::TYPE_RENEWAL,'total_amount'=>2000,'created_at'=>$o->created_at]);
+if($dsn)foreach([0,350]as $paidCommission)foreach([false,true]as $alternate){
+    $o=fixture(['commission_status'=>$paidCommission?2:0,'actual_commission_balance'=>$paidCommission]);$rows=[$o];
+    if($alternate)$rows[]=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'race-renewal-'.$o->id,'period'=>'monthly','type'=>Order::TYPE_RENEWAL,'total_amount'=>2000,'created_at'=>$o->created_at]);
     $previews=array_map(fn($row)=>$service->preview($row->trade_no),$rows);$processes=[];
     for($i=0;$i<4;$i++){$p=$previews[$i%count($previews)];$pipes=[];$proc=proc_open([PHP_BINARY,__FILE__,'worker',$p['trade_no'],(string)$p['amount'],$p['quote']],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);fclose($pipes[0]);$processes[]=[$proc,$pipes];}
     $ids=[];foreach($processes as [$proc,$pipes]){$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);check(proc_close($proc)===0,'worker completed '.$err);$result=json_decode($out,true,512,JSON_THROW_ON_ERROR);check($result['ok'],'worker succeeded '.$out);$ids[]=$result['id'];}
