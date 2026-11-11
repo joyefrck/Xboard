@@ -408,13 +408,7 @@ class OrderService
                 ->pluck('id')
                 ->all();
         } else {
-            $orders = Order::query()
-                ->where('user_id', $user->id)
-                ->whereNotIn('period', [Plan::PERIOD_RESET_TRAFFIC, Plan::PERIOD_ONETIME])
-                ->where('type', '!=', Order::TYPE_TRAFFIC_PACKAGE)
-                ->where('status', Order::STATUS_COMPLETED)
-                ->where('no_proration', false)
-                ->get();
+            $orders = $this->currentPeriodOrders($user);
 
             if ($orders->isEmpty()) {
                 $order->surplus_amount = 0;
@@ -458,15 +452,25 @@ class OrderService
             && isset(self::STR_TO_TIME[PlanService::getPeriodKey((string) $order->period)]);
     }
 
-    private function applyRenewalSurplusCredit(User $user, Order $order): void
+    private function currentPeriodOrders(User $user): \Illuminate\Database\Eloquent\Collection
     {
-        $orders = Order::query()
+        $query = Order::query()
             ->where('user_id', $user->id)
+            ->where('plan_id', $user->plan_id)
             ->whereNotIn('period', [Plan::PERIOD_RESET_TRAFFIC, Plan::PERIOD_ONETIME])
             ->where('type', '!=', Order::TYPE_TRAFFIC_PACKAGE)
             ->where('status', Order::STATUS_COMPLETED)
-            ->where('no_proration', false)
-            ->get();
+            ->where('no_proration', false);
+        // Expiry does not close historical orders. A new purchase starts a new
+        // entitlement; its earlier orders must not contribute value or commission.
+        $startId = (clone $query)->whereIn('type', [Order::TYPE_NEW_PURCHASE, Order::TYPE_UPGRADE])->max('id');
+        if ($startId !== null) $query->where('id', '>=', $startId);
+        return $query->orderBy('id')->get();
+    }
+
+    private function applyRenewalSurplusCredit(User $user, Order $order): void
+    {
+        $orders = $this->currentPeriodOrders($user);
 
         if ($orders->isEmpty()) {
             $order->surplus_amount = 0;

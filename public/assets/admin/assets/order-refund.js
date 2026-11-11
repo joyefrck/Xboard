@@ -114,7 +114,7 @@ export function createRefundUI({ React: R, api, toast, ui }) {
           h(MenuItem, { disabled: !!blocked, onSelect: () => changeOpen(true), className: 'cursor-pointer' }, '退款到余额'),
           blocked ? h('p', { className: 'px-2 py-1.5 text-xs text-muted-foreground' }, blocked) : null)),
       h(Dialog, { open, onOpenChange: changeOpen },
-        h(DialogContent, { className: 'sm:max-w-[480px] max-h-[90dvh] overflow-y-auto',
+        h(DialogContent, { className: 'sm:max-w-[480px] max-h-[90vh] overflow-y-auto',
           onOpenAutoFocus: event => { event.preventDefault(); cancelButton.current?.focus(); },
           onEscapeKeyDown: event => { if (submitting.current) event.preventDefault(); },
           onPointerDownOutside: event => event.preventDefault(),

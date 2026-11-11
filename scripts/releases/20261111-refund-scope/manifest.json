@@ -1,0 +1,64 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "files": {
+    "app/Services/OrderService.php": {
+      "source": "app/Services/OrderService.php",
+      "after": "cf6812d82866f53bc8add3b1c41a47742992c4a5ec6858de2d5fb21bb02f67e4",
+      "allowed_before": [
+        "5de8a8cfbb58edf64f8cffe3156d52703a53b6a2a89869f2e09bae1c3a847c4e"
+      ]
+    },
+    "public/assets/admin/assets/bandwagon-vps.js": {
+      "source": "public/assets/admin/assets/bandwagon-vps.js",
+      "after": "09cdffff7c33baca40cf3b97426f9a7baa845d9c16681c88067838a49e50e715",
+      "allowed_before": [
+        "f324d1004f763067f19db5338a75227bbc0e47189c9148bd0bec8b2a28f08f49"
+      ]
+    },
+    "public/assets/admin/assets/index.js": {
+      "source": "public/assets/admin/assets/index.js",
+      "after": "1779ef19bab4c7b1b0a750687a642f2df3564b2932e8d152cf25c8d1d2f72af3",
+      "allowed_before": [
+        "3c473ad4bcdb2b900fb44eea9c57395de6a2b96a64ca64a4cd7e80d90c95490e"
+      ]
+    },
+    "public/assets/admin/assets/node-automation.js": {
+      "source": "public/assets/admin/assets/node-automation.js",
+      "after": "a62b7ae7467a8f1ec640cc2b9d69a971b9cec25bc78c551a809a4d8dc7d25ade",
+      "allowed_before": [
+        "bd8922183708934a976983916a5790e0a381fa747b5f6f8046c901f1616d9eb5"
+      ]
+    },
+    "public/assets/admin/assets/order-refund.js": {
+      "source": "public/assets/admin/assets/order-refund.js",
+      "after": "fb88d68c36ec457b54a8cd3ec5ef8d37790ace8bde0cb3afd7c435fac865a160",
+      "allowed_before": [
+        "63cedeaa27dcad9f2c48c25cd4029f580bd2868b04dbb76dcd175ce3feeeb012"
+      ]
+    },
+    "public/assets/admin/assets/vendor.css": {
+      "source": "public/assets/admin/assets/vendor.css",
+      "after": "6ce447d872f0ac55dec20302e95dbf29c9a4f33a9b62788b40f043e646d86fbb",
+      "allowed_before": [
+        "33bca235c19a79251f06392cfca11c00845da87ccf3d1a22af14a344db129c07"
+      ]
+    },
+    "public/assets/admin/assets/vendor.js": {
+      "source": "public/assets/admin/assets/vendor.js",
+      "after": "713ada0e5f7aae367e9bbb2126972080883538a9b4fa5d6732356cf56e5f0471",
+      "allowed_before": [
+        "08f4b51170ca5b77320c625e89cf48c6b9054ee8fe5da45d46c3c6b435552e5a"
+      ]
+    },
+    "resources/views/admin.blade.php": {
+      "source": "resources/views/admin.blade.php",
+      "after": "ddf27716b5f8742ecd2afdc31b6d93c7ddf699103ee9b2f28b23cf5ba1dceeb7",
+      "allowed_before": [
+        "15f994bdfb0bab2f8158358fa6e30932b67cac40a9af41bda8b718cd12cf2944"
+      ]
+    }
+  },
+  "queue-snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9",
+  "business-verify_sha256": "1faae3b3f2d5330966090d179154bc042e53acacd0e3b37241fe437e239d8c52",
+  "scope-verify_sha256": "364675fe9b6eaeb27003674fed375f226cb7990ae67df2f9948cbdaddf8b6709"
+}

@@ -1,4 +1,4 @@
-import { createTrafficMeter } from './bandwagon-traffic.js?v=admin-0cd2ebb1fc61037293dc';
+import { createTrafficMeter } from './bandwagon-traffic.js?v=admin-a57a7c6ea0f9566e5bea';
 // Readable source module for the compiled admin shell; no separate React runtime.
 export const stateLabels = {
   unconfigured: '未配置', paused: '已暂停', healthy: '正常', suspect: '疑似故障',

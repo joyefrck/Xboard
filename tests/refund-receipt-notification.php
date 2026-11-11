@@ -74,7 +74,7 @@ foreach ([100,200,300] as $index=>$amount) {
 }
 $entries = OrderRefundReceiptService::allocate(101, ['state'=>['orders'=>$state], 'related_orders'=>$related]);
 check(array_column($entries,'amount') === [17,34,50], 'largest remainder allocation avoids rounding loss');
-$order = fixture(); $other = Order::create(['user_id'=>$order->user_id,'plan_id'=>$order->plan_id,'trade_no'=>'notification-renewal','period'=>'monthly','total_amount'=>2000,'created_at'=>$order->created_at]);
+$order = fixture(); $other = Order::create(['user_id'=>$order->user_id,'plan_id'=>$order->plan_id,'trade_no'=>'notification-renewal','period'=>'monthly','type'=>Order::TYPE_RENEWAL,'total_amount'=>2000,'created_at'=>$order->created_at]);
 $before = count($GLOBALS['refund_dispatched']); $refund = refundPreview($service->preview($order->trade_no));
 check((int) OrderRefundOrder::where('refund_id',$refund->id)->sum('amount') === $refund->amount, 'source receipt amounts sum to single credit');
 check(count($GLOBALS['refund_dispatched']) === $before+1, 'merged refund sends one email');

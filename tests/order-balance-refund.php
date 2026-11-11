@@ -129,6 +129,23 @@ foreach([0,1]as $trafficAware)foreach([[3500,1000,0,0],[0,3500,0,0],[1000,200,30
     Carbon::setTestNow(Carbon::parse('2026-11-09 12:00:00'));
 }
 $GLOBALS['refund_settings']=[];
+// A purchase after expiry starts a new entitlement even if old orders remain completed.
+$old=fixture(['created_at'=>Carbon::parse('2026-10-01')->timestamp,'total_amount'=>5500,'commission_status'=>2,'actual_commission_balance'=>550]);
+CommissionLog::create(['trade_no'=>$old->trade_no,'user_id'=>$old->user_id,'invite_user_id'=>99,'get_amount'=>550]);
+$current=Order::create(['user_id'=>$old->user_id,'plan_id'=>$plan->id,'trade_no'=>'purchase-after-expiry','period'=>'monthly','type'=>1,'total_amount'=>5500,'commission_status'=>3,'created_at'=>Carbon::parse('2026-11-08')->timestamp]);
+$u=$old->user;$u->expired_at=Carbon::parse('2026-12-08')->timestamp;$u->save();
+$value=OrderService::subscriptionSurplus($u);
+check($value['order_ids']===[$current->id],'new purchase excludes expired settled order from subscription scope');
+$p=$service->preview($current->trade_no);
+$expected=(int)(5500*(Carbon::parse('2026-12-08')->timestamp-Carbon::now()->timestamp)/(30*86400));
+check($p['amount']===$expected&&$p['base_amount']===5500,'new purchase uses its own start date and principal');
+check(oracle($u)->surplus_order_ids===[$current->id],'change-plan purchase uses the same current entitlement');
+$next=new Order(['plan_id'=>$plan->id,'period'=>'monthly','total_amount'=>5500]);(new OrderService($next))->setOrderType($u);
+check($next->type===Order::TYPE_RENEWAL&&$next->surplus_order_ids===[$current->id],'early renewal excludes expired orders too');
+rejected(fn()=>$service->preview($old->trade_no),'expired purchase cannot refund current entitlement');
+refundPreview($p);
+check($old->fresh()->status===3&&$old->fresh()->commission_status===2&&$old->fresh()->actual_commission_balance===550,'historical order and settlement preserved');
+check(CommissionLog::where('trade_no',$old->trade_no)->count()===1,'historical commission ledger preserved');
 // Multiple still-valid renewal orders are one subscription and one refund.
 $order=fixture();$related=Order::create(['user_id'=>$order->user_id,'plan_id'=>$plan->id,'trade_no'=>'renewal-group','period'=>'monthly','type'=>2,'total_amount'=>2000,'created_at'=>Carbon::parse('2026-11-02')->timestamp]);
 $packageOrder=Order::create(['user_id'=>$order->user_id,'trade_no'=>'independent-package','period'=>'traffic_package','type'=>5,'total_amount'=>5000]);$independent=packageFor($packageOrder,50);
@@ -179,7 +196,7 @@ $o=fixture();$u=$o->user;$u->expired_at=Carbon::now()->timestamp-1;$u->save();re
 $o=fixture();$GLOBALS['refund_settings']=['surplus_enable'=>0];rejected(fn()=>$service->preview($o->trade_no),'system proration disabled');$GLOBALS['refund_settings']=[];
 $o=fixture();$private=Plan::create(['plan_type'=>'custom']);$u=$o->user;$u->plan_id=$private->id;$u->save();$o->plan_id=$private->id;$o->save();rejected(fn()=>$service->preview($o->trade_no),'private plan cannot prorate');
 $o=fixture();CommissionLog::create(['trade_no'=>$o->trade_no,'user_id'=>$o->user_id,'invite_user_id'=>99]);rejected(fn()=>$service->preview($o->trade_no),'commission log protects stale flags');
-$o=fixture();$related=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'settled-renewal','period'=>'monthly','total_amount'=>2000,'commission_status'=>2]);rejected(fn()=>$service->preview($o->trade_no),'any settled related commission blocks group refund');
+$o=fixture();$related=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'settled-renewal','period'=>'monthly','type'=>2,'total_amount'=>2000,'commission_status'=>2]);rejected(fn()=>$service->preview($o->trade_no),'any settled related commission blocks group refund');
 foreach([0,1]as $status){$o=fixture();Order::create(['user_id'=>$o->user_id,'trade_no'=>'pending-'.$o->id,'status'=>$status]);rejected(fn()=>$service->preview($o->trade_no),'unfinished order protects credit');}
 $o=fixture();User::whereKey($o->user_id)->delete();rejected(fn()=>$service->preview($o->trade_no),'missing user');
 rejected(fn()=>$service->preview('missing'),'missing order');
@@ -208,7 +225,7 @@ $command->autoPayCommission();check($command->paid===0,'stale commission scan ca
 // Same selected row and alternate renewal rows share one group lock and credit.
 if($dsn)foreach([false,true]as $alternate){
     $o=fixture();$rows=[$o];
-    if($alternate)$rows[]=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'race-renewal','period'=>'monthly','total_amount'=>2000,'created_at'=>$o->created_at]);
+    if($alternate)$rows[]=Order::create(['user_id'=>$o->user_id,'plan_id'=>$plan->id,'trade_no'=>'race-renewal','period'=>'monthly','type'=>Order::TYPE_RENEWAL,'total_amount'=>2000,'created_at'=>$o->created_at]);
     $previews=array_map(fn($row)=>$service->preview($row->trade_no),$rows);$processes=[];
     for($i=0;$i<4;$i++){$p=$previews[$i%count($previews)];$pipes=[];$proc=proc_open([PHP_BINARY,__FILE__,'worker',$p['trade_no'],(string)$p['amount'],$p['quote']],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);fclose($pipes[0]);$processes[]=[$proc,$pipes];}
     $ids=[];foreach($processes as [$proc,$pipes]){$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);check(proc_close($proc)===0,'worker completed '.$err);$result=json_decode($out,true,512,JSON_THROW_ON_ERROR);check($result['ok'],'worker succeeded '.$out);$ids[]=$result['id'];}
