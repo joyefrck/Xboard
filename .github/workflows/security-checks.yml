@@ -58,6 +58,10 @@ jobs:
         run: |
           php -r '$db = new PDO(preg_replace("/;dbname=.*$/", "", getenv("ORDER_REFUND_DB_DSN")), getenv("ORDER_REFUND_DB_USER"), getenv("ORDER_REFUND_DB_PASSWORD")); $db->exec("CREATE DATABASE order_refund_test");'
           php tests/refund-receipt-notification.php
+      - name: Verify ticket bot history refresh and private images
+        run: |
+          node --test tests/telegram-ticket-inline-actions.test.js tests/telegram-ticket-bot-isolation.test.js tests/telegram-http-runtime-safety.test.js
+          php tests/telegram-ticket-history-images.php
       - name: Verify VLESS changes when present
         if: hashFiles('tests/vless-config.php') != ''
         run: |

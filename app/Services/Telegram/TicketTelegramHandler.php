@@ -7,13 +7,16 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
+use App\Models\TicketMessageAttachment;
 use App\Models\TrafficPackage;
 use App\Models\User;
 use App\Services\TelegramBotProfile;
 use App\Services\TelegramService;
+use App\Services\TicketAttachmentService;
 use App\Services\TicketService;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class TicketTelegramHandler
 {
@@ -96,6 +99,8 @@ class TicketTelegramHandler
 
         match ($action) {
             'view' => $this->showTicketHistory($msg, $ticketId, max(1, (int) ($parts[3] ?? 1))),
+            'refresh' => $this->showTicketHistory($msg, $ticketId, PHP_INT_MAX),
+            'image' => $this->showTicketImage($msg, $ticketId, (int) ($parts[3] ?? 0)),
             'reply' => $this->requestTicketReply($msg, $ticketId),
             'close' => $this->confirmTicketClose($msg, $ticketId),
             'close_confirm' => $this->closeTicket($msg, $ticketId),
@@ -167,8 +172,8 @@ class TicketTelegramHandler
     private function showTicketHistory(object $msg, int $ticketId, int $page): void
     {
         $operator = $this->getTicketOperator($msg);
-        $ticket = $this->findTicket($ticketId);
-        $messages = $ticket->messages->sortBy('created_at')->values();
+        $ticket = $this->findTicket($ticketId, ['user', 'messages.user', 'messages.attachments']);
+        $messages = $ticket->messages->sortBy([['created_at', 'asc'], ['id', 'asc']])->values();
         $totalPages = max(1, (int) ceil($messages->count() / self::TICKET_HISTORY_PAGE_SIZE));
         $page = min(max(1, $page), $totalPages);
 
@@ -178,19 +183,65 @@ class TicketTelegramHandler
         $text .= "用户: {$this->clean($ticket->user->email)}\n";
         $text .= "━━━━━━━━━━━━━━━━━━━━\n";
 
-        foreach ($messages->forPage($page, self::TICKET_HISTORY_PAGE_SIZE) as $ticketMessage) {
+        $imageRows = [];
+        foreach ($messages->forPage($page, self::TICKET_HISTORY_PAGE_SIZE) as $index => $ticketMessage) {
             /** @var TicketMessage $ticketMessage */
             /** @var User|null $messageUser */
             $messageUser = $ticketMessage->user;
             $author = $ticketMessage->user_id === $ticket->user_id
                 ? '用户'
                 : ($messageUser?->is_admin ? '管理员' : '客服');
-            $text .= '[' . $this->formatTime($ticketMessage->created_at) . "] {$author}\n";
-            $text .= $this->clean($ticketMessage->message) . "\n\n";
+            $number = $index + 1;
+            $text .= "第{$number}条 " . '[' . $this->formatTime($ticketMessage->created_at) . "] {$author}\n";
+            $text .= $this->clean($ticketMessage->message) . "\n";
+            if ($ticketMessage->attachments->isNotEmpty()) {
+                $text .= '📎 图片附件：' . $ticketMessage->attachments->count() . " 张（点击下方按钮查看）\n";
+                $row = [];
+                foreach ($ticketMessage->attachments as $imageIndex => $attachment) {
+                    $row[] = [
+                        'text' => '第' . $number . '条·查看图片' . ($imageIndex + 1),
+                        'callback_data' => "ticket:image:{$ticketId}:{$attachment->id}",
+                    ];
+                }
+                $imageRows[] = $row;
+            }
+            $text .= "\n";
         }
 
-        $this->render($msg, trim($text), $this->ticketKeyboard($ticketId, $page, $totalPages));
+        $keyboard = $this->ticketKeyboard($ticketId, $page, $totalPages);
+        $keyboard['reply_markup']['inline_keyboard'] = array_merge(
+            $imageRows,
+            $keyboard['reply_markup']['inline_keyboard']
+        );
+        $this->render($msg, trim($text), $keyboard);
         $this->audit($operator, $ticketId, 'view', true);
+    }
+
+    private function showTicketImage(object $msg, int $ticketId, int $attachmentId): void
+    {
+        $operator = $this->getTicketOperator($msg);
+        $this->findTicket($ticketId, []);
+        $attachment = TicketMessageAttachment::with('message')
+            ->whereKey($attachmentId)
+            ->whereHas('message', fn ($query) => $query->where('ticket_id', $ticketId))
+            ->first();
+        if (!$attachment) {
+            throw new ApiException('图片附件不存在或已清理', 404);
+        }
+        if ($attachment->disk !== TicketAttachmentService::DISK ||
+            !preg_match('#^ticket-attachments/\d{4}/\d{2}/[0-9a-f-]{36}\.(?:jpg|png|webp)$#D', $attachment->path)) {
+            throw new ApiException('图片附件无效', 404);
+        }
+        $disk = Storage::disk(TicketAttachmentService::DISK);
+        if (!$disk->exists($attachment->path)) {
+            throw new ApiException('图片附件不存在或已清理', 404);
+        }
+
+        $this->answer($msg, '正在发送图片');
+        $caption = "工单 #{$ticketId} · 消息 #{$attachment->ticket_message_id}\n"
+            . $this->formatTime($attachment->message->created_at);
+        $this->telegram()->sendImage($msg->chat_id, $disk->path($attachment->path), $attachment->mime_type, $caption);
+        $this->audit($operator, $ticketId, 'image', true);
     }
 
     private function requestTicketReply(object $msg, int $ticketId): void
@@ -332,6 +383,7 @@ class TicketTelegramHandler
         }
 
         $rows = $pagination ? [$pagination] : [];
+        $rows[] = [['text' => '刷新记录', 'callback_data' => "ticket:refresh:{$ticketId}"]];
         $rows[] = [
             ['text' => '回复', 'callback_data' => "ticket:reply:{$ticketId}"],
             ['text' => '关闭', 'callback_data' => "ticket:close:{$ticketId}"],

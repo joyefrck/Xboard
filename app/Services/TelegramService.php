@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\Plugin\HookManager;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpClient\NativeHttpClient;
+use Symfony\Component\Mime\Part\DataPart;
+use Symfony\Component\Mime\Part\Multipart\FormDataPart;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -64,6 +66,27 @@ class TelegramService
             'text' => $text ?: null,
             'show_alert' => $showAlert,
         ], fn($value) => $value !== null));
+    }
+
+    public function sendImage(int $chatId, string $path, string $mimeType, string $caption = ''): void
+    {
+        $extension = match ($mimeType) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => throw new ApiException('不支持的工单图片格式'),
+        };
+        $dimensions = @getimagesize($path);
+        $asPhoto = $mimeType !== 'image/webp' && $dimensions !== false
+            && $dimensions[0] > 0 && $dimensions[1] > 0
+            && $dimensions[0] + $dimensions[1] <= 10000
+            && max($dimensions[0], $dimensions[1]) / min($dimensions[0], $dimensions[1]) <= 20;
+        $field = $asPhoto ? 'photo' : 'document';
+        $this->request($asPhoto ? 'sendPhoto' : 'sendDocument', [
+            'chat_id' => (string) $chatId,
+            $field => DataPart::fromPath($path, 'ticket-image.' . $extension, $mimeType),
+            'caption' => $caption,
+        ]);
     }
 
     public function editMessageText(int $chatId, int $messageId, string $text, string $parseMode = '', array $options = []): void
@@ -214,9 +237,18 @@ class TelegramService
         try {
             for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
                 try {
-                    $response = $this->http->request('GET', $this->apiUrl . $method, [
-                        'query' => $params,
-                    ]);
+                    if (array_filter($params, fn ($value) => $value instanceof DataPart)) {
+                        // Rebuild the multipart body for every retry; file parts reopen their source.
+                        $form = new FormDataPart($params);
+                        $response = $this->http->request('POST', $this->apiUrl . $method, [
+                            'headers' => $form->getPreparedHeaders()->toArray(),
+                            'body' => $form->bodyToIterable(),
+                        ]);
+                    } else {
+                        $response = $this->http->request('GET', $this->apiUrl . $method, [
+                            'query' => $params,
+                        ]);
+                    }
                     $status = $response->getStatusCode();
                     $content = $response->getContent(false);
                 } catch (TransportExceptionInterface $e) {
@@ -245,6 +277,13 @@ class TelegramService
 
                 if (!is_object($data)) {
                     throw new ApiException('无效的 Telegram API 响应');
+                }
+
+                // Repeated refreshes can legitimately leave both text and keyboard unchanged.
+                if ($method === 'editMessageText' && $status === 400
+                    && ($data->error_code ?? null) === 400
+                    && str_starts_with((string) ($data->description ?? ''), 'Bad Request: message is not modified')) {
+                    return (object) ['ok' => true, 'result' => true];
                 }
 
                 if ($status < 200 || $status >= 300) {
@@ -295,7 +334,7 @@ class TelegramService
 
     private function redactParams(array $params): array
     {
-        foreach (['secret_token', 'text', 'invite_link', 'url'] as $sensitiveKey) {
+        foreach (['secret_token', 'text', 'invite_link', 'url', 'caption', 'photo', 'document'] as $sensitiveKey) {
             if (array_key_exists($sensitiveKey, $params)) {
                 $params[$sensitiveKey] = '[REDACTED]';
             }

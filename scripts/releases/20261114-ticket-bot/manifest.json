@@ -1,0 +1,22 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "files": {
+    "app/Services/Telegram/TicketTelegramHandler.php": {
+      "source": "app/Services/Telegram/TicketTelegramHandler.php",
+      "after": "8b46fe4afa1b0d4c643568d99fffda4481c7a40cf95cf17d8a1ab50ed165e0ba",
+      "allowed_before": [
+        "3768416b3b8b69663d332e714fc2dbb7efc0b57135a7d3aafb1d1cb01ab381f0"
+      ]
+    },
+    "app/Services/TelegramService.php": {
+      "source": "app/Services/TelegramService.php",
+      "after": "8801c8ae132a1be54005fc6e5f068f43dbaf6faa742ac1745872c5fed4c513fd",
+      "allowed_before": [
+        "a6a239fab76e835f62b3750137e3a1f61b24b59c5a57aa40846a7ee0f5e8f3c0"
+      ]
+    }
+  },
+  "queue-snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9",
+  "business-verify_sha256": "1faae3b3f2d5330966090d179154bc042e53acacd0e3b37241fe437e239d8c52",
+  "scope-verify_sha256": "6b666e6cb2f6d712a812b479ed93c748d2b65a1f2d90d61f45449c2e9c5b4a07"
+}
