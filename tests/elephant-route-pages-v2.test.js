@@ -22,8 +22,8 @@ test('Aurora user-page assets are mirrored and cache-busted in both theme views'
   assert.equal(publicView, themeView);
 
   for (const view of [themeView, publicView]) {
-    assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261110importClients1/);
-    assert.match(view, /elephant-route-pages-v2\.js\?v=\{\{\$version\}\}-er20261109rechargeDirect1/);
+    assert.match(view, /elephant-route-pages-v2\.css\?v=\{\{\$version\}\}-er20261114usdtGuide1/);
+    assert.match(view, /elephant-route-pages-v2\.js\?v=\{\{\$version\}\}-er20261114usdtGuide1/);
   }
 
   const publicIgnore = readRepoFile('public/theme/.gitignore');

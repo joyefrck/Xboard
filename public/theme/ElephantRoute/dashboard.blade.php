@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-auth.css?v={{$version}}-er20261106auth1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard.css?v={{$version}}-er20261110importClients1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.css?v={{$version}}-er20261106notice1">
-  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261110importClients1">
+  <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-pages-v2.css?v={{$version}}-er20261114usdtGuide1">
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-security.css?v={{$version}}-er20261111security2">
   <script defer src="/theme/{{$theme}}/assets/elephant-route-security.js?v={{$version}}-er20261111security2"></script>
   <script>
@@ -86,8 +86,8 @@
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261110clashVergeScheme1"></script>
   <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
   <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261106notice1"></script>
-  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261109rechargeDirect1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-dashboard-v2.js?v={{$version}}-er20261114downloadCopy1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-pages-v2.js?v={{$version}}-er20261114usdtGuide1"></script>
   <script>
     (function() {
       function insertLoginLogo() {

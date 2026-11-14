@@ -612,6 +612,35 @@ body[data-er-page="knowledge"] section.cus-scroll-y .n-list-item .text-gray-400 
 }
 
 /* Orders and tickets */
+.er-usdt-knowledge-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  white-space: normal !important;
+}
+
+.er-usdt-knowledge-link {
+  color: #2563b3;
+  font-size: 12px !important;
+  font-weight: 400;
+  line-height: 1.6;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.er-usdt-knowledge-link:hover {
+  color: #174b91;
+}
+
+.er-usdt-knowledge-link:focus-visible {
+  outline: 2px solid #2563b3;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 body[data-er-page="order"] section.cus-scroll-y > .n-data-table {
   border: 1px solid var(--er-pages-line) !important;
 }

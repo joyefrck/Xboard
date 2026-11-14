@@ -129,6 +129,51 @@
     applyRouteMarkers(targetWindow);
     normalizeInviteCopyLabels(targetWindow);
     normalizeTrafficPage(targetWindow);
+    addUsdtKnowledgeLinks(targetWindow);
+  }
+
+  var USDT_KNOWLEDGE_TITLE = '新人如何购买 USDT';
+  var USDT_KNOWLEDGE_ID = '10';
+
+  function addUsdtKnowledgeLinks(targetWindow) {
+    var doc = targetWindow && targetWindow.document;
+    var page = resolvePageKey(targetWindow.location && targetWindow.location.hash);
+    if (page !== 'order-detail' || !doc || !doc.querySelectorAll) return;
+    var labels = doc.querySelectorAll('section.cus-scroll-y div.whitespace-nowrap');
+    Array.prototype.forEach.call(labels, function (label) {
+      if (label.querySelector('.er-usdt-knowledge-link') || !/^USDT(?:支付)?$/i.test(label.textContent.trim())) return;
+      var link = doc.createElement('a');
+      link.className = 'er-usdt-knowledge-link';
+      link.textContent = USDT_KNOWLEDGE_TITLE;
+      link.href = '/app#/knowledge?id=' + USDT_KNOWLEDGE_ID;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.setAttribute('aria-label', USDT_KNOWLEDGE_TITLE + '（新标签页打开）');
+      link.addEventListener('click', function (event) { event.stopPropagation(); });
+      label.classList.add('er-usdt-knowledge-label');
+      label.appendChild(link);
+    });
+  }
+
+  function createKnowledgeDeepLink(targetWindow) {
+    var openedHash = '';
+    return function () {
+      var hash = targetWindow.location.hash;
+      if (resolvePageKey(hash) !== 'knowledge') { openedHash = ''; return; }
+      if (hash === openedHash) return;
+      var query = new targetWindow.URLSearchParams(hash.split('?')[1] || '');
+      if (query.get('id') !== USDT_KNOWLEDGE_ID) return;
+      var doc = targetWindow.document;
+      if (!doc.querySelectorAll) return;
+      var entries = doc.querySelectorAll('section.cus-scroll-y .n-list-item');
+      Array.prototype.some.call(entries, function (entry) {
+        var title = entry.querySelector('.font-semibold');
+        if (!title || title.textContent.trim() !== USDT_KNOWLEDGE_TITLE) return false;
+        openedHash = hash;
+        entry.click();
+        return true;
+      });
+    };
   }
 
   function createPurchaseNotice(targetWindow) {
@@ -217,10 +262,12 @@
 
     var active = true;
     var purchaseNotice = createPurchaseNotice(targetWindow);
+    var openKnowledgeDeepLink = createKnowledgeDeepLink(targetWindow);
     var update = function () {
       if (!active) return;
       syncRoutePresentation(targetWindow);
       purchaseNotice.sync();
+      openKnowledgeDeepLink();
     };
 
     var observer = null;
@@ -260,6 +307,8 @@
     applyRouteMarkers: applyRouteMarkers,
     normalizeInviteCopyLabels: normalizeInviteCopyLabels,
     normalizeTrafficPage: normalizeTrafficPage,
+    addUsdtKnowledgeLinks: addUsdtKnowledgeLinks,
+    createKnowledgeDeepLink: createKnowledgeDeepLink,
     syncRoutePresentation: syncRoutePresentation,
     createPurchaseNotice: createPurchaseNotice,
     mount: mount

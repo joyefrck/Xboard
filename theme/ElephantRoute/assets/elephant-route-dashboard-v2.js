@@ -840,7 +840,7 @@
       '    </article>',
       '  </section>',
       '  <section class="er-v2-panel er-v2-downloads er-v2-entrance" aria-labelledby="er-v2-download-title">',
-      '    <div class="er-v2-section-heading er-v2-download-heading"><div><h2 id="er-v2-download-title">软件下载</h2><p class="er-v2-description">选择系统即可下载当前正式版本</p></div><button type="button" class="er-v2-text-action" data-action="all-downloads">全部版本' + solidIcon('arrowRight', 'er-v2-text-action-icon') + '</button></div>',
+      '    <div class="er-v2-section-heading er-v2-download-heading"><div><h2 id="er-v2-download-title">软件下载</h2><p class="er-v2-description">下载大象官方 App，登录后立即可用，无需复杂操作</p></div><button type="button" class="er-v2-text-action" data-action="all-downloads">全部版本' + solidIcon('arrowRight', 'er-v2-text-action-icon') + '</button></div>',
       '    <div class="er-v2-download-grid">',
       '      <button type="button" class="er-v2-download-button" data-download-platform="android"><span class="er-v2-platform-icon is-android">' + solidIcon('android') + '</span><span><strong>Android</strong><small data-download-state="android">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',
       '      <button type="button" class="er-v2-download-button" data-download-platform="windows"><span class="er-v2-platform-icon is-windows">' + solidIcon('windows') + '</span><span><strong>Windows</strong><small data-download-state="windows">加载中</small></span><span class="er-v2-download-arrow">' + solidIcon('download') + '</span></button>',

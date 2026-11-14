@@ -34,7 +34,7 @@ test('Dashboard 2.0 assets are loaded by both theme views and mirrored for produ
   ]) {
     const view = readRepoFile(viewPath);
     assert.match(view, /elephant-route-dashboard-v2\.css\?v=\{\{\$version\}\}-er20261106notice1/);
-    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261106notice1/);
+    assert.match(view, /elephant-route-dashboard-v2\.js\?v=\{\{\$version\}\}-er20261114downloadCopy1/);
     assert.doesNotMatch(view, /download_redirect|handleDownloadRedirect/);
   }
 });

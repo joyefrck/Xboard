@@ -1,0 +1,53 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const { JSDOM } = require('jsdom');
+const { addUsdtKnowledgeLinks, createKnowledgeDeepLink } = require('../theme/ElephantRoute/assets/elephant-route-pages-v2.js');
+
+test('USDT tutorial opens separately without selecting a payment method, including after a rerender', () => {
+  const dom = new JSDOM('<section class="cus-scroll-y"><div id="alipay"><div class="whitespace-nowrap">支付宝1（手续费4%）</div></div><div id="usdt"><div class="whitespace-nowrap">USDT支付</div><img></div></section>', { url: 'https://example.test/app#/order/test' });
+  const win = dom.window;
+  let selections = 0;
+  const row = win.document.getElementById('usdt');
+  row.addEventListener('click', () => selections++);
+  addUsdtKnowledgeLinks(win);
+  addUsdtKnowledgeLinks(win);
+  const link = row.querySelector('a');
+  assert.equal(win.document.querySelectorAll('a').length, 1);
+  assert.equal(link.textContent, '新人如何购买 USDT');
+  assert.equal(link.href, 'https://example.test/app#/knowledge?id=10');
+  assert.equal(link.target, '_blank');
+  assert.equal(link.rel, 'noopener noreferrer');
+  const click = new win.MouseEvent('click', { bubbles: true, cancelable: true });
+  link.dispatchEvent(click);
+  assert.equal(selections, 0);
+  assert.equal(click.defaultPrevented, false, 'the native new-tab navigation remains enabled');
+  assert.equal(win.location.hash, '#/order/test');
+  row.querySelector('.whitespace-nowrap').textContent = 'USDT支付';
+  addUsdtKnowledgeLinks(win);
+  assert.equal(row.querySelectorAll('a').length, 1);
+  win.location.hash = '#/profile';
+  row.querySelector('.whitespace-nowrap').textContent = 'USDT支付';
+  addUsdtKnowledgeLinks(win);
+  assert.equal(row.querySelector('a'), null);
+  dom.window.close();
+});
+
+test('knowledge deep link waits for the article list and opens only once per visit', () => {
+  const dom = new JSDOM('<section class="cus-scroll-y"></section>', { url: 'https://example.test/app#/knowledge?id=10' });
+  const win = dom.window;
+  const open = createKnowledgeDeepLink(win);
+  open();
+  const section = win.document.querySelector('section');
+  section.innerHTML = '<div class="n-list-item"><div class="font-semibold">新人如何购买 USDT</div></div>';
+  let opens = 0;
+  section.firstChild.addEventListener('click', () => opens++);
+  open(); open();
+  assert.equal(opens, 1, 'closing the article must not immediately reopen it');
+  win.location.hash = '#/dashboard'; open();
+  win.location.hash = '#/knowledge?id=10'; open();
+  assert.equal(opens, 2);
+  win.location.hash = '#/knowledge?id=11'; open();
+  win.location.hash = '#/knowledge'; open();
+  assert.equal(opens, 2, 'ordinary knowledge browsing and other IDs are unaffected');
+  dom.window.close();
+});
