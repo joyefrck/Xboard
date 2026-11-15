@@ -52,6 +52,9 @@ class StatUserJob implements ShouldQueue
             ? strtotime(date('Y-m-01'))
             : strtotime(date('Y-m-d'));
 
+        // All reports must acquire account locks in the same order.
+        ksort($this->data, SORT_NUMERIC);
+
         DB::transaction(function () use ($recordAt) {
             foreach ($this->data as $uid => $v) {
                 try {
@@ -63,7 +66,7 @@ class StatUserJob implements ShouldQueue
                     throw $e;
                 }
             }
-        });
+        }, 3);
     }
 
     protected function processUserStat(int $uid, array $v, int $recordAt): void

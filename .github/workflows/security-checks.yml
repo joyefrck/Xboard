@@ -83,6 +83,16 @@ jobs:
           php tests/account-session-security-concurrency.php
           php tests/account-deletion.php
           node --test tests/elephant-route-security.test.js
+      - name: Verify online status and statistics concurrency
+        env:
+          ONLINE_STATUS_TEST_PORT: ${{ job.services.database.ports['3306'] }}
+          ONLINE_STATUS_TEST_PASSWORD: fixture-password
+        run: |
+          php -r '$db = new PDO("mysql:host=127.0.0.1;port=" . getenv("ONLINE_STATUS_TEST_PORT"), "root", getenv("ONLINE_STATUS_TEST_PASSWORD")); $db->exec("CREATE DATABASE online_status_test");'
+          env -u ONLINE_STATUS_TEST_PORT php tests/online-status-locking.php
+          php tests/online-status-locking.php
+          php tests/online-status-locking-concurrency.php
+          node --test tests/admin-dashboard-log-performance.test.js
       - name: Verify real modern REALITY probes with fixed release binaries
         env:
           V2BX_TEST_LOG: debug

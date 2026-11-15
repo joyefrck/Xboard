@@ -14,16 +14,16 @@
       secure_path: "{{ $secure_path }}",
     };
   </script>
-  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-9297a75b565b7f4819a6" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-9297a75b565b7f4819a6" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/user-blacklist.css?v=admin-9297a75b565b7f4819a6" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-9297a75b565b7f4819a6" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/bandwagon-vps.css?v=admin-9297a75b565b7f4819a6" />
-  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-9297a75b565b7f4819a6">
-  <script defer src="/assets/admin/locales/en-US.js?v=admin-9297a75b565b7f4819a6"></script>
-  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-9297a75b565b7f4819a6"></script>
-  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-9297a75b565b7f4819a6"></script>
-  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-9297a75b565b7f4819a6"></script>
+  <link rel="modulepreload" crossorigin href="/assets/admin/assets/vendor.js?v=admin-07f67c13a4a05fb0437b" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/index.css?v=admin-07f67c13a4a05fb0437b" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/user-blacklist.css?v=admin-07f67c13a4a05fb0437b" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/node-automation.css?v=admin-07f67c13a4a05fb0437b" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/bandwagon-vps.css?v=admin-07f67c13a4a05fb0437b" />
+  <link rel="stylesheet" crossorigin href="/assets/admin/assets/vendor.css?v=admin-07f67c13a4a05fb0437b">
+  <script defer src="/assets/admin/locales/en-US.js?v=admin-07f67c13a4a05fb0437b"></script>
+  <script defer src="/assets/admin/locales/zh-CN.js?v=admin-07f67c13a4a05fb0437b"></script>
+  <script defer src="/assets/admin/locales/ko-KR.js?v=admin-07f67c13a4a05fb0437b"></script>
+  <script type="module" crossorigin src="/assets/admin/assets/index.js?v=admin-07f67c13a4a05fb0437b"></script>
   <style>
     .xboard-app-downloads-entry {
       position: fixed;

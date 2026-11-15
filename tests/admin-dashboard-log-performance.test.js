@@ -2,9 +2,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+
+test('Horizon retention minutes are displayed as hours in the admin dashboard', () => {
+  const source = read('public/assets/admin/assets/index.js');
+  const expression = source.match(/dashboard:queue\.details\.retentionPeriod",\{hours:([^}]+)\}/)?.[1];
+  assert.ok(expression, 'retention display expression exists');
+  assert.equal(vm.runInNewContext(expression, { ke: { periods: { failedJobs: 10080 } } }), 168);
+  assert.equal(vm.runInNewContext(expression, { ke: undefined }), 0);
+});
 
 test('admin system log list caps pagination and returns trimmed heavy fields', () => {
   const controller = read('app/Http/Controllers/V2/Admin/SystemController.php');

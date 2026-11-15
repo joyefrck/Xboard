@@ -1,0 +1,71 @@
+{
+  "production_root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+  "files": {
+    "app/Console/Commands/CleanupExpiredOnlineStatus.php": {
+      "source": "app/Console/Commands/CleanupExpiredOnlineStatus.php",
+      "allowed_before": [
+        "fac54181c18e3fe4e5dacb8cf3ce34f962d84197d291656a69c78995e0a027f6"
+      ],
+      "after": "8f2ebb14d9c31378780ed6ecbf769126203bb30a8ffd5c78a288bf8e4e25a4d9"
+    },
+    "app/Jobs/StatUserJob.php": {
+      "source": "app/Jobs/StatUserJob.php",
+      "allowed_before": [
+        "ce12100baf6b61c6cb3e2127dc98256b36918f3e1edbb1dbd2df868e3301fdb0"
+      ],
+      "after": "d77753d8aac7181f794e9a12d207897738f11c9e20f3341676db61eaf6c71855"
+    },
+    "app/Jobs/UpdateAliveDataJob.php": {
+      "source": "app/Jobs/UpdateAliveDataJob.php",
+      "allowed_before": [
+        "047ea71b5fbdbe8201a1c66072a72d14fb6c2d340e2e95ed46df2006799d5c75"
+      ],
+      "after": "876bcbe877b366491fd21f04317e57e6f325fcec54f3760086f45bea7a51ef25"
+    },
+    "public/assets/admin/assets/bandwagon-vps.js": {
+      "source": "public/assets/admin/assets/bandwagon-vps.js",
+      "allowed_before": [
+        "f862958b45b0618b8f9eb2406e7127da158beb8412eea0ca43f455d86882f93a"
+      ],
+      "after": "6573ff22ac4a077e34959ea87a85c72f655ed39ff0036d27f8045f1188adcd26"
+    },
+    "public/assets/admin/assets/index.js": {
+      "source": "public/assets/admin/assets/index.js",
+      "allowed_before": [
+        "b73e398dff215f03d00525d4bd80fe9b9888ba9e722d22ac9424762ee8e02d8e"
+      ],
+      "after": "ab4c1c8c9aff59c26276fe3bc6a8a5eaa2af32aecdb578be69bfdab815f69f20"
+    },
+    "public/assets/admin/assets/node-automation.js": {
+      "source": "public/assets/admin/assets/node-automation.js",
+      "allowed_before": [
+        "ef0cfa373647b819c8a96ae73c4c4b6796ea39e362ac84001ef03b05fe9d2f0d"
+      ],
+      "after": "4d5656f21372961466db3fea1b160ccaa4636825cf5a0e8762b91a0563dfd4bc"
+    },
+    "public/assets/admin/assets/vendor.css": {
+      "source": "public/assets/admin/assets/vendor.css",
+      "allowed_before": [
+        "f762d04eb9471ed62cd430f422971ac31e5b5e6bca2fc57f569f070ff6de6974"
+      ],
+      "after": "6b76fed6b4bcf05de28f604c0aa732fd0fb9c6bb15f378d07c5f2421601a84dd"
+    },
+    "public/assets/admin/assets/vendor.js": {
+      "source": "public/assets/admin/assets/vendor.js",
+      "allowed_before": [
+        "82ba8d90948ace93b9a4e66457694cf1a14437ee73f4bb67a19574befcad053e"
+      ],
+      "after": "d7350b38bc2ed6a89cf95b3dcf638a12e6b8ec2c9cf6c63941c0ae81b6d4d8db"
+    },
+    "resources/views/admin.blade.php": {
+      "source": "resources/views/admin.blade.php",
+      "allowed_before": [
+        "d534b8f17e2dd62fe5e5b67844c14487a104019363952480df51fcd4c2ff29d3"
+      ],
+      "after": "67f6c76680bc198f71a1b28103ef191d52beb716c6b0d885dc94bc1bc94a547e"
+    }
+  },
+  "queue-snapshot_sha256": "351e881f26697dad15515b8070906da6e9b1da9a4a16f0f18a48e76e6c6ee5c9",
+  "business-verify_sha256": "1faae3b3f2d5330966090d179154bc042e53acacd0e3b37241fe437e239d8c52",
+  "scope-verify_sha256": "70c6bb41fdae878404ed3cb19b028db5c399b623f6138b828fe1ea747b7fb24c"
+}

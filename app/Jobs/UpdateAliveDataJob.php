@@ -81,6 +81,7 @@ class UpdateAliveDataJob implements ShouldQueue
             \Illuminate\Support\Facades\DB::transaction(function () use ($userUpdates, $existingIds, $now) {
               collect($userUpdates)
                 ->filter(fn($row) => in_array((int) ($row['id'] ?? 0), $existingIds, true))
+                ->sortBy('id')
                 ->chunk(1000)
                 ->each(function ($chunk) use ($now) {
                   collect($chunk)->each(function ($update) use ($now) {
@@ -96,7 +97,7 @@ class UpdateAliveDataJob implements ShouldQueue
                     }
                   });
                 });
-            });
+            }, 3);
           }
         }
       }
