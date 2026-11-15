@@ -1,0 +1,20 @@
+{
+  "commit": "4af0905c39a12917ba5c0ef88e697e113effdba8",
+  "before_fix": {
+    "sqlite_regressions_failed": 5,
+    "innodb_statistics_cleanup_conflict_reproduced": true,
+    "retention_minutes_rendered_as_hours": true
+  },
+  "after_fix": {
+    "sqlite_checks": 18,
+    "mysql_checks": 18,
+    "mysql_concurrency_checks": 9,
+    "account_deletion_checks": 56,
+    "admin_horizon_node_tests": 24,
+    "horizon_provisioning": "local passed",
+    "production_dependencies_sqlite_checks": 18,
+    "admin_asset_version": "admin-07f67c13a4a05fb0437b"
+  },
+  "ci_run": "https://github.com/joyefrck/Xboard/actions/runs/43676015876",
+  "first_ci_failure": "Existing REALITY runtime handshake test; concurrency checks passed; failed checks rerun."
+}

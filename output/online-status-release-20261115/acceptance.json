@@ -1,0 +1,83 @@
+{
+  "commit": "4af0905c39a12917ba5c0ef88e697e113effdba8",
+  "ci_url": "https://github.com/joyefrck/Xboard/actions/runs/43676015876",
+  "ci_conclusion": "success",
+  "ci_attempt": 3,
+  "ci_prior_failures": "Existing REALITY handshake checks failed at different assertions in attempts 1 and 2. The unchanged commit passed the full checks and build in attempt 3; no tests were skipped or weakened.",
+  "ci_image_index_digest": "sha256:b9c9ae9b02ede1e97b5a27024dec279c164554725888c8d94f9df759e5422550",
+  "ci_platform_revisions_verified": ["linux/amd64", "linux/arm64"],
+  "deployment": {
+    "started_at": "2026-11-15T14:22:23+08:00",
+    "fresh_connection_verified_at": "2026-11-15T14:25:04+08:00",
+    "root": "/opt/1panel/apps/openresty/openresty/www/sites/xboard/index",
+    "backup": "/root/xboard-online-status-20261115",
+    "mode": "Atomic replacement of 9 scoped files in the existing source bind mount",
+    "running_base_images_unchanged": true,
+    "git_head_unchanged": true,
+    "queue_compose_configuration_unchanged": true,
+    "web_restarts_before_after": [0, 0],
+    "horizon_restarts_before_after": [13, 14],
+    "database_migrations": 0,
+    "historical_job_retries": 0,
+    "historical_logs_deleted": 0,
+    "rollback_command": "python3 /root/xboard-online-status-20261115/deploy.py rollback"
+  },
+  "changes": [
+    "Statistics acquire shared user locks in numeric ID order and retry the entire atomic transaction at most 3 times.",
+    "Online synchronization updates users in ID order and retries its entire database transaction at most 3 times.",
+    "Expired status cleanup updates one user per retried transaction and rechecks staleness at write time.",
+    "Admin retention converts Horizon minutes to hours: 10080 minutes renders as 168 hours."
+  ],
+  "verification": {
+    "sqlite_checks": 18,
+    "mysql_checks": 18,
+    "real_mysql_concurrency_checks": 9,
+    "account_deletion_checks": 56,
+    "admin_horizon_node_tests": 24,
+    "staged_code_checks_using_production_dependencies": 18,
+    "horizon_actual_environment": "local",
+    "horizon_selected_environment_pattern": "local",
+    "horizon_provisioning": "passed before and after deployment",
+    "queues_with_consumers": 12,
+    "active_workers": 15,
+    "new_failed_jobs": 0,
+    "new_cleanup_errors": 0,
+    "new_online_sync_errors": 0,
+    "new_statistics_errors": 0,
+    "public_checks": 28,
+    "public_resource_hashes_checked": 20,
+    "admin_asset_version": "admin-07f67c13a4a05fb0437b",
+    "browser_observed_retention": "保留 168 小时",
+    "redis": "PONG",
+    "web_horizon_zombies": [0, 0],
+    "web_horizon_pids_current": [17, 29],
+    "web_horizon_pids_max": [8831, 8831],
+    "all_five_containers_running": true,
+    "natural_cleanup_observation": "29 stale online records immediately after apply; 0 after the following scheduled cleanup. New stale records naturally accumulate between one-minute cleanups."
+  },
+  "queue_samples": [
+    {"at": "2026-11-15T14:22:34+08:00", "traffic_ready_reserved": [8, 2], "stat_ready_reserved": [5, 1], "online_ready_reserved": [3, 0], "max_head_age_seconds": 5},
+    {"at": "2026-11-15T14:23:31+08:00", "traffic_ready_reserved": [0, 0], "stat_ready_reserved": [10, 0], "online_ready_reserved": [0, 0], "max_head_age_seconds": 3},
+    {"at": "2026-11-15T14:24:17+08:00", "traffic_ready_reserved": [2, 0], "stat_ready_reserved": [0, 0], "online_ready_reserved": [3, 0], "max_head_age_seconds": 1},
+    {"at": "2026-11-15T14:24:59+08:00", "traffic_ready_reserved": [1, 0], "stat_ready_reserved": [10, 0], "online_ready_reserved": [1, 0], "max_head_age_seconds": 2, "fresh_ssh_session": true}
+  ],
+  "natural_business_since_release": {
+    "completed_online_jobs": 135,
+    "completed_user_stat_jobs": 135,
+    "completed_server_stat_jobs": 135,
+    "completed_traffic_jobs": 134,
+    "completed_automation_jobs": 30,
+    "completed_mail_jobs": 1,
+    "mail_logs": 1,
+    "mail_errors": 0,
+    "user_stat_age_seconds": 2,
+    "server_stat_age_seconds": 3,
+    "node_push_age_seconds": 1
+  },
+  "limits": [
+    "No natural registration, payment callback, ticket notification or Telegram group eligibility task appeared in this short release window; those end-to-end outcomes were not newly verified.",
+    "SMTP acceptance and completed mail jobs do not establish inbox receipt; Telegram device delivery was not tested.",
+    "Historical failed jobs and cumulative error logs remain visible. Invalid recipients, invalid callback requests and historical authorization refusals were not treated as current queue failures.",
+    "Production evidence files, detailed completed job IDs, before/after hashes and runtime metadata are retained in the protected backup directory."
+  ]
+}
