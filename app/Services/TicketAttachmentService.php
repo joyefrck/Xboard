@@ -103,6 +103,12 @@ class TicketAttachmentService
         }
     }
 
+    public function hasPrivateImagePath(TicketMessageAttachment $attachment): bool
+    {
+        return $attachment->disk === self::DISK
+            && preg_match('#^ticket-attachments/\d{4}/\d{2}/[0-9a-f-]{36}\.(?:jpg|png|webp)$#D', $attachment->path) === 1;
+    }
+
     public function inlineResponse(TicketMessageAttachment $attachment): BinaryFileResponse
     {
         $disk = Storage::disk($attachment->disk);

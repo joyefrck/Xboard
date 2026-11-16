@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,8 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('send-email', function () {
             return Limit::perSecond(8)->by('smtp');
         });
+
+        RateLimiter::for('ticket-bot', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
 
         parent::boot();
     }

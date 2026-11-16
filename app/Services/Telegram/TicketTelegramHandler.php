@@ -228,8 +228,7 @@ class TicketTelegramHandler
         if (!$attachment) {
             throw new ApiException('图片附件不存在或已清理', 404);
         }
-        if ($attachment->disk !== TicketAttachmentService::DISK ||
-            !preg_match('#^ticket-attachments/\d{4}/\d{2}/[0-9a-f-]{36}\.(?:jpg|png|webp)$#D', $attachment->path)) {
+        if (!(new TicketAttachmentService())->hasPrivateImagePath($attachment)) {
             throw new ApiException('图片附件无效', 404);
         }
         $disk = Storage::disk(TicketAttachmentService::DISK);

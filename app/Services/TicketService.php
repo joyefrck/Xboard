@@ -46,7 +46,7 @@ class TicketService
         }
     }
 
-    public function replyByAdmin($ticketId, $message, $userId, array $attachments = []): void
+    public function replyByAdmin($ticketId, $message, $userId, array $attachments = []): TicketMessage
     {
         $attachmentService = new TicketAttachmentService();
         $storedAttachments = [];
@@ -76,8 +76,12 @@ class TicketService
             $attachmentService->cleanupStoredFiles($storedAttachments);
             throw $e;
         }
-        HookManager::call('ticket.reply.admin.after', [$ticket, $ticketMessage]);
-        $this->sendEmailNotify($ticket, $ticketMessage);
+        // A bot operation also commits an idempotency receipt in its outer transaction.
+        DB::afterCommit(function () use ($ticket, $ticketMessage) {
+            HookManager::call('ticket.reply.admin.after', [$ticket, $ticketMessage]);
+            $this->sendEmailNotify($ticket, $ticketMessage);
+        });
+        return $ticketMessage;
     }
 
     public function closeByAdmin(int $ticketId, int $operatorId): void
@@ -146,6 +150,9 @@ class TicketService
     private function sendEmailNotify(Ticket $ticket, TicketMessage $ticketMessage)
     {
         $user = User::find($ticket->user_id);
+        if (!$user) {
+            return;
+        }
         $cacheKey = 'ticket_sendEmailNotify_' . $ticket->user_id;
         if (!Cache::get($cacheKey)) {
             Cache::put($cacheKey, 1, 1800);
