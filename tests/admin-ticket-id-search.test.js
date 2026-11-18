@@ -25,7 +25,7 @@ function setup() {
     oe: value => { query = value; value.queryFn(); return { refetch() {}, data: { data: [], total: 0 } }; },
     zt: { getList: value => { payload = JSON.parse(JSON.stringify(value)); } },
     es: value => { options = value; return { getColumn: () => ({ getFilterValue: () => '0' }) }; },
-    cg: () => [], ds: 'Table', k: 'Input', Dt: 'Tabs', xt: 'TabList', Xe: 'Tab', Wa: 'Filter',
+    rg: 'TicketDialog', cg: () => [], ds: 'Table', k: 'Input', Dt: 'Tabs', xt: 'TabList', Xe: 'Tab', Wa: 'Filter',
     Wp: 'Low', Ki: 'Medium', Bi: 'High', js: { LOW: 0, MIDDLE: 1, HIGH: 2 },
     ...Object.fromEntries(['ss', 'ws', 'is', 'Ns', 'zs', 'Os'].map(name => [name, () => () => {}]))
   };
@@ -33,6 +33,7 @@ function setup() {
   vm.runInContext(`${toolbar}${table}`, context);
   return {
     render() { index = 0; return context.dg().props.children[0].props; },
+    dialog() { index = 0; return context.dg().props.children[2]; },
     toolbar: props => context.Yp(props),
     get payload() { return payload; },
     get queryKey() { return JSON.parse(JSON.stringify(query.queryKey)); },
@@ -98,4 +99,19 @@ test('ticket number search translations are available in all admin locales', () 
     vm.runInNewContext(fs.readFileSync(path.join(root, `public/assets/admin/locales/${locale}.js`), 'utf8'), context);
     assert.equal(context.window.XBOARD_TRANSLATIONS[locale].ticket.filter.ticket_id_placeholder, expected);
   }
+});
+
+test('ticket page keeps the dialog mounted across table refreshes and dismisses it explicitly', () => {
+  const app = setup();
+  app.render();
+  app.options.meta.openTicket(3139);
+  let dialog = app.dialog();
+  assert.equal(dialog.type, 'TicketDialog');
+  dialog.props.onUpdated();
+  assert.equal(app.dialog().props.ticketId, 3139);
+  dialog.props.onTicketChange(3140);
+  dialog = app.dialog();
+  assert.equal(dialog.props.ticketId, 3140);
+  dialog.props.onClose();
+  assert.equal(app.dialog(), false);
 });

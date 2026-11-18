@@ -1,4 +1,4 @@
-import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-07f67c13a4a05fb0437b';
+import { createTrafficMeter, formatBytes } from './bandwagon-traffic.js?v=admin-aa75d71d7c0a47b714c1';
 
 export function vpsState(vps) {
   if (vps.info?.suspended) return { label: '已暂停', tone: 'error' };
