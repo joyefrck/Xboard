@@ -85,6 +85,16 @@ class VlessConfigService
                 return (bool) preg_match('/^2\.\d+\.\d+$/D', $version)
                     && version_compare($version, '2.2.2', '>=');
             }
+            // Stash Apple releases use independent version lines and can omit
+            // the platform. Keep a stable minimum instead of a major allowlist.
+            if ($renderer === 'Stash' && $name === 'stash'
+                && ($platform === null || in_array($platform, ['ios', 'macos'], true))
+                && ($settings['network'] ?? 'tcp') === 'tcp'
+                && data_get($settings, 'network_settings.header.type', 'none') === 'none'
+                && (bool) preg_match('/^\d+\.\d+\.\d+$/D', $version)
+                && version_compare($version, '4.0.0', '>=')) {
+                return true;
+            }
             // Native iOS clients verified against TCP REALITY / Vision. Their
             // macOS releases have independent version and capability histories.
             if (($settings['network'] ?? 'tcp') === 'tcp' && ($platform === null || $platform === 'ios')) {

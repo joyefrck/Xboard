@@ -94,9 +94,34 @@ foreach (['Stash/3.6.5', 'Stash/3.6.5 Clash/1.11.0', 'Stash/3.6.5 Clashlike/1.0.
     }
 }
 
-foreach (['Stash/3.6.4', 'Stash', 'Stash/3.6.5-beta', 'OtherApp/3.6.5 Stash', 'Stash/3.6.5 (macOS)', 'Stash/4.3.0 macOS/27.2'] as $ua) {
+foreach (['Stash/3.6.4', 'Stash', 'Stash/3.6.5-beta', 'OtherApp/3.6.5 Stash', 'Stash/3.6.5 (macOS)'] as $ua) {
     $parsed = Yaml::parse(iosSubscription($ua, $all)->getContent());
     check(array_column($parsed['proxies'], 'name') === ['legacy'], 'unverified Stash version/platform keeps legacy only');
+}
+
+// Stash 5.0.0 UA was captured on Apple silicon macOS. Future major versions
+// are simulated to keep the stable minimum policy independent of a major list.
+foreach (['Stash/4.0.0 Clash/1.11.0', 'Stash/4.0.0 (macOS)', 'Stash/4.0.1 (macOS)', 'Stash/4.1.0 (macOS)', 'Stash/4.2.0 (macOS)', 'Stash/4.3.0 macOS/27.2', 'Stash/5.0.0 Clash/1.11.0', 'Stash/5.0.0 (macOS)', 'Stash/5.0.0 (iOS)', 'Stash/6.0.0 Clash/1.11.0', 'Stash/6.1.2 (macOS)', 'Stash/7.0.0 (iOS)', 'Stash/10.0.0 (macOS)'] as $ua) {
+    foreach ([null, 'stash'] as $flag) {
+        $response = iosSubscription($ua, $all, $flag);
+        check($response->getStatusCode() === 200, 'Stash 4+ Apple subscription succeeds');
+        $parsed = Yaml::parse($response->getContent());
+        check(array_column($parsed['proxies'], 'name') === ['modern', 'legacy'], 'Stash 4+ receives TCP REALITY without enhanced nodes');
+        check($parsed['proxies'][0]['reality-opts']['support-x25519mlkem768'] === true, 'Stash 4+ receives hybrid KeyShare');
+        check($parsed['proxies'][0]['client-fingerprint'] === 'chrome', 'Stash 4+ receives Chrome fingerprint');
+        check(iosSubscription($ua, [$modern], $flag)->getStatusCode() === 200, 'Stash 4+ all-modern subscription avoids 422');
+    }
+}
+foreach (['Stash/3.9.9 (macOS)', 'Stash/4.0.0-beta (macOS)', 'Stash/5.0.0-beta (macOS)', 'Stash/6.0.0-beta (macOS)', 'Stash/6.0.0-rc.1 (macOS)', 'Stash/6.0.0.1 (macOS)', 'OtherApp/5.0.0 Stash', 'Stash/4.0.0 platform/android', 'Stash/5.0.0 platform/android', 'Stash/5.0.0 platform/windows', 'Stash/6.0.0 platform/android', 'Stash/6.0.0 platform/linux', 'OtherApp/6.0.0 Stash'] as $ua) {
+    check(iosSubscription($ua, [$modern])->getStatusCode() === 422, 'unverified Stash identity/version/platform remains filtered');
+}
+foreach (['ws', 'grpc', 'xhttp'] as $network) {
+    $transport = $modern;
+    $transport['protocol_settings']['network'] = $network;
+    $transport['protocol_settings']['flow'] = '';
+    foreach (['Stash/4.0.0 Clash/1.11.0', 'Stash/5.0.0 Clash/1.11.0', 'Stash/6.0.0 Clash/1.11.0'] as $ua) {
+        check(iosSubscription($ua, [$transport])->getStatusCode() === 422, 'Stash 4+ unverified transport remains filtered');
+    }
 }
 
 foreach (['Quantumult%20X/1.8.1', 'Quantumult%20X/1.8.1 (iPhone17,1; iOS 27.2)', 'Quantumult X/1.8.1 (iOS)', 'Quantumult-X/1.8.1', 'QuantumultX/1.8.1', 'Quantumult X/1.8.1 Stash/3.6.5', 'Quantumult%20X/1.8.2'] as $ua) {
