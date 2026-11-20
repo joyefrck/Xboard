@@ -245,6 +245,10 @@ class OrderService
                 throw new \RuntimeException('用户信息保存失败');
             }
 
+            if ($this->user->access_override_plan_id) {
+                app(TrafficPackageService::class)->syncAccessProfile($this->user);
+            }
+
             $order->status = Order::STATUS_COMPLETED;
             if (!$order->save()) {
                 throw new \RuntimeException('订单信息保存失败');

@@ -82,3 +82,43 @@ curl --fail-with-body -sS -H "$auth" -H "Idempotency-Key: $key" \
 `php tests/ticket-bot-api.php` 使用内存 SQLite、临时图片存储和模拟邮件队列，覆盖全部七个 HTTP 入口。
 
 验证 MySQL 行锁时，可启动仅监听临时 Unix socket 的独立 MySQL 实例，并创建空库 `ticket_bot_fixture`。设置 `TICKET_BOT_TEST_MYSQL_SOCKET` 为其 socket 路径后执行同一脚本。脚本会在该库建立测试数据，用两个 PHP 进程同时重试同一操作，校验只产生一条回复。
+
+## 工单退款与本期套餐权限调整
+
+启用前运行标准迁移。保留原有工单密钥，在客服服务端另存操作令牌。每个客服或机器人使用独立令牌，服务端配置身份、令牌 SHA-256 摘要和权限。以下为配置格式示例，套餐 ID 应替换为本面板的基础、高级、旗舰普通套餐 ID，摘要替换成对应随机令牌的 64 位小写十六进制摘要。刷新配置缓存并重载常驻进程。
+
+```dotenv
+TICKET_BOT_OPERATORS='{"support-bot":{"sha256":"<操作令牌摘要>","scopes":["refund","plan_access"]}}'
+TICKET_BOT_ACCESS_PLAN_IDS=11,12,13
+```
+
+`refund` 可读取订单及办理退款，`plan_access` 可查看与调整档位。两个权限可单独授予。全部新接口使用对应操作令牌作为 Bearer Token，沿用前文的路径前缀和响应格式。旧令牌仅用于原有工单操作。
+
+| 方法与路径 | 请求与结果 |
+| --- | --- |
+| GET /{id}/orders | 按订单 ID 倒序返回完整订单号、产品、周期、状态、支付与余额抵扣金额。金额单位为分。用 limit 和响应的 next_before_id 作为下页 before_id 翻页。 |
+| POST /{id}/refunds/preview | 提交 trade_no。返回 amount（实际可退金额，单位为分）、commission_deduction、balance_before、balance_after、related_orders、rule 和 effect。end_subscription 表示结束当前套餐，reclaim_package_remainder 表示回收该笔独立流量包的剩余流量。 |
+| POST /{id}/refunds | 提交 quote、version、reason、expected_amount。expected_amount 原样使用预览的 amount。成功返回 refund_id、action_id、实际金额、前后余额和关联订单。 |
+| GET /{id}/plan-access | 返回购买套餐 purchased_plan、本期生效套餐 effective_plan、节点实际使用的 effective_profile、原订阅截止时间、本期调整截止时间和 allowed_plans。流量包接管或订阅不可用时 effective_plan 为空。 |
+| POST /{id}/plan-access/preview | 提交 target_plan_id。返回 before、after（含权限组、限速、设备数）、override_until 和费用 charge_amount。 |
+| POST /{id}/plan-access/changes | 提交 quote、version 和 reason。成功返回 action_id、前后档位和截止时间。选回购买档位可提前恢复。 |
+
+机器人根据已读工单生成操作时，预览请求一并提交工单详情的 version。若其间有新消息或备注，服务端返回 409 ticket_changed。两种预览均返回 version、quote 和 expires_at。先向操作方展示权益回收范围或调档前后差异，再用同一身份、工单和预览版本确认。确认时携带 Idempotency-Key，超时按原键、原请求重试。相同订单的关联退款只能入账一次。工单内容或业务状态改变、凭证过期均须重新预览。操作身份取自服务端凭据。系统把执行凭证独立保存，工单保留期结束后仍可按工单号、业务编号追查。
+
+例如，客服服务端读取工单 123 的某一笔订单后，可这样办理退款。下列变量 base 包含路径前缀，op 是服务端配置的操作令牌，trade 是已核对的完整订单号。
+
+```sh
+preview=$(curl --fail-with-body -sS -H "Authorization: Bearer $op" \
+  -H 'Content-Type: application/json' -d "$(jq -n --arg t "$trade" '{trade_no:$t}')" \
+  "$base/123/refunds/preview")
+printf '%s\n' "$preview" | jq '.data | {amount,related_orders,effect,balance_after,rule}'
+# 核对后保存 key 和 body；网络超时后原样重发。
+key=$(uuidgen)
+body=$(printf '%s' "$preview" | jq -c '.data | {quote,version,expected_amount:.amount,reason:"按工单申请退至余额"}')
+curl --fail-with-body -sS -H "Authorization: Bearer $op" -H "Idempotency-Key: $key" \
+  -H 'Content-Type: application/json' -d "$body" "$base/123/refunds"
+```
+
+本期调档适用于有到期日且仍在有效期内的指定普通订阅。applies_to_current_traffic 为 false 时，调整会在套餐重新有可用流量后生效。购买套餐、计费、流量额度和已用量继续按原订阅计算。续费后本次调整仍在原截止时间结束。再次调档沿用当前调整的截止时间。套餐流量耗尽时独立流量包按自己的权限使用，套餐流量重置后在有效期内恢复调整档位。正式换购或套餐退款会取消调整。到期恢复由每分钟调度处理，节点与客户端在各自的常规刷新周期取得变化。
+
+常见错误包括 403（权限未配置或不匹配）、404（记录不存在或订单与工单用户不匹配）、409（工单关闭、预览或余额变化、重复退款、幂等键冲突）和 422（字段无效、目标档位不适用）。退款试算按后台规则拒绝时返回 400 和具体原因。

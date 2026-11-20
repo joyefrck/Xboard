@@ -26,7 +26,7 @@ $app = require dirname(__DIR__) . '/bootstrap/app.php';
 $app->useEnvironmentPath($root);
 $app->afterBootstrapping(LoadConfiguration::class, function ($app) use ($root) {
     $app['config']->set([
-        'app.env' => 'testing', 'app.debug' => true, 'logging.default' => 'null',
+        'app.key' => 'base64:' . base64_encode(str_repeat('t', 32)), 'app.env' => 'testing', 'app.debug' => true, 'logging.default' => 'null',
         'database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:',
         'database.connections.sqlite.url' => null, 'database.connections.sqlite.foreign_key_constraints' => true,
         'cache.default' => 'array', 'cache.stores.redis' => ['driver' => 'array'],
@@ -83,6 +83,14 @@ function api(string $method, string $path, array $body = [], ?string $key = null
 }
 
 try {
+    if (($argv[1] ?? null) === '--refund-race-worker') {
+        config(['ticket_bot.operators' => ['desk' => ['sha256' => hash('sha256', $token), 'scopes' => ['refund']]]]);
+        echo "ready\n";
+        fflush(STDOUT);
+        $body = json_decode($argv[2], true, flags: JSON_THROW_ON_ERROR);
+        echo json_encode(api('POST', '/42/refunds', $body, 'race-refund'), JSON_THROW_ON_ERROR) . PHP_EOL;
+        return;
+    }
     if (($argv[1] ?? null) === '--race-worker') {
         config(['ticket_bot.token_sha256' => hash('sha256', $token)]);
         echo "ready\n";
@@ -91,7 +99,7 @@ try {
         echo json_encode($response, JSON_THROW_ON_ERROR) . PHP_EOL;
         return;
     }
-    if (getenv('TICKET_BOT_TEST_MYSQL_SOCKET') && Schema::getTables() !== []) {
+    if (getenv('TICKET_BOT_TEST_MYSQL_SOCKET') && Schema::getTables('ticket_bot_fixture') !== []) {
         throw new RuntimeException('ticket_bot_fixture must be an empty disposable database');
     }
     foreach ([
@@ -211,6 +219,7 @@ try {
     }
     Ticket::find(31)->delete();
     check(DB::table('v2_ticket_bot_action')->count() === 0, 'retention cascades to bot receipts');
+    require __DIR__ . '/fixtures/ticket-service-actions.php';
     (require database_path('migrations/2026_11_16_000001_create_ticket_bot_actions.php'))->down();
     echo "工单 Bot API 通过 {$count} 项 HTTP 与业务断言。\n";
 } finally {

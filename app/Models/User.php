@@ -84,6 +84,15 @@ class User extends Authenticatable
     public const COMMISSION_TYPE_PERIOD = 1;
     public const COMMISSION_TYPE_ONETIME = 2;
 
+    protected static function booted(): void
+    {
+        static::updating(function (User $user) {
+            if ($user->isDirty('plan_id') && $user->access_override_plan_id) {
+                $user->access_override_plan_id = $user->access_override_until = null;
+            }
+        });
+    }
+
     public function blacklistEvents(): HasMany
     {
         return $this->hasMany(UserBlacklistEvent::class, 'user_id');

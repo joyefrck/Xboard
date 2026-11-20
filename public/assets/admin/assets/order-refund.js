@@ -51,7 +51,9 @@ export function createRefundUI({ React: R, api, toast, ui }) {
     return h('section', { className: 'rounded-lg border p-4 space-y-2', 'aria-label': '退款记录' },
       h('h3', { className: 'text-sm font-medium' }, '退款到余额 · ' + money(refund.amount)),
       line('退款时间', new Date(refund.created_at * 1000).toLocaleString('zh-CN', { hour12: false })),
-      line('操作管理员', '#' + refund.operator_id),
+      refund.snapshot?.ticket_source
+        ? line('工单客服', refund.snapshot.ticket_source.actor + ' · 工单 #' + refund.snapshot.ticket_source.ticket_id)
+        : line('操作管理员', '#' + refund.operator_id),
       line('账户余额', money(refund.balance_before) + ' → ' + money(refund.balance_after)),
       refund.snapshot ? h('div', { className: 'space-y-2' },
         line('退款范围', refund.snapshot.label), line('折算基数', money(refund.snapshot.base_amount)),

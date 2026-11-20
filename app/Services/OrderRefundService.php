@@ -14,6 +14,7 @@ class OrderRefundService
     private const USER_FIELDS = [
         'plan_id', 'expired_at', 'transfer_enable', 'u', 'd', 'group_id',
         'speed_limit', 'device_limit', 'next_reset_at', 'last_reset_at', 'custom_pending_order_id',
+        'access_override_plan_id', 'access_override_until',
     ];
 
     public function preview(string $tradeNo): array
@@ -46,8 +47,20 @@ class OrderRefundService
 
     public function refund(string $tradeNo, int $operatorId, int $expectedAmount, string $reason, string $quote): OrderRefund
     {
+        return $this->execute($tradeNo, $operatorId, $expectedAmount, $reason, $quote, null);
+    }
+
+    public function refundForTicket(string $tradeNo, int $ticketId, int $userId, string $actor, int $amount, string $reason, string $quote): OrderRefund
+    {
+        return $this->execute($tradeNo, 0, $amount, $reason, $quote, [
+            'ticket_id' => $ticketId, 'user_id' => $userId, 'actor' => $actor,
+        ]);
+    }
+
+    private function execute(string $tradeNo, int $operatorId, int $expectedAmount, string $reason, string $quote, ?array $ticketSource): OrderRefund
+    {
         $reason = trim($reason);
-        if ($operatorId <= 0 || mb_strlen($reason) < 2 || mb_strlen($reason) > 500 || $expectedAmount <= 0) {
+        if (($ticketSource === null && $operatorId <= 0) || mb_strlen($reason) < 2 || mb_strlen($reason) > 500 || $expectedAmount <= 0) {
             throw new ApiException('请确认退款金额并填写 2 至 500 字的退款原因');
         }
         try {
@@ -61,11 +74,15 @@ class OrderRefundService
             throw new ApiException('退款预览与本次确认不一致，请重新核对');
         }
 
-        $refund = $this->withLockedOrder($tradeNo, function (Order $order, ?User $user) use ($operatorId, $expectedAmount, $reason, $payload) {
+        $refund = $this->withLockedOrder($tradeNo, function (Order $order, ?User $user) use ($operatorId, $expectedAmount, $reason, $payload, $ticketSource) {
+            if ($ticketSource !== null) {
+                abort_unless($user && (int) $user->id === $ticketSource['user_id'], 404);
+            }
             // A retry, including one from another order in the same subscription,
             // returns the original evidence before checking the quote expiry.
             $existing = $order->balanceRefund()->first();
             if ($existing) {
+                abort_if($ticketSource !== null, 409, 'order_already_refunded');
                 if ($existing->amount !== $expectedAmount) {
                     throw new ApiException('订单已退款，金额与本次确认不一致，请刷新订单');
                 }
@@ -112,7 +129,10 @@ class OrderRefundService
                 'order_id' => $order->id, 'trade_no' => $order->trade_no, 'user_id' => $user->id,
                 'operator_id' => $operatorId, 'amount' => $expectedAmount,
                 'balance_before' => $before, 'balance_after' => (int) $user->balance, 'reason' => $reason,
-                'snapshot' => ['calculated_at' => $payload['calculated_at'], ...$scope, 'receipt_entries' => $entries],
+                'snapshot' => [
+                    ...($ticketSource ? ['ticket_source' => $ticketSource] : []),
+                    'calculated_at' => $payload['calculated_at'], ...$scope, 'receipt_entries' => $entries,
+                ],
             ]);
             if (!$refund->exists) throw new \RuntimeException('退款记录保存失败');
             foreach ($entries as $entry) {
@@ -122,7 +142,12 @@ class OrderRefundService
             app(OrderRefundNotificationService::class)->capture($refund, $user, $entries);
             return $refund;
         });
-        app(OrderRefundNotificationService::class)->enqueue($refund->id);
+        $notify = fn () => app(OrderRefundNotificationService::class)->enqueue($refund->id);
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($notify);
+        } else {
+            $notify();
+        }
         return $refund;
     }
 

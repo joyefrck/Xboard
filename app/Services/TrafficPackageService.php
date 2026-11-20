@@ -300,6 +300,18 @@ class TrafficPackageService
         }, 3);
     }
 
+    public function subscriptionAccessPlan(User $user): ?Plan
+    {
+        if ($user->access_override_plan_id && $user->access_override_until > time()) {
+            $target = Plan::whereKey($user->access_override_plan_id)
+                ->where('plan_type', Plan::TYPE_STANDARD)->whereNotNull('group_id')->first();
+            if ($target) {
+                return $target;
+            }
+        }
+        return Plan::find($user->plan_id);
+    }
+
     public function syncAccessProfile(
         User $user,
         ?Collection $packages = null,
@@ -313,7 +325,7 @@ class TrafficPackageService
         $source = null;
 
         if ($planRemainingBytes > 0 && $user->plan_id) {
-            $source = Plan::find($user->plan_id);
+            $source = $this->subscriptionAccessPlan($user);
         } else {
             $package = $this->getFirstActivePackage($user, $packages);
             $source = $package?->trafficPackage ?? $package?->plan;
@@ -333,7 +345,19 @@ class TrafficPackageService
         $user->fill($attributes);
         $dirtyAttributes = array_intersect_key($user->getDirty(), $attributes);
         if ($dirtyAttributes) {
-            User::whereKey($user->getKey())->update($dirtyAttributes);
+            $query = User::whereKey($user->getKey());
+            // Subscription reads may have loaded the user before a concurrent support change.
+            if (array_key_exists('access_override_plan_id', $user->getAttributes())) {
+                $query->where('access_override_plan_id', $user->access_override_plan_id)
+                    ->where('access_override_until', $user->access_override_until)
+                    ->where('plan_id', $user->plan_id);
+            }
+            if (!$query->update($dirtyAttributes)) {
+                $current = User::whereKey($user->getKey())->first(array_keys($attributes));
+                if ($current) {
+                    $user->fill($current->only(array_keys($attributes)));
+                }
+            }
             $user->syncOriginalAttributes(array_keys($dirtyAttributes));
         }
     }

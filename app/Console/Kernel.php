@@ -40,6 +40,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('telegram:group-retry')->everyMinute()->onOneServer()->withoutOverlapping(20)->runInBackground();
         // reset
         $schedule->command('reset:traffic')->everyMinute()->onOneServer();
+        $schedule->call(fn () => app(\App\Services\TicketPlanAccessService::class)->expire())
+            ->name('ticket-plan-access-expiry')->everyMinute()->onOneServer()->withoutOverlapping(4);
         $schedule->command('traffic:sync-package-access')->everyMinute()->onOneServer()->withoutOverlapping(4);
         $schedule->command('reset:log')->daily()->onOneServer();
         // send

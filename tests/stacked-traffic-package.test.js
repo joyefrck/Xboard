@@ -168,7 +168,8 @@ test('effective access follows the product currently funding traffic', () => {
   assert.match(trafficPackageService, /'speed_limit'\s*=>\s*\$source->speed_limit/);
   assert.match(trafficPackageService, /'device_limit'\s*=>\s*\$source->device_limit/);
   assert.match(trafficPackageService, /\$dirtyAttributes\s*=\s*array_intersect_key\(\$user->getDirty\(\),\s*\$attributes\)/);
-  assert.match(trafficPackageService, /User::whereKey\(\$user->getKey\(\)\)->update\(\$dirtyAttributes\)/);
+  assert.match(trafficPackageService, /\$query = User::whereKey\(\$user->getKey\(\)\)/);
+  assert.match(trafficPackageService, /\$query->update\(\$dirtyAttributes\)/);
   assert.doesNotMatch(trafficPackageService, /syncAccessProfile[\s\S]*\$user->save\(\)/);
   assert.match(trafficPackageService, /syncAccessProfile\(\$user,\s*null,\s*\$planAvailable\)/);
   assert.match(trafficPackageService, /syncAccessProfile\(\$user,\s*\$packages,\s*\$planAvailable\)/);
