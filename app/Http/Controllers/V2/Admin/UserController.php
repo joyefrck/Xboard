@@ -314,7 +314,7 @@ class UserController extends Controller
         ], [
             'id.required' => '用户ID不能为空'
         ]);
-        $user = User::find($request->input('id'))->load('invite_user');
+        $user = User::with(['invite_user', 'plan:id,name'])->findOrFail($request->input('id'));
         return $this->success($user);
     }
 

@@ -77,8 +77,9 @@ class User extends Authenticatable
         'commission_rate' => 'float',
         'next_reset_at' => 'timestamp',
         'last_reset_at' => 'timestamp',
+        'support_plan_order_scope' => 'array',
     ];
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'support_plan_order_scope'];
 
     public const COMMISSION_TYPE_SYSTEM = 0;
     public const COMMISSION_TYPE_PERIOD = 1;
@@ -87,6 +88,10 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::updating(function (User $user) {
+            if ($user->isDirty('plan_id') && $user->support_plan_order_scope
+                && (int) $user->support_plan_order_scope['plan_id'] !== (int) $user->plan_id) {
+                $user->support_plan_order_scope = null;
+            }
             if ($user->isDirty('plan_id') && $user->access_override_plan_id) {
                 $user->access_override_plan_id = $user->access_override_until = null;
             }

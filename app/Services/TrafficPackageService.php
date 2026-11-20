@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TrafficPackageService
 {
-    private const BYTES_PER_GB = 1073741824;
+    public const BYTES_PER_GB = 1073741824;
 
     public function getAvailablePackages(): Collection
     {

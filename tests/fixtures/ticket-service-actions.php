@@ -12,7 +12,7 @@ foreach ([
     '2026_07_03_000001_create_traffic_packages_table', '2026_07_03_000002_add_traffic_package_order_links',
     '2026_09_21_000001_add_private_plans', '2026_11_09_000001_create_order_refunds',
     '2026_11_09_000002_add_refund_entitlement_snapshots', '2026_11_09_000003_add_refund_receipts_and_mail',
-    '2026_11_20_000001_add_ticket_service_actions',
+    '2026_11_20_000001_add_ticket_service_actions', '2026_11_20_000002_add_support_plan_order_scope',
 ] as $migration) {
     (require database_path("migrations/{$migration}.php"))->up();
 }
@@ -34,13 +34,15 @@ foreach ([41, 42, 43] as $id) {
 }
 DB::table('v2_user')->insert($time + ['id' => 22, 'email' => 'other@example.test', 'password' => 'fixture', 'uuid' => 'other', 'token' => 'other']);
 foreach ([2, 3, 4] as $tier) {
-    DB::table('v2_plan')->insert($time + ['id' => $tier, 'group_id' => $tier, 'name' => "档位 {$tier}", 'transfer_enable' => 20,
+    DB::table('v2_plan')->insert($time + ['id' => $tier, 'group_id' => $tier, 'name' => "档位 {$tier}", 'transfer_enable' => 10 * $tier, 'prices' => json_encode(['monthly' => 10 * $tier]),
         'speed_limit' => 100 * $tier, 'device_limit' => $tier, 'plan_type' => $tier === 4 ? 'exclusive' : 'standard']);
 }
 $expiry = time() + 12 * 86400;
 $user = User::findOrFail(21);
 $user->update(['expired_at' => $expiry, 'group_id' => 1]);
-$originalTraffic = $user->only(['plan_id', 'u', 'd', 'transfer_enable', 'expired_at', 'balance']);
+$originalTraffic = $user->only(['u', 'd', 'expired_at', 'balance']);
+$historical = Order::create(['user_id' => 21, 'plan_id' => 2, 'trade_no' => 'expired-old-tier', 'type' => 1, 'status' => 3,
+    'period' => 'monthly', 'total_amount' => 30000, 'created_at' => time() - 365 * 86400]);
 $subscription = Order::create(['user_id' => 21, 'plan_id' => 1, 'trade_no' => 'sub-41', 'type' => 1, 'status' => 3,
     'period' => 'monthly', 'total_amount' => 3500, 'created_at' => time() - 86400]);
 $package = Order::create(['user_id' => 21, 'plan_id' => 1, 'trade_no' => 'pack-41', 'type' => 5, 'status' => 3,
@@ -74,29 +76,48 @@ api('POST', '/42/plan-access/changes', $grant, 'wrong-ticket', expected: 409);
 $result = api('POST', '/41/plan-access/changes', $grant, 'grant');
 check($result === api('POST', '/41/plan-access/changes', $grant, 'grant'), 'one grant receipt on retry');
 api('POST', '/41/plan-access/changes', array_merge($grant, ['reason' => '另一请求']), 'grant', expected: 409);
-check($user->refresh()->only(array_keys($originalTraffic)) === $originalTraffic && $user->group_id === 2, 'grant preserves purchased rights and accounting');
+check($user->refresh()->only(array_keys($originalTraffic)) === $originalTraffic && $user->plan_id === 2
+    && $user->group_id === 2 && $user->transfer_enable === 20 * 1073741824, 'formal change preserves usage, expiry and wallet');
+check(OrderService::currentPeriodOrders($user)->modelKeys() === [$subscription->id], 'old destination orders excluded from credit');
+api('POST', '/41/refunds/preview', ['trade_no' => $historical->trade_no], expected: 400);
+check($subscription->fresh()->plan_id === 1 && !$user->access_override_until, 'purchase history retained and switch has no cutoff');
+$request = Illuminate\Http\Request::create('/', 'GET', ['id' => 21]);
+$request->setUserResolver(fn () => $user);
+$adminDetail = app(App\Http\Controllers\V2\Admin\UserController::class)->getUserInfoById($request)->getData(true)['data'];
+$subscribe = app(App\Http\Controllers\V1\User\UserController::class)->getSubscribe($request)->getData(true)['data'];
+check($adminDetail['plan']['name'] === '档位 2' && $subscribe['plan']['name'] === '档位 2'
+    && $subscribe['active_product_name'] === '档位 2', 'admin and subscriber see the new plan name');
 $change(3, 'upgrade-again');
-check($user->refresh()->device_limit === 3 && $user->speed_limit === 300, 'flagship profile is effective');
+check($user->refresh()->device_limit === 3 && $user->speed_limit === 300 && $user->transfer_enable === 30 * 1073741824, 'flagship profile and quota are effective');
 $usersOn = fn (int $group) => ServerService::getAvailableUsers((new Server())->forceFill(['group_ids' => [(string) $group]]));
 check($usersOn(3)->contains('id', 21) && !$usersOn(1)->contains('id', 21), 'node receives new access group only');
-$change(1, 'restore');
-check(!$user->refresh()->access_override_plan_id && $user->group_id === 1, 'restore purchased tier');
+$user->update(['u' => 2 * 1073741824]);
+$down = $change(1, 'downgrade');
+check(!$down['applies_to_current_traffic'] && $user->refresh()->plan_id === 1 && $user->u === 2 * 1073741824
+    && $user->transfer_enable === 1073741824, 'downgrade below current usage preserves used bytes');
 $change(2, 'renew-setup');
-$renewal = Order::create(['user_id' => 21, 'plan_id' => 1, 'trade_no' => 'renew-41', 'type' => 2, 'status' => 1,
-    'period' => 'monthly', 'total_amount' => 3500]);
+DB::beginTransaction();
+try {
+    $priced = OrderService::createFromRequest($user->refresh(), $user->plan, 'monthly');
+    check($priced->type === Order::TYPE_RENEWAL && $priced->plan_id === 2
+        && $priced->total_amount + $priced->surplus_amount === 2000, 'normal checkout prices renewal at new tier');
+    api('POST', '/41/plan-access/preview', ['target_plan_id' => 3], expected: 409);
+} finally {
+    DB::rollBack();
+}
+$renewal = Order::create(['user_id' => 21, 'plan_id' => 2, 'trade_no' => 'renew-41', 'type' => 2, 'status' => 1,
+    'period' => 'monthly', 'total_amount' => 2000]);
 (new OrderService($renewal))->open();
-check($user->refresh()->expired_at > $expiry && $user->access_override_until === $expiry
-    && $user->group_id === 2 && $user->speed_limit === 200, 'real renewal keeps override and original cutoff');
+check($user->refresh()->expired_at > $expiry && !$user->access_override_until
+    && $user->plan_id === 2 && $user->speed_limit === 200, 'renewal extends new tier');
 $user->update(['u' => $user->transfer_enable]);
 app(TrafficPackageService::class)->syncAccessProfile($user);
 check($user->refresh()->group_id === 1, 'independent package supplies its own profile');
-$deferred = $accessQuote(3);
-check(!$deferred['applies_to_current_traffic'], 'exhausted plan leaves package in control');
+check($accessQuote(3)['applies_to_current_traffic'], 'higher quota immediately restores subscription access');
 check(app(TrafficResetService::class)->performReset($user), 'real traffic reset succeeds');
-check($user->refresh()->group_id === 2, 'plan balance restores override');
-$user->update(['access_override_until' => time() - 1]);
+check($user->refresh()->group_id === 2, 'plan balance restores current plan access');
 app(TicketPlanAccessService::class)->expire();
-check(!$user->refresh()->access_override_plan_id && $user->group_id === 1, 'expiry restores original profile after renewal');
+check($user->refresh()->plan_id === 2 && $user->group_id === 2, 'legacy expiry job preserves formal change');
 $change(3, 'before-refund');
 
 $preview = api('POST', '/41/refunds/preview', ['trade_no' => 'pack-41'])['data'];
@@ -121,20 +142,22 @@ api('POST', '/42/refunds', $bodyFor($other) + ['expected_amount' => 2250], 'dupl
 check($user->refresh()->balance === 2250 && $user->group_id === 3 && Queue::pushed(SendRefundEmailJob::class)->count() === 1,
     'one package credit and one notification; active subscription remains');
 $sub = api('POST', '/41/refunds/preview', ['trade_no' => 'sub-41'])['data'];
-check($sub['effect'] === 'end_subscription' && count($sub['related_orders']) === 2 && $sub['amount'] > 0, 'subscription preview includes renewal');
+check($sub['effect'] === 'end_subscription' && count($sub['related_orders']) === 2 && $sub['amount'] > 0 && $sub['amount'] <= 5500, 'subscription preview includes renewal');
 $subBody = $bodyFor($sub) + ['expected_amount' => $sub['amount']];
 $ended = api('POST', '/41/refunds', $subBody, 'refund-sub');
 check(!$user->refresh()->plan_id && !$user->access_override_plan_id && !$user->group_id
-    && $user->balance === 2250 + $sub['amount'], 'subscription refund revokes override and credits one total');
+    && !$user->support_plan_order_scope && $user->balance === 2250 + $sub['amount'], 'subscription refund revokes override and credits one total');
 // Formally buying another plan ends any support adjustment for this user.
 $second = User::findOrFail(22);
 $second->update(['plan_id' => 1, 'expired_at' => $expiry, 'transfer_enable' => 400, 'u' => 0, 'd' => 0]);
+$second->update(['access_override_plan_id' => 3, 'access_override_until' => $expiry]);
 $grant22 = api('POST', '/43/plan-access/preview', ['target_plan_id' => 3])['data'];
 api('POST', '/43/plan-access/changes', $bodyFor($grant22), 'grant-22');
+check($second->refresh()->plan_id === 3 && !$second->access_override_until, 'legacy temporary tier can be confirmed as a formal switch');
 $buy = Order::create(['user_id' => 22, 'plan_id' => 2, 'trade_no' => 'formal-upgrade', 'type' => 3,
     'period' => 'monthly', 'status' => 1, 'total_amount' => 3500]);
 (new OrderService($buy))->open();
-check($second->refresh()->plan_id === 2 && !$second->access_override_plan_id && $second->group_id === 2,
+check($second->refresh()->plan_id === 2 && !$second->access_override_plan_id && !$second->support_plan_order_scope && $second->group_id === 2,
     'paid switch ends the override');
 Ticket::whereKey(41)->update(['status' => Ticket::STATUS_CLOSED]);
 check($ended === api('POST', '/41/refunds', $subBody, 'refund-sub'), 'replay survives ticket closure');

@@ -412,7 +412,7 @@ class OrderService
                 ->pluck('id')
                 ->all();
         } else {
-            $orders = $this->currentPeriodOrders($user);
+            $orders = self::currentPeriodOrders($user);
 
             if ($orders->isEmpty()) {
                 $order->surplus_amount = 0;
@@ -456,15 +456,27 @@ class OrderService
             && isset(self::STR_TO_TIME[PlanService::getPeriodKey((string) $order->period)]);
     }
 
-    private function currentPeriodOrders(User $user): \Illuminate\Database\Eloquent\Collection
+    public static function currentPeriodOrders(User $user): \Illuminate\Database\Eloquent\Collection
     {
         $query = Order::query()
             ->where('user_id', $user->id)
-            ->where('plan_id', $user->plan_id)
             ->whereNotIn('period', [Plan::PERIOD_RESET_TRAFFIC, Plan::PERIOD_ONETIME])
             ->where('type', '!=', Order::TYPE_TRAFFIC_PACKAGE)
             ->where('status', Order::STATUS_COMPLETED)
             ->where('no_proration', false);
+        $scope = $user->support_plan_order_scope;
+        if ($scope && (int) $scope['plan_id'] === (int) $user->plan_id) {
+            // Carry only the original entitlement across a support switch. Earlier
+            // purchases of the destination plan may still have completed status.
+            $query->where(function ($matched) use ($scope, $user) {
+                $matched->whereIn('id', $scope['order_ids'])
+                    ->orWhere(function ($subsequent) use ($scope, $user) {
+                        $subsequent->where('id', '>', $scope['through_id'])->where('plan_id', $user->plan_id);
+                    });
+            });
+        } else {
+            $query->where('plan_id', $user->plan_id);
+        }
         // Expiry does not close historical orders. A new purchase starts a new
         // entitlement; its earlier orders must not contribute value or commission.
         $startId = (clone $query)->whereIn('type', [Order::TYPE_NEW_PURCHASE, Order::TYPE_UPGRADE])->max('id');
@@ -474,7 +486,7 @@ class OrderService
 
     private function applyRenewalSurplusCredit(User $user, Order $order): void
     {
-        $orders = $this->currentPeriodOrders($user);
+        $orders = self::currentPeriodOrders($user);
 
         if ($orders->isEmpty()) {
             $order->surplus_amount = 0;

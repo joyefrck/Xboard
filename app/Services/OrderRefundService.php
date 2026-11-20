@@ -190,7 +190,10 @@ class OrderRefundService
             $state = ['package' => $package->only(['id', 'order_id', 'plan_id', 'traffic_package_id', 'total_bytes', 'remaining_bytes', 'status'])];
         } else {
             $plan = $user->plan_id ? Plan::find($user->plan_id) : null;
-            if (!$plan || (int) $order->plan_id !== (int) $user->plan_id || $plan->isPrivate()
+            $carriedOrders = $user->support_plan_order_scope['order_ids'] ?? [];
+            $matchesPlan = (int) $order->plan_id === (int) $user->plan_id
+                || ($user->expired_at !== null && in_array((int) $order->id, $carriedOrders, true));
+            if (!$plan || !$matchesPlan || $plan->isPrivate()
                 || $user->custom_pending_order_id || (int) $user->transfer_enable <= 0
                 || ($user->expired_at !== null && (int) $user->expired_at <= Carbon::now()->timestamp)) throw new ApiException('订单不属于当前可折算的有效套餐，不能回收其他套餐或已过期权益');
             $value = OrderService::subscriptionSurplus($user, $at);
