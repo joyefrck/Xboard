@@ -18,6 +18,7 @@ class Target {
     const capture = options === true || !!options.capture;
     this.listeners = this.listeners.filter(x => x.type !== type || x.callback !== callback || x.capture !== capture);
   }
+  async decode() {}
   setAttribute(name, value) { this[name] = value; }
   append(...nodes) { nodes.forEach(node => this.appendChild(node)); }
   appendChild(node) { node.parent = this; this.children.push(node); return node; }
@@ -53,7 +54,7 @@ function dispatch(target, type, extra = {}) {
   return event;
 }
 
-function setupPreview() {
+function setupPreview(loadingOnly = false) {
   const window = new Target();
   const document = new Target();
   document.parent = window;
@@ -71,10 +72,19 @@ function setupPreview() {
   const start = bundle.indexOf('xboardAdminShowTicketAttachment=');
   const end = bundle.indexOf(',xboardAdminOpenTicketAttachment=', start);
   assert.ok(start >= 0 && end > start);
-  const show = vm.runInNewContext(`(${bundle.slice(start, end).split('=').slice(1).join('=')})`, {
-    window, document, URL: { revokeObjectURL: url => revoked.push(url) }
+  let nextUrl;
+  const createPreview = vm.runInNewContext(`(${bundle.slice(start, end).split('=').slice(1).join('=')})`, {
+    window, document, URL: { createObjectURL: () => nextUrl, revokeObjectURL: url => revoked.push(url) }
   });
-  return { window, document, revoked, state, show, overlay: show('blob:test', '<plain filename>.png') };
+  const controller = new AbortController();
+  function show(url, name, signalController = new AbortController()) {
+    const preview = createPreview(name, 'Loading image…', signalController);
+    nextUrl = url;
+    if (url) preview.show(new Blob(['image']));
+    return document.body.children.at(-1);
+  }
+  const overlay = show(loadingOnly ? null : 'blob:test', '<plain filename>.png', controller);
+  return { window, document, revoked, state, show, overlay, controller };
 }
 
 test('ticket image preview receives pointers despite the underlying modal body lock', () => {
@@ -125,4 +135,14 @@ test('Escape closes the image before the document-capture ticket handler', () =>
   assert.deepEqual(revoked, ['blob:test', 'blob:test-again']);
   dispatch(document, 'keydown', { key: 'Escape' });
   assert.equal(state.ticketOpen, false);
+});
+
+test('a slow preview exposes its loading status and aborts the download on close', () => {
+  const { overlay, controller, revoked, state } = setupPreview(true);
+  assert.equal(overlay.children[2].role, 'status');
+  assert.equal(overlay.children[2].textContent, 'Loading image…');
+  dispatch(overlay.children[1], 'click');
+  assert.equal(controller.signal.aborted, true);
+  assert.equal(state.ticketOpen, true);
+  assert.deepEqual(revoked, []);
 });

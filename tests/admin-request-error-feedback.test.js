@@ -56,3 +56,20 @@ test('admin HTTP errors keep existing message precedence and status handling', (
   assert.match(interceptor, /404:"资源或接口不存在"/);
   assert.match(interceptor, /t\|\|\{401:/);
 });
+
+test('cached ticket refresh timeouts stay quiet and other failures still reach the operator', async () => {
+  const messages = [];
+  const vm = require('node:vm');
+  let rejectResponse;
+  vm.runInNewContext(extractResponseInterceptor(adminBundle), {
+    Ot: {interceptors: {response: {use(_onSuccess, onError) { rejectResponse = onError; }}}},
+    ko: {isCancel: () => false}, A: {error: message => messages.push(message)}, ni() {}
+  });
+  const timeout = {code: 'ETIMEDOUT', config: {quietRefreshTimeout: true}};
+  await assert.rejects(rejectResponse(timeout));
+  assert.deepEqual(messages, []);
+  await assert.rejects(rejectResponse({...timeout, config: {quietRefreshTimeout: false}}));
+  await assert.rejects(rejectResponse({...timeout, code: '', response: {status: 403}}));
+  assert.deepEqual(messages, ['请求超时，请重试', '没有权限']);
+  assert.match(adminBundle, /quietRefreshTimeout:!!client\.getQueryData\(queryKey\)\?\.data/);
+});

@@ -193,11 +193,11 @@ test('admin ticket UI uploads, lists and opens authenticated attachments', () =>
   assert.match(bundle, /attachments\.add/);
   assert.match(bundle, /attachments\.open_failed/);
   assert.match(bundle, /xboardAdminShowTicketAttachment/);
-  assert.match(bundle, /fetch\(rm\(\)\+"\/"\+wa\+"\/ticket\/attachment\/"\+s/);
-  assert.match(bundle, /await [a-z]\.arrayBuffer\(\)/);
+  assert.match(bundle, /fetch\(rm\(\)\+"\/"\+wa\+"\/ticket\/attachment\/"\+id/);
+  assert.match(bundle, /await response\.blob\(\)/);
   assert.match(bundle, /cache:"no-store"/);
-  assert.match(bundle, /document\.body\.appendChild\(n\)/);
-  assert.match(bundle, /new Blob\(\[[a-z]\],\{type:t\}\)/);
+  assert.match(bundle, /document\.body\.appendChild\(overlay\)/);
+  assert.match(bundle, /await preview\.show\(blob\.type \? blob/);
   assert.doesNotMatch(bundle, /xboardAdminPrepareTicketAttachmentWindow/);
   assert.doesNotMatch(
     bundle,
@@ -269,4 +269,54 @@ test('ticket attachment storage enforces the byte boundary and rollback cleanup 
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /runtime test passed/);
+});
+
+test('the user upload form only replaces a static screenshot when encoding saves bytes', async () => {
+  const theme = read('theme/ElephantRoute/assets/umi.js');
+  const start = theme.indexOf('async function xboardTicketImageIsAnimated');
+  const end = theme.indexOf('function xboardFormatTicketAttachmentSize', start);
+  const original = new File([new Uint8Array(500)], 'receipt.png', {type: 'image/png'});
+  const context = {
+    File, FormData, URL, Image: class {
+      naturalWidth = 5;
+      naturalHeight = 10;
+      async decode() {}
+    }
+  };
+  let encodedSize = 100;
+  let actualType;
+  const types = [];
+  context.document = {createElement: () => ({
+    getContext: () => ({drawImage() {}}),
+    toBlob(callback, type) {
+      types.push(type);
+      callback(new Blob([new Uint8Array(encodedSize)], {type: actualType || type}));
+    }
+  })};
+  const makeForm = vm.runInNewContext(theme.slice(start, end) + ';xboardTicketFormData', context);
+  async function upload(file) {
+    const body = await makeForm({message:'receipt'}, [file]);
+    assert.equal(body.get('message'), 'receipt');
+    return body.get('attachments[]');
+  }
+  for (const file of [
+    original,
+    new File([original], 'receipt.jpg', {type: 'image/jpeg'}),
+    new File([original], 'receipt.webp', {type: 'image/webp'})
+  ]) {
+    const result = await upload(file);
+    assert.deepEqual([result.name, result.type, result.size], ['receipt.webp', 'image/webp', 100]);
+  }
+  actualType = 'image/png'; // Browsers without a WebP encoder can return PNG.
+  assert.equal(await upload(original), original);
+  actualType = undefined;
+  encodedSize = 501;
+  assert.equal(await upload(original), original);
+
+  const header = new Uint8Array(21);
+  header.set(Buffer.from('VP8X'), 12);
+  header[20] = 2;
+  const animated = new File([header], 'animation.webp', {type:'image/webp'});
+  assert.equal(await upload(animated), animated);
+  assert.deepEqual(types, Array(5).fill('image/webp'));
 });

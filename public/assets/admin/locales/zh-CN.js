@@ -2022,6 +2022,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "too_many": "每轮最多上传 3 张图片",
       "invalid_type": "图片仅支持 JPG、PNG、WEBP 格式",
       "too_large": "单张图片不能超过 1MB",
+      "loading": "正在加载图片…",
       "open_failed": "附件打开失败"
     },
     "detail": {

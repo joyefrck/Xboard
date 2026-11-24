@@ -2030,6 +2030,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "too_many": "You can upload up to 3 images per message",
       "invalid_type": "Only JPG, PNG, and WEBP images are supported",
       "too_large": "Each image must be no larger than 1 MB",
+      "loading": "Loading image…",
       "open_failed": "Failed to open attachment"
     },
     "detail": {

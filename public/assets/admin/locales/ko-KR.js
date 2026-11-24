@@ -1510,6 +1510,7 @@ window.XBOARD_TRANSLATIONS['ko-KR'] = {
       "too_many": "메시지당 이미지는 최대 3개까지 업로드할 수 있습니다",
       "invalid_type": "JPG, PNG, WEBP 이미지만 지원됩니다",
       "too_large": "이미지 한 개의 크기는 1MB 이하여야 합니다",
+      "loading": "이미지를 불러오는 중…",
       "open_failed": "첨부 파일을 열 수 없습니다"
     },
     "detail": {
