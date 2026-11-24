@@ -29,7 +29,7 @@ class MailLinkService
         }
 
         $user = User::where('email', $email)->first();
-        if (!$user) {
+        if (!$user || !Helper::isSameEmail($user->email, $email)) {
             return [true, true]; // 成功但用户不存在，保护用户隐私
         }
 

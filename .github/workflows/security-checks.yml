@@ -45,6 +45,8 @@ jobs:
           php tests/admin-ticket-pending-stats.php
           php tests/telegram-group-access.php
           php tests/wallet-recharge.php
+          php tests/payment-auth-hardening.php
+          node --test tests/release-safety.test.js tests/docker-compose-production-network.test.js
           node --test tests/order-balance-refund.test.js tests/refund-user-order.test.js
           node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js tests/elephant-route-usdt-knowledge.test.js
           node --test tests/elephant-route-notice.test.js

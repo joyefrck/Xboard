@@ -81,6 +81,19 @@ class Helper
         return $str;
     }
 
+    public static function normalizeEmail(string $email): string
+    {
+        return mb_strtolower(trim($email), 'UTF-8');
+    }
+
+    /**
+     * MySQL 的 unicode_ci 排序会把带重音的邮箱视为同一邮箱；身份校验只允许大小写差异。
+     */
+    public static function isSameEmail(?string $stored, string $input): bool
+    {
+        return $stored !== null && self::normalizeEmail($stored) === self::normalizeEmail($input);
+    }
+
     public static function wrapIPv6($addr) {
         if (filter_var($addr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
             return "[$addr]";

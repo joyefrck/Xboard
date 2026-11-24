@@ -22,6 +22,10 @@ class PaymentController extends Controller
                 HookManager::call('payment.notify.failed', [$method, $uuid, $request]);
                 return $this->fail([422, 'verify error']);
             }
+            // An authentic event that is not a payment: acknowledge it without touching the order.
+            if (is_string($verify)) {
+                return $verify;
+            }
             HookManager::call('payment.notify.verified', $verify);
             if (!$this->handle($verify['trade_no'], $verify['callback_no'])) {
                 return $this->fail([400, 'handle error']);
@@ -37,7 +41,8 @@ class PaymentController extends Controller
     {
         $order = Order::where('trade_no', $tradeNo)->first();
         if (!$order) {
-            return $this->fail([400202, 'order is not found']);
+            Log::warning('payment.notify.order_not_found', ['trade_no' => $tradeNo]);
+            return false;
         }
         if ($order->status !== Order::STATUS_PENDING)
             return true;

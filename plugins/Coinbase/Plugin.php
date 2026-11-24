@@ -76,26 +76,38 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         ];
     }
 
-    public function notify($params): array
+    public function notify($params): array|bool|string
     {
         $payload = trim(request()->getContent());
-        $json_param = json_decode($payload, true);
+        $secret = $this->getConfig('coinbase_webhook_key');
+        if (!is_string($secret) || trim($secret) === '') {
+            return false;
+        }
 
-        $headerName = 'X-Cc-Webhook-Signature';
-        $headers = getallheaders();
-        $signatureHeader = isset($headers[$headerName]) ? $headers[$headerName] : '';
-        $computedSignature = \hash_hmac('sha256', $payload, $this->getConfig('coinbase_webhook_key'));
-
-        if (!$this->hashEqual($signatureHeader, $computedSignature)) {
+        $computedSignature = hash_hmac('sha256', $payload, $secret);
+        if (!hash_equals($computedSignature, (string) request()->header('X-Cc-Webhook-Signature', ''))) {
             throw new ApiException('HMAC signature does not match', 400);
         }
 
-        $out_trade_no = $json_param['event']['data']['metadata']['outTradeNo'];
-        $pay_trade_no = $json_param['event']['id'];
-        
+        $body = json_decode($payload, true);
+        $event = is_array($body) ? ($body['event'] ?? null) : null;
+        if (!is_array($event)) {
+            return false;
+        }
+        // charge:created, charge:pending and charge:failed are signed too, but are not payments.
+        if (($event['type'] ?? null) !== 'charge:confirmed') {
+            return 'ignored';
+        }
+
+        $tradeNo = $event['data']['metadata']['outTradeNo'] ?? null;
+        $eventId = $event['id'] ?? null;
+        if (!is_string($tradeNo) || trim($tradeNo) === '' || !is_string($eventId) || trim($eventId) === '') {
+            return false;
+        }
+
         return [
-            'trade_no' => $out_trade_no,
-            'callback_no' => $pay_trade_no
+            'trade_no' => $tradeNo,
+            'callback_no' => $eventId
         ];
     }
 
@@ -116,23 +128,4 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         curl_close($ch);
         return $result;
     }
-
-    private function hashEqual($str1, $str2)
-    {
-        if (function_exists('hash_equals')) {
-            return \hash_equals($str1, $str2);
-        }
-
-        if (strlen($str1) != strlen($str2)) {
-            return false;
-        } else {
-            $res = $str1 ^ $str2;
-            $ret = 0;
-
-            for ($i = strlen($res) - 1; $i >= 0; $i--) {
-                $ret |= ord($res[$i]);
-            }
-            return !$ret;
-        }
-    }
-} 
+}

@@ -42,7 +42,7 @@ class LoginService
 
         // 查找用户
         $user = User::where('email', $email)->first();
-        if (!$user) {
+        if (!$user || !Helper::isSameEmail($user->email, $email)) {
             return [false, [400, __('Incorrect email or password')]];
         }
 
@@ -98,7 +98,7 @@ class LoginService
         }
 
         try {
-            return Cache::lock('password-reset:' . hash('sha256', $email), 15)->block(2, function () use ($email, $emailCode, $password, $forgetRequestLimitKey) {
+            return Cache::lock('password-reset:' . hash('sha256', Helper::normalizeEmail($email)), 15)->block(2, function () use ($email, $emailCode, $password, $forgetRequestLimitKey) {
                 return DB::transaction(function () use ($email, $emailCode, $password, $forgetRequestLimitKey) {
                     $count = (int) Cache::get($forgetRequestLimitKey, 0);
                     if ($count >= 3) return [false, [429, __('Reset failed, Please try again later')]];
@@ -108,7 +108,7 @@ class LoginService
                         return [false, [400, __('Incorrect email verification code')]];
                     }
                     $user = User::where('email', $email)->lockForUpdate()->first();
-                    if (!$user) return [false, [400, __('This email is not registered in the system')]];
+                    if (!$user || !Helper::isSameEmail($user->email, $email)) return [false, [400, __('This email is not registered in the system')]];
                     $user->password = password_hash($password, PASSWORD_DEFAULT);
                     $user->password_algo = null;
                     $user->password_salt = null;

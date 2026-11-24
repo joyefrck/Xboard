@@ -78,37 +78,63 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         ];
     }
 
-    public function notify($params): array|bool
+    public function notify($params): array|bool|string
     {
         $payload = trim(request()->getContent());
-        $headers = getallheaders();
-        $headerName = 'Btcpay-Sig';
-        $signraturHeader = isset($headers[$headerName]) ? $headers[$headerName] : '';
-        $json_param = json_decode($payload, true);
+        $secret = $this->getConfig('btcpay_webhook_key');
+        if (!is_string($secret) || trim($secret) === '') {
+            return false;
+        }
 
-        $computedSignature = "sha256=" . \hash_hmac('sha256', $payload, $this->getConfig('btcpay_webhook_key'));
-
-        if (!$this->hashEqual($signraturHeader, $computedSignature)) {
+        $computedSignature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+        if (!hash_equals($computedSignature, (string) request()->header('Btcpay-Sig', ''))) {
             throw new ApiException('HMAC signature does not match', 400);
         }
 
-        $context = stream_context_create(array(
-            'http' => array(
-                'method' => 'GET',
-                'header' => "Authorization:" . "token " . $this->getConfig('btcpay_api_key') . "\r\n"
-            )
-        ));
+        $event = json_decode($payload, true);
+        $invoiceId = is_array($event) ? ($event['invoiceId'] ?? null) : null;
+        if (!is_string($invoiceId) || trim($invoiceId) === '') {
+            return false;
+        }
 
-        $invoiceDetail = file_get_contents($this->getConfig('btcpay_url') . 'api/v1/stores/' . $this->getConfig('btcpay_storeId') . '/invoices/' . $json_param['invoiceId'], false, $context);
-        $invoiceDetail = json_decode($invoiceDetail, true);
+        // Webhooks also announce unpaid invoices. Only the live invoice state proves settlement.
+        $invoice = $this->fetchInvoice($invoiceId);
+        if (!is_array($invoice) || ($invoice['id'] ?? null) !== $invoiceId) {
+            throw new ApiException('Unable to verify BTCPay invoice', 502);
+        }
+        if (($invoice['status'] ?? null) !== 'Settled') {
+            return 'ignored';
+        }
 
-        $out_trade_no = $invoiceDetail['metadata']["orderId"];
-        $pay_trade_no = $json_param['invoiceId'];
-        
+        $tradeNo = $invoice['metadata']['orderId'] ?? null;
+        if (!is_string($tradeNo) || trim($tradeNo) === '') {
+            return false;
+        }
+
         return [
-            'trade_no' => $out_trade_no,
-            'callback_no' => $pay_trade_no
+            'trade_no' => $tradeNo,
+            'callback_no' => $invoiceId
         ];
+    }
+
+    protected function fetchInvoice(string $invoiceId): ?array
+    {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 15,
+                'header' => 'Authorization: token ' . $this->getConfig('btcpay_api_key') . "\r\n"
+            ]
+        ]);
+        $body = @file_get_contents(
+            $this->getConfig('btcpay_url') . 'api/v1/stores/' . $this->getConfig('btcpay_storeId')
+                . '/invoices/' . rawurlencode($invoiceId),
+            false,
+            $context
+        );
+        $invoice = is_string($body) ? json_decode($body, true) : null;
+
+        return is_array($invoice) ? $invoice : null;
     }
 
     private function curlPost($url, $params = false)
@@ -128,23 +154,4 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         curl_close($ch);
         return $result;
     }
-
-    private function hashEqual($str1, $str2)
-    {
-        if (function_exists('hash_equals')) {
-            return \hash_equals($str1, $str2);
-        }
-
-        if (strlen($str1) != strlen($str2)) {
-            return false;
-        } else {
-            $res = $str1 ^ $str2;
-            $ret = 0;
-
-            for ($i = strlen($res) - 1; $i >= 0; $i--) {
-                $ret |= ord($res[$i]);
-            }
-            return !$ret;
-        }
-    }
-} 
+}
