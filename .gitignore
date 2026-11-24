@@ -36,6 +36,12 @@ storage/app/ticket-attachments/
 storage/app/node-automation-probes/
 storage/app/node-automation-backups/
 
+# 本地发布证据与浏览器日志，可能含用户数据；仓库是公开的，确需提交时用 git add -f
+/output/
+/.playwright-cli/
+__pycache__/
+*.pem
+
 # Exclude large release files
 public/download/ElephantNetwork-Android.apk
 public/download/ElephantNetwork-MacOS.zip

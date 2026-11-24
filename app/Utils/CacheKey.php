@@ -18,6 +18,15 @@ class CacheKey
         'FORGET_REQUEST_LIMIT' => '找回密码次数限制'
     ];
 
+    // 以邮箱为唯一值的键：大小写不同的同一邮箱必须共用限制与验证码
+    const EMAIL_KEYS = [
+        'EMAIL_VERIFY_CODE',
+        'LAST_SEND_EMAIL_VERIFY_TIMESTAMP',
+        'LAST_SEND_LOGIN_WITH_MAIL_LINK_TIMESTAMP',
+        'PASSWORD_ERROR_LIMIT',
+        'FORGET_REQUEST_LIMIT',
+    ];
+
     // 允许的缓存键模式（支持通配符）
     const ALLOWED_PATTERNS = [
         'SERVER_*_ONLINE_USER',        // 节点在线用户
@@ -33,6 +42,10 @@ class CacheKey
      */
     public static function get(string $key, mixed $uniqueValue = null): string
     {
+        if (is_string($uniqueValue) && in_array($key, self::EMAIL_KEYS, true)) {
+            $uniqueValue = Helper::normalizeEmail($uniqueValue);
+        }
+
         // 检查是否为核心键
         if (array_key_exists($key, self::CORE_KEYS)) {
             return $uniqueValue ? $key . '_' . $uniqueValue : $key;

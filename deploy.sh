@@ -23,7 +23,8 @@ if [ ! -d ".git" ]; then
 fi
 
 # 检查是否有未提交的更改
-if [[ -z $(git status -s) ]]; then
+# 仅看已跟踪或已暂存的文件：仓库是公开的，未跟踪文件必须由人工逐个 git add
+if [[ -z $(git status -s --untracked-files=no) ]]; then
     echo -e "${YELLOW}⚠️  没有检测到任何更改${NC}"
     echo ""
     read -p "是否要从远程仓库拉取最新代码? (y/N) " -n 1 -r
@@ -37,12 +38,19 @@ fi
 
 echo -e "${BLUE}🔍 检测到以下更改：${NC}"
 echo ""
-git status --short
+git status --short --untracked-files=no
 echo ""
+
+UNTRACKED=$(git ls-files --others --exclude-standard)
+if [ -n "$UNTRACKED" ]; then
+    echo -e "${YELLOW}⚠️  以下未跟踪文件不会提交（确需提交请先手动 git add）：${NC}"
+    echo "$UNTRACKED" | head -20
+    echo ""
+fi
 
 # 统计更改
 MODIFIED=$(git status --short | grep -c "^ M" || true)
-ADDED=$(git status --short | grep -c "^??" || true)
+ADDED=$(git status --short --untracked-files=no | grep -c "^A" || true)
 DELETED=$(git status --short | grep -c "^ D" || true)
 
 echo -e "${BLUE}📊 更改统计：${NC}"
@@ -76,9 +84,9 @@ echo ""
 echo -e "${BLUE}🚀 开始部署流程...${NC}"
 echo ""
 
-# 添加所有更改
-echo -e "${YELLOW}[1/3]${NC} 添加文件到Git..."
-git add .
+# 只添加已跟踪文件的更改；新文件需提前手动 git add
+echo -e "${YELLOW}[1/3]${NC} 添加已跟踪文件的更改..."
+git add -u
 
 # 提交更改
 echo -e "${YELLOW}[2/3]${NC} 提交更改..."

@@ -81,16 +81,18 @@ class Plugin extends AbstractPlugin implements PaymentInterface
             throw new ApiException('No or incorrect Merchant ID passed');
         }
 
-        $headers = getallheaders();
+        $secret = $this->getConfig('coinpayments_ipn_secret');
+        if (!is_string($secret) || trim($secret) === '') {
+            throw new ApiException('IPN secret is not configured');
+        }
 
         ksort($params);
         reset($params);
         $request = stripslashes(http_build_query($params));
 
-        $headerName = 'Hmac';
-        $signHeader = isset($headers[$headerName]) ? $headers[$headerName] : '';
+        $signHeader = (string) request()->header('Hmac', '');
 
-        $hmac = hash_hmac("sha512", $request, trim($this->getConfig('coinpayments_ipn_secret')));
+        $hmac = hash_hmac("sha512", $request, trim($secret));
 
         if (!hash_equals($hmac, $signHeader)) {
             throw new ApiException('HMAC signature does not match', 400);

@@ -1,8 +1,8 @@
+# 本地开发用。生产环境请显式使用：docker compose -f docker-compose.yaml ...
 services:
   web:
-    image: ghcr.io/cedar2025/xboard:new
+    image: ghcr.io/joyefrck/xboard:new
     volumes:
-      - ./.docker/.data/redis/:/data/
       - ./:/www/
     environment:
       - docker=true
@@ -14,9 +14,8 @@ services:
     command: php artisan octane:start --port=7001 --host=0.0.0.0
     restart: always
   horizon:
-    image: ghcr.io/cedar2025/xboard:new
+    image: ghcr.io/joyefrck/xboard:new
     volumes:
-      - ./.docker/.data/redis/:/data/
       - ./:/www/
     restart: always
     command: php artisan horizon
