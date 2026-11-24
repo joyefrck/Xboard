@@ -1,0 +1,20 @@
+name: Dependency audit
+# Separate from the release gate so a newly published advisory never blocks an urgent hotfix.
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  pull_request:
+    paths: ['composer.json', 'composer.lock', 'package.json', 'package-lock.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Audit locked PHP dependencies
+        run: composer audit --locked --abandoned=report
+      - name: Audit locked JavaScript dependencies
+        run: npm audit --audit-level=high

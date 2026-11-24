@@ -19,19 +19,26 @@ COPY .docker /
 # Add build arguments
 ARG CACHEBUST
 ARG REPO_URL
-ARG BRANCH_NAME
+ARG BRANCH_NAME=master
+# CI passes the exact tested commit. Branch heads are only a fallback for manual builds.
+ARG COMMIT_SHA
 
-RUN echo "Attempting to clone branch: ${BRANCH_NAME} from ${REPO_URL} with CACHEBUST: ${CACHEBUST}" && \
+RUN echo "Fetching ${COMMIT_SHA:-$BRANCH_NAME} from ${REPO_URL} with CACHEBUST: ${CACHEBUST}" && \
     rm -rf ./* && \
     rm -rf .git && \
     git config --global --add safe.directory /www && \
-    git clone --depth 1 --branch ${BRANCH_NAME} ${REPO_URL} .
+    git init -q . && \
+    git remote add origin "${REPO_URL}" && \
+    git fetch -q --depth 1 origin "${COMMIT_SHA:-$BRANCH_NAME}" && \
+    git checkout -q -B "${BRANCH_NAME}" FETCH_HEAD && \
+    { [ -z "${COMMIT_SHA}" ] || [ "$(git rev-parse HEAD)" = "${COMMIT_SHA}" ]; }
 
 COPY .docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 RUN sh scripts/install-node-automation-probe.sh && sh scripts/install-node-automation-mihomo.sh
 
-RUN composer install --no-cache --no-dev \
+RUN test -f composer.lock \
+    && composer install --no-cache --no-dev --no-interaction \
     && php scripts/check-horizon-provisioning.php --environment=local \
     && php artisan storage:link \
     && chown -R www:www /www \
