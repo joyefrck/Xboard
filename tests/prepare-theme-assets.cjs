@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 for (const theme of ['ElephantRoute', 'Xboard']) {
   const assets = ['umi.js', 'umi.js.gz', 'umi.js.br', 'elephant-route-order-refund.js'];
-  if (theme === 'ElephantRoute') assets.push('images/clash-verge.png');
+  if (theme === 'ElephantRoute') assets.push('images/clash-verge.png', 'elephant-route-auth.css');
   for (const asset of assets) {
     const source = path.join(root, 'theme', theme, 'assets', asset);
     const target = path.join(root, 'public/theme', theme, 'assets', asset);

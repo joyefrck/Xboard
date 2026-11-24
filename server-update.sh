@@ -80,13 +80,13 @@ else
     git reset --hard origin/$BRANCH
     git pull origin $BRANCH
     
-    # 更新Composer依赖（如果composer.json有变化）
-    if git diff HEAD@{1} --name-only | grep -q "composer.json"; then
+    # 按 composer.lock 安装依赖（如果声明或锁文件有变化）
+    if git diff HEAD@{1} --name-only | grep -qE "^composer\.(json|lock)$"; then
         echo -e "${YELLOW}[3/6]${NC} 检测到依赖变化，更新Composer..."
         if [ ! -f "composer.phar" ]; then
             wget -q https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar
         fi
-        php composer.phar update --no-dev --optimize-autoloader
+        php composer.phar install --no-dev --optimize-autoloader
     else
         echo -e "${YELLOW}[3/6]${NC} 跳过Composer更新（无变化）"
     fi

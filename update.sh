@@ -12,9 +12,10 @@ fi
 
 git config --global --add safe.directory $(pwd)
 git fetch --all && git reset --hard origin/master && git pull origin master
-rm -rf composer.lock composer.phar
+rm -rf composer.phar
 wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar
-php composer.phar update -vvv
+# 按 composer.lock 安装经过测试的版本
+php composer.phar install --no-dev --optimize-autoloader
 php artisan xboard:update
 
 if [ -f "/etc/init.d/bt" ] || [ -f "/.dockerenv" ]; then

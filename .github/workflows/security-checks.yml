@@ -8,7 +8,7 @@ permissions:
 jobs:
   isolated-tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       database:
         image: mariadb:11.4
@@ -25,33 +25,38 @@ jobs:
       SECURITY_P0_DB_PASSWORD: fixture-password
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Use the production PHP series
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, pdo_sqlite, pcntl, sodium, mbstring, bcmath, zip, redis, curl
+          coverage: none
       - name: Verify test runtime
         run: |
           php -r 'foreach (["pdo_mysql", "pdo_sqlite", "pcntl", "sodium", "mbstring"] as $extension) { if (!extension_loaded($extension)) { throw new RuntimeException("Missing " . $extension); } }'
           composer --version
           node --version
       - name: Install isolated dependencies without booting the application
-        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+        run: |
+          test -f composer.lock
+          composer validate --no-check-publish --no-check-all
+          composer install --no-interaction --prefer-dist --no-progress --no-scripts
       - name: Install frontend test dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Run security, protocol and queue regression gates
+      - name: Run every JavaScript test
         env:
           SECURITY_P0_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=security_p0
         run: |
           node tests/prepare-theme-assets.cjs
-          node --test tests/security-p0.test.js tests/admin-asset-cache.test.js tests/admin-user-identity-edit.test.js tests/horizon-provisioning.test.js tests/horizon-fixed-workers.test.js tests/node-automation.test.js tests/telegram-group-access.test.js
-          node --test tests/bandwagon-vps.test.js
-          node --test tests/admin-ticket-id-search.test.js tests/admin-ticket-user-search.test.js tests/admin-ticket-sorting.test.js
-          php tests/admin-ticket-pending-stats.php
-          php tests/telegram-group-access.php
-          php tests/wallet-recharge.php
-          php tests/payment-auth-hardening.php
-          node --test tests/release-safety.test.js tests/docker-compose-production-network.test.js
-          node --test tests/order-balance-refund.test.js tests/refund-user-order.test.js
-          node --test tests/wallet-recharge.test.js tests/elephant-route-dashboard-v2.test.js tests/elephant-route-pages-v2.test.js tests/elephant-route-purchase-notice.test.js tests/elephant-route-usdt-knowledge.test.js
-          node --test tests/elephant-route-notice.test.js
-          node --test tests/elephant-route-subscription-import.test.js tests/elephant-route-import-clients.test.js tests/elephant-route-dashboard-actions.test.js tests/elephant-route-brand-assets.test.js tests/elephant-route-modal-notify.test.js
+          node --test tests/*.test.js
           php scripts/version-admin-assets.php --check
+      - name: Run every isolated PHP and Python test
+        env:
+          NODE_AUTOMATION_TEST_BINARY: ${{ runner.temp }}/sing-box
+        run: |
+          sh scripts/install-node-automation-probe.sh "$RUNNER_TEMP/sing-box"
+          sh scripts/run-php-tests.sh
+          python3 tests/test_subscription_behavior_monitor.py
       - name: Verify refund concurrency with database row locks
         env:
           ORDER_REFUND_DB_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports['3306'] }};dbname=order_refund_test
@@ -60,22 +65,6 @@ jobs:
         run: |
           php -r '$db = new PDO(preg_replace("/;dbname=.*$/", "", getenv("ORDER_REFUND_DB_DSN")), getenv("ORDER_REFUND_DB_USER"), getenv("ORDER_REFUND_DB_PASSWORD")); $db->exec("CREATE DATABASE order_refund_test");'
           php tests/refund-receipt-notification.php
-      - name: Verify ticket bot history refresh and private images
-        run: |
-          node --test tests/telegram-ticket-inline-actions.test.js tests/telegram-ticket-bot-isolation.test.js tests/telegram-http-runtime-safety.test.js
-          php tests/telegram-ticket-history-images.php
-          php tests/ticket-bot-api.php
-      - name: Verify VLESS changes when present
-        if: hashFiles('tests/vless-config.php') != ''
-        run: |
-          node --test tests/vless-admin-form.test.js
-          php tests/vless-config.php
-          php tests/vless-elephant-subscription.php
-          php tests/ios-reality-subscription.php
-          php tests/v2rayng-reality-subscription.php
-          php tests/v2rayn-reality-subscription.php
-          php tests/passwall-reality-subscription.php
-          php tests/flclash-hiddify-reality-subscription.php
       - name: Verify account sessions and security challenges
         env:
           ACCOUNT_SECURITY_TEST_PORT: ${{ job.services.database.ports['3306'] }}
@@ -85,7 +74,6 @@ jobs:
           php tests/account-session-security.php
           php tests/account-session-security-concurrency.php
           php tests/account-deletion.php
-          node --test tests/elephant-route-security.test.js
       - name: Verify online status and statistics concurrency
         env:
           ONLINE_STATUS_TEST_PORT: ${{ job.services.database.ports['3306'] }}
@@ -95,7 +83,6 @@ jobs:
           env -u ONLINE_STATUS_TEST_PORT php tests/online-status-locking.php
           php tests/online-status-locking.php
           php tests/online-status-locking-concurrency.php
-          node --test tests/admin-dashboard-log-performance.test.js
       - name: Verify real modern REALITY probes with fixed release binaries
         env:
           V2BX_TEST_LOG: debug

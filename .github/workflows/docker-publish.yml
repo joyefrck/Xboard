@@ -92,7 +92,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # A cache upload failure must not fail (and leave unsigned) an image already pushed.
+          cache-to: type=gha,mode=max,ignore-error=true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -101,6 +102,7 @@ jobs:
             CACHEBUST=${{ github.sha }}
             REPO_URL=https://github.com/${{ github.repository }}
             BRANCH_NAME=${{ github.ref_name }}
+            COMMIT_SHA=${{ github.sha }}
           provenance: false
           outputs: type=registry,push=true
           allow: |

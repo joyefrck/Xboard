@@ -18,6 +18,7 @@ npm-debug.log
 yarn-error.log
 composer.phar
 composer.lock
+!/composer.lock
 yarn.lock
 .DS_Store
 /docker

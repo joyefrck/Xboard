@@ -40,3 +40,50 @@ test('deploy.sh publishes tracked changes and never untracked files', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('images are built from the tested commit with locked dependencies', () => {
+  const dockerfile = read('Dockerfile');
+  const workflow = read('.github/workflows/docker-publish.yml');
+  assert.match(workflow, /COMMIT_SHA=\$\{\{ github\.sha \}\}/);
+  assert.match(dockerfile, /git rev-parse HEAD\)" = "\$\{COMMIT_SHA\}"/);
+  assert.doesNotMatch(dockerfile, /git clone/);
+  assert.match(dockerfile, /test -f composer\.lock/);
+  assert.ok(fs.existsSync(path.join(root, 'composer.lock')));
+  for (const script of ['update.sh', 'server-update.sh', 'init.sh']) {
+    assert.doesNotMatch(read(script), /composer\.phar update|rm -rf composer\.lock/, script);
+  }
+});
+
+test('the Dockerfile checkout pins the requested commit even after the branch moves', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'image-sha-'));
+  try {
+    const source = path.join(dir, 'source');
+    const git = (...args) => execFileSync('git', args, { cwd: source, encoding: 'utf8' }).trim();
+    execFileSync('git', ['init', '-q', '-b', 'master', source]);
+    git('config', 'user.email', 'fixture@example.test');
+    git('config', 'user.name', 'Fixture');
+    git('config', 'commit.gpgsign', 'false');
+    git('config', 'uploadpack.allowAnySHA1InWant', 'true');
+    git('commit', '-q', '--allow-empty', '-m', 'tested');
+    const tested = git('rev-parse', 'HEAD');
+    git('commit', '-q', '--allow-empty', '-m', 'newer');
+
+    const run = read('Dockerfile').match(/git init -q \. && \\[\s\S]*?\]; \}\n/)[0];
+    const build = (sha) => {
+      const www = fs.mkdtempSync(path.join(dir, 'www-'));
+      execFileSync('sh', ['-c', run], { cwd: www, stdio: 'pipe', env: { ...process.env, REPO_URL: `file://${source}`, BRANCH_NAME: 'master', COMMIT_SHA: sha } });
+      return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: www, encoding: 'utf8' }).trim();
+    };
+    assert.equal(build(tested), tested);
+    assert.equal(build(''), git('rev-parse', 'HEAD'));
+    assert.throws(() => build('0'.repeat(40)));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CI runs every test file instead of a hand-maintained list', () => {
+  const workflow = read('.github/workflows/security-checks.yml');
+  assert.match(workflow, /node --test tests\/\*\.test\.js/);
+  assert.match(workflow, /scripts\/run-php-tests\.sh/);
+});
