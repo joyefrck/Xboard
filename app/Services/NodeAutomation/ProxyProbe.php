@@ -197,6 +197,12 @@ class ProxyProbe
                 $this->removeProbeFiles($old);
             }
         }
+        $mihomo = isset($config['proxies']);
+        if ($mihomo) {
+            [$canary, $canaryPort] = $this->reserveCanary(array_values($ports));
+            $config['listeners'][] = ['name' => 'probe-ready', 'type' => 'socks', 'listen' => '127.0.0.1',
+                'port' => $canaryPort, 'udp' => false, 'proxy' => 'DIRECT'];
+        }
         $dir = $base . '/probe-' . bin2hex(random_bytes(12));
         if (!mkdir($dir, 0700)) throw new AutomationException('探针临时目录不可写');
         $path = $dir . '/config.json';
@@ -204,7 +210,6 @@ class ProxyProbe
         try {
             if (file_put_contents($path, json_encode($config, JSON_THROW_ON_ERROR)) === false) throw new AutomationException('探针配置不可写');
             chmod($path, 0600);
-            $mihomo = isset($config['proxies']);
             $checkCommand = $mihomo ? [config('node_automation.mihomo_binary'), '-t', '-d', $dir, '-f', $path]
                 : [config('node_automation.binary'), 'check', '-c', $path];
             $check = new Process($checkCommand, timeout: 4);
@@ -227,6 +232,9 @@ class ProxyProbe
                 if (!$ready) usleep(20000);
             } while (!$ready && microtime(true) < $deadline);
             if (!$ready) throw new AutomationException('探针回环监听未就绪');
+            if ($mihomo && !$this->forwarding($canary, $canaryPort, microtime(true) + 2)) {
+                throw new AutomationException('探针转发未就绪，本轮不计节点故障');
+            }
             $results = $this->requests($requests);
             if (!$process->isRunning()) throw new AutomationException('探针异常退出，本轮不计节点故障');
             $checks = [];
@@ -242,6 +250,51 @@ class ProxyProbe
             if ($process?->isRunning()) $process->stop(1);
             $this->removeProbeFiles($dir);
         }
+    }
+
+    /** Loopback target plus a free SOCKS port, neither colliding with the ports Mihomo is about to bind. */
+    private function reserveCanary(array $usedPorts): array
+    {
+        $held = $free = [];
+        while (count($free) < 2) {
+            $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+            if (!$socket) throw new AutomationException('无法分配回环探针端口');
+            $held[] = $socket;
+            if (!in_array($this->socketPort($socket), $usedPorts, true)) $free[] = $socket;
+        }
+        [$target, $listener] = $free;
+        $port = $this->socketPort($listener);
+        fclose($listener);
+        return [$target, $port];
+    }
+
+    private function socketPort($socket): int
+    {
+        return (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
+    }
+
+    /**
+     * Mihomo opens its listeners before it accepts traffic and closes anything that arrives in between.
+     * Only a connection actually forwarded to our loopback target proves that node requests can be judged.
+     */
+    private function forwarding($target, int $port, float $deadline): bool
+    {
+        $connect = "\x05\x01\x00\x01\x7f\x00\x00\x01" . pack('n', $this->socketPort($target));
+        do {
+            $socket = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $error, 0.05);
+            if ($socket) {
+                stream_set_timeout($socket, 0, 200000);
+                $peer = @fwrite($socket, "\x05\x01\x00") && @fread($socket, 2) === "\x05\x00"
+                    && @fwrite($socket, $connect) ? @stream_socket_accept($target, 0.1) : false;
+                fclose($socket);
+                if ($peer) {
+                    fclose($peer);
+                    return true;
+                }
+            }
+            usleep(10000);
+        } while (microtime(true) < $deadline);
+        return false;
     }
 
     private function removeProbeFiles(string $dir): void
