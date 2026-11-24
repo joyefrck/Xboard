@@ -3,8 +3,8 @@
 set -u
 cd "$(dirname "$0")/.."
 
-# Not standalone: driven by a dedicated CI step (database or REALITY binaries) or only a fixture.
-needs_own_step="account-session-security-concurrency online-status-locking-concurrency security-p0-concurrency node-automation-reality-runtime online-status-fixture"
+# Not standalone: driven by a dedicated CI step (database or REALITY binaries) or only a fixture or helper server.
+needs_own_step="account-session-security-concurrency online-status-locking-concurrency security-p0-concurrency node-automation-reality-runtime node-automation-204 online-status-fixture"
 
 failed=""
 count=0
