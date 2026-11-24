@@ -112,6 +112,13 @@ def main(server_binary, mihomo_binary, client_baseline=False, subscription_basel
             time.sleep(.1)
         if not ready:
             raise RuntimeError('REALITY fixture did not start: ' + (folder / 'server.log').read_text()[-2000:])
+        # The server inspects the camouflage target once at startup and s_server accepts serially. Queue behind
+        # that inspection so the first probe is not racing Mihomo's dial timeout.
+        camouflage_context = ssl.create_default_context(cafile=str(cert))
+        with socket.create_connection(('127.0.0.1', camouflage_port), timeout=60) as connection:
+            with camouflage_context.wrap_socket(connection, server_hostname='fixture.test') as warm:
+                warm.sendall(b'GET / HTTP/1.0\r\n\r\n')
+                warm.recv(1)
         fixture = {'directory': str(folder), 'mihomo': mihomo_binary, 'timeout': shutil.which('timeout'), 'certificate': str(cert), 'uuid': uuid, 'target': f'https://127.0.0.1:{target.server_port}/generate_204', 'node': {'id': 4, 'name': 'REALITY fixture', 'type': 'vless', 'host': 'fixture.test', 'port': str(port), 'protocol_settings': {'tls': 2, 'network': 'tcp', 'flow': 'xtls-rprx-vision', 'utls': {'enabled': True, 'fingerprint': 'chrome'}, 'backend': {'core': 'xray', 'release': 'core-v1.1.0'}, 'reality_settings': {'server_name': 'fixture.test', 'public_key': public, 'short_id': '0123456789abcdef'}}}}
         fixture['client_baseline'] = client_baseline
         fixture['subscription_baseline'] = subscription_baseline
