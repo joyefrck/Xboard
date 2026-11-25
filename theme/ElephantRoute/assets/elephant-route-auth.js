@@ -295,6 +295,12 @@
       var content = card.querySelector('.n-card__content') || card;
       var container = content.querySelector('.er-turnstile-wrap');
       if (!container) {
+        // Each auth page owns its form element, so a widget from the previous page is gone with it.
+        if (turnstileWidgetId !== null) {
+          if (window.turnstile && window.turnstile.remove) window.turnstile.remove(turnstileWidgetId);
+          turnstileWidgetId = null;
+          turnstileToken = '';
+        }
         container = document.createElement('div');
         container.className = 'er-turnstile-wrap';
         container.style.margin = '16px 0';
@@ -315,7 +321,10 @@
 
       turnstileRenderPending = true;
       loadTurnstileScript().then(function (turnstile) {
-        if (!document.body.contains(container)) return;
+        if (!document.body.contains(container)) {
+          scheduleEnhancement();
+          return;
+        }
         container.innerHTML = '';
         turnstileToken = '';
         turnstileRenderedSiteKey = config.siteKey;
