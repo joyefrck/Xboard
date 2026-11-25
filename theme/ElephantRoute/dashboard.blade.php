@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="/theme/{{$theme}}/assets/elephant-route-wallet.css?v={{$version}}-er20261105walletBorder3">
   <script src="/theme/{{$theme}}/assets/elephant-route-wallet.js?v={{$version}}-er20261105walletCompact2"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-order-refund.js?v={{$version}}-er20261109receipt1"></script>
-  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261121ticketWebp1"></script>
+  <script type="module" crossorigin src="/theme/{{$theme}}/assets/umi.js?v={{$version}}-er20261125loginAutofill1"></script>
 
   <!-- Fluid Ripple Effect Styles -->
   <style>
@@ -82,7 +82,7 @@
   </script>
   <div id="app"></div>
   {!! $theme_config['custom_html'] !!}
-  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261106auth1"></script>
+  <script src="/theme/{{$theme}}/assets/elephant-route-auth.js?v={{$version}}-er20261125loginAutofill1"></script>
   <script src="/theme/{{$theme}}/assets/elephant-route-dashboard.js?v={{$version}}-er20261110clashVergeScheme1"></script>
   <script src="/theme/{{$theme}}/assets/notice-marked.umd.js?v=18.1.3"></script>
   <script src="/theme/{{$theme}}/assets/notice-purify.min.js?v=3.4.17"></script>
