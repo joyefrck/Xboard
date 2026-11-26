@@ -3,16 +3,13 @@
 namespace App\Http\Controllers\V2\Admin\Server;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\NodeAutomationJob;
 use App\Models\{NodeAutomationConnection as Connection, NodeAutomationGroup as Group,
     NodeAutomationBackup as Backup, NodeAutomationLog as Event, NodeAutomationCheck as Observation,
     NodeAutomationSetting as Setting, Server, ServerGroup, User};
 use App\Services\NodeAutomation\{AutomationService, AutomationException, CloudflareDns, ProxyProbe};
-use App\Services\ServerService;
 use App\Services\Bandwagon\TrafficLookup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB};
-use Illuminate\Support\Str;
 
 class AutomationController extends Controller
 {
@@ -27,13 +24,9 @@ class AutomationController extends Controller
     public function fetch()
     {
         return $this->respond(function () {
-            $nodes = ServerService::sortByDisplayNodeId(
-                Server::all(['id', 'code', 'name', 'host', 'port', 'type', 'group_ids'])
-            );
-            $domains = $nodes->groupBy(fn ($node) => strtolower(rtrim($node->host, '.')))
-                ->filter(fn ($items, $domain) => $this->validDomain($domain));
+            $domains = $this->service->domains();
             $groups = Group::with('backups')->get()->keyBy('domain');
-            $pending = Event::whereIn('status', ['queued', 'running', 'prepared', 'verifying', 'dns_unknown'])
+            $pending = Event::whereIn('status', AutomationService::PENDING)
                 ->oldest('id')->get(['id', 'group_id', 'action', 'status', 'message'])->keyBy('group_id');
             $checks = Observation::all()->groupBy('group_id');
             $traffic = app(TrafficLookup::class);
@@ -64,8 +57,7 @@ class AutomationController extends Controller
 
     private function validDomain(string $domain): bool
     {
-        return strlen($domain) <= 253 && !filter_var($domain, FILTER_VALIDATE_IP) &&
-            str_contains($domain, '.') && (bool) filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME);
+        return AutomationService::validDomain($domain);
     }
 
     public function connectionSave(Request $request)
@@ -118,7 +110,7 @@ class AutomationController extends Controller
     {
         $data = $request->validate(['domain' => 'required|string|max:253', 'probe_users' => 'prohibited']);
         return $this->respond(function () use ($data) {
-            $domain = strtolower(rtrim($data['domain'], '.'));
+            $domain = AutomationService::normalizeDomain($data['domain']);
             if (!$this->validDomain($domain) || !Server::all(['host'])->contains(fn ($n) => strtolower(rtrim($n->host, '.')) === $domain)) {
                 throw new AutomationException('只能配置节点管理中已有的域名');
             }
@@ -197,30 +189,13 @@ class AutomationController extends Controller
         return $this->success($users);
     }
 
-    private function publicIpv4(string $ip): bool
-    {
-        return CloudflareDns::isPublicIpv4($ip);
-    }
-
     public function backupSave(Request $request)
     {
         $data = $request->validate(['group_id' => 'required|integer|exists:v2_node_automation_groups,id',
             'id' => 'nullable|integer', 'name' => 'required|string|max:80', 'ip' => 'required|ipv4',
             'priority' => 'required|integer|min:0|max:999', 'enabled' => 'required|boolean', 'rearm' => 'sometimes|boolean']);
-        return $this->respond(fn () => $this->service->locked($data['group_id'], function (Group $group) use ($data) {
-            $this->service->requireEditable($group);
-            if (!$this->publicIpv4($data['ip'])) throw new AutomationException('备用必须填写公网 IPv4 地址');
-            if ($data['ip'] === $group->current_ip) throw new AutomationException('当前 VPS 不能作为备用重新加入');
-            $backup = isset($data['id']) ? $group->backups()->findOrFail($data['id']) : new Backup(['group_id' => $group->id]);
-            if ((!$backup->exists || $backup->state === 'needs_review') && $group->backups()
-                ->whereNotIn('state', ['needs_review', 'active'])->count() >= 10) throw new AutomationException('最多配置 10 台备用');
-            if ($group->backups()->where('ip', $data['ip'])->when($backup->exists, fn ($q) => $q->where('id', '!=', $backup->id))->exists()) throw new AutomationException('该 IP 已存在于备用池');
-            if ($backup->state === 'needs_review' && empty($data['rearm'])) throw new AutomationException('原 VPS 需要检查后明确重新加入备用');
-            $backup->fill(array_intersect_key($data, array_flip(['name', 'ip', 'priority', 'enabled'])));
-            $backup->state = 'unchecked'; $backup->tested_at = null; $backup->tested_hash = null; $backup->reason = null;
-            $backup->save();
-            return $backup;
-        }));
+        return $this->respond(fn () => $this->service->locked($data['group_id'],
+            fn (Group $group) => $this->service->saveBackup($group, $data)));
     }
 
     public function backupDrop(Request $request)
@@ -249,28 +224,8 @@ class AutomationController extends Controller
     {
         $data = $request->validate(['id' => 'required|integer|exists:v2_node_automation_groups,id',
             'action' => 'required|in:enable,test,manual', 'backup_id' => 'nullable|integer', 'request_id' => 'required|uuid']);
-        return $this->respond(fn () => $this->service->locked($data['id'], function (Group $group) use ($data, $request) {
-            $existing = Event::where('operation_id', $data['request_id'])->first();
-            if ($existing) {
-                if ((int) $existing->group_id !== $group->id || $existing->action !== $data['action'] ||
-                    (int) $existing->backup_id !== (int) ($data['backup_id'] ?? 0)) throw new AutomationException('操作标识与请求不匹配');
-                return $existing;
-            }
-            if ($this->service->pending($group)) throw new AutomationException('已有任务执行中，请等待结果');
-            if ($data['action'] === 'enable' && $group->enabled) throw new AutomationException('策略已开启');
-            if (in_array($data['action'], ['test', 'manual'], true)) {
-                if (empty($data['backup_id'])) throw new AutomationException('请选择备用 VPS');
-                $backup = $group->backups()->findOrFail($data['backup_id']);
-                if ($data['action'] === 'manual' && (!$backup->enabled || in_array($backup->state, ['needs_review', 'active'], true))) {
-                    throw new AutomationException('该 VPS 未启用或需要检查后重新加入');
-                }
-            }
-            $event = Event::create(['group_id' => $group->id, 'operation_id' => $data['request_id'],
-                'action' => $data['action'], 'backup_id' => $data['backup_id'] ?? null,
-                'admin_id' => $request->user()?->id, 'status' => 'queued']);
-            NodeAutomationJob::dispatch($group->id, time(), $event->id);
-            return $event;
-        }));
+        return $this->respond(fn () => $this->service->locked($data['id'],
+            fn (Group $group) => $this->service->queueOperation($group, $data, $request->user()?->id)));
     }
 
     public function logs(Request $request)
