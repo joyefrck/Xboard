@@ -2,13 +2,87 @@
 
 namespace App\Services\NodeAutomation;
 
-use App\Models\{NodeAutomationGroup as Group, NodeAutomationBackup as Backup, NodeAutomationLog as Event, NodeAutomationCheck as Observation};
+use App\Jobs\NodeAutomationJob;
+use App\Models\{NodeAutomationGroup as Group, NodeAutomationBackup as Backup, NodeAutomationLog as Event, NodeAutomationCheck as Observation, Server};
+use App\Services\ServerService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\{Cache, DB};
 use Illuminate\Support\Str;
 
 class AutomationService
 {
+    public const PENDING = ['queued', 'running', 'prepared', 'verifying', 'dns_unknown'];
+    public const FINISHED = ['completed', 'failed', 'cancelled'];
+
     public function __construct(protected CloudflareDns $dns, protected ProxyProbe $probe) {}
+
+    public static function normalizeDomain(string $domain): string
+    {
+        return strtolower(rtrim($domain, '.'));
+    }
+
+    public static function validDomain(string $domain): bool
+    {
+        return strlen($domain) <= 253 && !filter_var($domain, FILTER_VALIDATE_IP) &&
+            str_contains($domain, '.') && (bool) filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME);
+    }
+
+    /** Node hosts that can be automated, keyed by domain, in node management order. */
+    public function domains(): Collection
+    {
+        return ServerService::sortByDisplayNodeId(Server::all(['id', 'code', 'name', 'host', 'port', 'type', 'group_ids']))
+            ->groupBy(fn ($node) => self::normalizeDomain($node->host))
+            ->filter(fn ($items, $domain) => self::validDomain($domain));
+    }
+
+    /**
+     * Create or edit a backup. With $append, a brand-new backup may join while the policy runs:
+     * it starts unchecked and every switch re-tests candidates twice under the group lock first.
+     */
+    public function saveBackup(Group $group, array $data, bool $append = false): Backup
+    {
+        if ($append && !isset($data['id'])) {
+            if ($this->pending($group)) throw new AutomationException('已有任务执行中，请等待结果后再添加备用');
+        } else {
+            $this->requireEditable($group);
+        }
+        if (!CloudflareDns::isPublicIpv4($data['ip'])) throw new AutomationException('备用必须填写公网 IPv4 地址');
+        if ($data['ip'] === $group->current_ip) throw new AutomationException('当前 VPS 不能作为备用重新加入');
+        $backup = isset($data['id']) ? $group->backups()->findOrFail($data['id']) : new Backup(['group_id' => $group->id]);
+        if ((!$backup->exists || $backup->state === 'needs_review') && $group->backups()
+            ->whereNotIn('state', ['needs_review', 'active'])->count() >= config('node_automation.max_backups', 10)) throw new AutomationException('最多配置 10 台备用');
+        if ($group->backups()->where('ip', $data['ip'])->when($backup->exists, fn ($q) => $q->where('id', '!=', $backup->id))->exists()) throw new AutomationException('该 IP 已存在于备用池');
+        if ($backup->state === 'needs_review' && empty($data['rearm'])) throw new AutomationException('原 VPS 需要检查后明确重新加入备用');
+        $backup->fill(array_intersect_key($data, array_flip(['name', 'ip', 'priority', 'enabled'])));
+        $backup->state = 'unchecked'; $backup->tested_at = null; $backup->tested_hash = null; $backup->reason = null;
+        $backup->save();
+        return $backup;
+    }
+
+    /** Queue enable/test/manual once per request id; a replayed id returns the original operation. */
+    public function queueOperation(Group $group, array $data, ?int $adminId = null, ?string $actor = null): Event
+    {
+        $existing = Event::where('operation_id', $data['request_id'])->first();
+        if ($existing) {
+            if ((int) $existing->group_id !== $group->id || $existing->action !== $data['action'] ||
+                (int) $existing->backup_id !== (int) ($data['backup_id'] ?? 0)) throw new AutomationException('操作标识与请求不匹配');
+            return $existing;
+        }
+        if ($this->pending($group)) throw new AutomationException('已有任务执行中，请等待结果');
+        if ($data['action'] === 'enable' && $group->enabled) throw new AutomationException('策略已开启');
+        if (in_array($data['action'], ['test', 'manual'], true)) {
+            if (empty($data['backup_id'])) throw new AutomationException('请选择备用 VPS');
+            $backup = $group->backups()->findOrFail($data['backup_id']);
+            if ($data['action'] === 'manual' && (!$backup->enabled || in_array($backup->state, ['needs_review', 'active'], true))) {
+                throw new AutomationException('该 VPS 未启用或需要检查后重新加入');
+            }
+        }
+        $event = Event::create(['group_id' => $group->id, 'operation_id' => $data['request_id'],
+            'action' => $data['action'], 'backup_id' => $data['backup_id'] ?? null,
+            'admin_id' => $adminId, 'actor' => $actor, 'status' => 'queued']);
+        NodeAutomationJob::dispatch($group->id, time(), $event->id);
+        return $event;
+    }
 
     public function locked(int $groupId, callable $callback): mixed
     {
@@ -39,7 +113,7 @@ class AutomationService
 
     public function pending(Group $group): bool
     {
-        return Event::where('group_id', $group->id)->whereIn('status', ['queued', 'running', 'prepared', 'verifying', 'dns_unknown'])->exists();
+        return Event::where('group_id', $group->id)->whereIn('status', self::PENDING)->exists();
     }
 
     public function requireEditable(Group $group): void
@@ -354,7 +428,7 @@ class AutomationService
         // Recovery bypasses normal cooldown, never returns to a known failed VPS.
         $group->update(['cooldown_until' => null]);
         $next = Event::create(['group_id' => $group->id, 'operation_id' => (string) Str::uuid(),
-            'action' => $event->action, 'status' => 'running', 'admin_id' => $event->admin_id]);
+            'action' => $event->action, 'status' => 'running', 'admin_id' => $event->admin_id, 'actor' => $event->actor]);
         $this->switch($group, $targets, $next, $event->action === 'manual');
     }
 

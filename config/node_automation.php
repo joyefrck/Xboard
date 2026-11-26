@@ -10,4 +10,8 @@ return [
     'failure_threshold' => 3,
     'cooldown_seconds' => 600,
     'max_backups' => 10,
+    // Only the SHA-256 digest of the AI assistant's bearer token is stored; unset disables the bot API.
+    'bot_token_sha256' => env('NODE_AUTOMATION_BOT_TOKEN_SHA256'),
+    // Name recorded on operations the bot starts, shown in the admin switch history.
+    'bot_actor' => 'hermes',
 ];

@@ -23,6 +23,7 @@ Model::encryptUsing(new Illuminate\Encryption\Encrypter(random_bytes(32), 'AES-2
 (require dirname(__DIR__) . '/database/migrations/2026_10_08_000001_create_node_automation_tables.php')->up();
 (require dirname(__DIR__) . '/database/migrations/2026_10_08_000002_create_node_automation_checks_table.php')->up();
 (require dirname(__DIR__) . '/database/migrations/2026_10_08_000003_create_node_automation_settings_table.php')->up();
+(require dirname(__DIR__) . '/database/migrations/2026_11_26_000001_add_actor_to_node_automation_logs.php')->up();
 
 class FakeDns extends CloudflareDns
 {

@@ -36,6 +36,7 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('ticket-bot', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+        RateLimiter::for('node-automation-bot', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
 
         parent::boot();
     }

@@ -1,4 +1,4 @@
-import { createTrafficMeter } from './bandwagon-traffic.js?v=admin-eaa0d218ae716cb8ec48';
+import { createTrafficMeter } from './bandwagon-traffic.js?v=admin-69ae421095a8cf2012d2';
 // Readable source module for the compiled admin shell; no separate React runtime.
 export const stateLabels = {
   unconfigured: '未配置', paused: '已暂停', healthy: '正常', suspect: '疑似故障',
@@ -264,7 +264,8 @@ export function createAutomationPage({ React: R, api, layout }) {
         h('thead', null, h('tr', null, ['时间', ...(group ? [] : ['域名']), '操作', '状态', 'IP 变化', '结果'].map(t => h('th', { key: t }, t)))),
         h('tbody', null, result.data.map(e => h('tr', { key: e.id },
           h('td', null, time(e.created_at)), group ? null : h('td', null, e.domain || '已移除域名 #' + e.group_id),
-          h('td', null, { enable: '开启', test: '测试', manual: '手动切换', auto: '自动切换' }[e.action] || e.action),
+          h('td', null, ({ enable: '开启', test: '测试', manual: '手动切换', auto: '自动切换' }[e.action] || e.action) +
+            (e.actor === 'hermes' ? ' · Hermes' : e.actor ? ' · ' + e.actor : '')),
           h('td', null, label(e.status)), h('td', null, (e.from_ip || '—') + ' → ' + (e.to_ip || '—')),
           h('td', null, e.message || '—')))))) : null,
       result ? h('div', { className: 'na-actions na-pagination' },
